@@ -5053,6 +5053,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
   late String _assignedTo;
   final List<Map<String, String>> _allocationLogs = <Map<String, String>>[];
   final List<Map<String, String>> _dispositionLogs = <Map<String, String>>[];
+  final List<Map<String, String>> _conversationLogs = <Map<String, String>>[];
 
   @override
   void initState() {
@@ -5355,18 +5356,140 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         children: <Widget>[
           Row(
             children: <Widget>[
-              const CircleAvatar(
-                radius: 12,
-                child: Icon(Icons.person, size: 14),
+              Text(
+                'Conversation',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
-              const SizedBox(width: 8),
-              Text(_nowString(), style: Theme.of(context).textTheme.bodySmall),
+              const Spacer(),
+              FilledButton(
+                onPressed: _openReplySheet,
+                child: const Text('Reply'),
+              ),
             ],
           ),
-          const SizedBox(height: 6),
-          const Text('No conversation yet.'),
+          const SizedBox(height: 12),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  'Replied By',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'Replied At',
+                  textAlign: TextAlign.right,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const Divider(),
+          if (_conversationLogs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('No replies yet.'),
+            )
+          else
+            ..._conversationLogs.map((Map<String, String> log) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(child: Text(log['repliedBy'] ?? '-')),
+                    Expanded(
+                      child: Text(
+                        log['repliedAt'] ?? '-',
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
         ],
       ),
+    );
+  }
+
+  void _openReplySheet() {
+    String repliedBy = 'Agent';
+    final TextEditingController messageCtrl = TextEditingController();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: 16 + MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Text(
+                'Add Reply',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              const Text('Replied By'),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                value: repliedBy,
+                items: const <String>['Agent', 'Customer']
+                    .map(
+                      (String e) =>
+                          DropdownMenuItem<String>(value: e, child: Text(e)),
+                    )
+                    .toList(),
+                onChanged: (String? v) => repliedBy = v ?? repliedBy,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              const Text('Message'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: messageCtrl,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: 'Write your reply... ',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    setState(() {
+                      _conversationLogs.insert(0, <String, String>{
+                        'repliedBy': repliedBy,
+                        'repliedAt': _nowString(),
+                        'message': messageCtrl.text.trim(),
+                      });
+                    });
+                    Navigator.of(ctx).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Reply added')),
+                    );
+                  },
+                  child: const Text('Save'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
