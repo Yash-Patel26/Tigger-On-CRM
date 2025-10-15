@@ -3095,6 +3095,7 @@ class _ReferenceTabState extends State<_ReferenceTab> {
     final TextEditingController cCtrl = TextEditingController();
     final TextEditingController eCtrl = TextEditingController();
     final TextEditingController noteCtrl = TextEditingController();
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
 
     showModalBottomSheet<void>(
       context: context,
@@ -3108,119 +3109,160 @@ class _ReferenceTabState extends State<_ReferenceTab> {
             top: 16,
             bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Text(
-                    'Create Reference',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: TextField(
-                      controller: fCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'First Name',
-                        border: OutlineInputBorder(),
+          child: Form(
+            key: formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Text(
+                      'Create Reference',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: mCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Middle Name',
-                        border: OutlineInputBorder(),
-                      ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      icon: const Icon(Icons.close_rounded),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: TextField(
-                      controller: lCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Last Name',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: cCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Contact',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: TextField(
-                      controller: eCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: noteCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Requirement Note',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _refs.insert(0, <String, String>{
-                        'firstName': fCtrl.text.trim(),
-                        'middleName': mCtrl.text.trim(),
-                        'lastName': lCtrl.text.trim(),
-                        'contact': cCtrl.text.trim(),
-                        'email': eCtrl.text.trim(),
-                        'note': noteCtrl.text.trim(),
-                      });
-                    });
-                    Navigator.of(ctx).pop();
-                  },
-                  icon: const Icon(Icons.check_rounded),
-                  label: const Text('Create Reference'),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Text(
+                  'Reference First Name *',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: fCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Reference First Name',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (String? v) => (v == null || v.trim().isEmpty)
+                      ? 'First name is required'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Reference Middle Name',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: mCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Reference Middle Name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Reference Last Name',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: lCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Reference Last Name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Reference Contact *',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: cCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    hintText: 'Reference Contact',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (String? v) => (v == null || v.trim().isEmpty)
+                      ? 'Contact is required'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Reference Email *',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: eCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    hintText: 'Reference Email',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (String? v) {
+                    if (v == null || v.trim().isEmpty)
+                      return 'Email is required';
+                    final bool ok = RegExp(
+                      r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                    ).hasMatch(v.trim());
+                    return ok ? null : 'Enter a valid email';
+                  },
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Reference Requirement Note',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: noteCtrl,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    hintText: 'Reference Requirement Note',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      if (!(formKey.currentState?.validate() ?? false)) return;
+                      setState(() {
+                        _refs.insert(0, <String, String>{
+                          'firstName': fCtrl.text.trim(),
+                          'middleName': mCtrl.text.trim(),
+                          'lastName': lCtrl.text.trim(),
+                          'contact': cCtrl.text.trim(),
+                          'email': eCtrl.text.trim(),
+                          'note': noteCtrl.text.trim(),
+                        });
+                      });
+                      Navigator.of(ctx).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Reference created')),
+                      );
+                    },
+                    child: const Text('Create'),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
