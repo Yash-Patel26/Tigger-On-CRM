@@ -5,6 +5,8 @@ import '../utils/helpers.dart';
 // import '../utils/page_transitions.dart';
 // import 'add_site_visit_screen.dart';
 import 'site_visit_detail_screen.dart';
+import '../models/lead_model.dart';
+import '../repositories/lead_repository.dart';
 
 class LeadDetailScreen extends StatelessWidget {
   const LeadDetailScreen({super.key, required this.leadId});
@@ -3355,10 +3357,15 @@ class _ReferenceTabState extends State<_ReferenceTab> {
                           'note': noteCtrl.text.trim(),
                         });
                       });
-                      Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Reference created')),
+                      _createLeadFromReference(
+                        firstName: fCtrl.text.trim(),
+                        middleName: mCtrl.text.trim(),
+                        lastName: lCtrl.text.trim(),
+                        contact: cCtrl.text.trim(),
+                        email: eCtrl.text.trim(),
+                        note: noteCtrl.text.trim(),
                       );
+                      Navigator.of(ctx).pop();
                     },
                     child: const Text('Create'),
                   ),
@@ -3369,6 +3376,60 @@ class _ReferenceTabState extends State<_ReferenceTab> {
         );
       },
     );
+  }
+
+  Future<void> _createLeadFromReference({
+    required String firstName,
+    required String middleName,
+    required String lastName,
+    required String contact,
+    required String email,
+    required String note,
+  }) async {
+    final String fullName = <String>[
+      firstName,
+      middleName,
+      lastName,
+    ].where((String s) => s.trim().isNotEmpty).join(' ');
+    final Lead lead = Lead(
+      id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
+      leadId: 'LD-${DateTime.now().millisecondsSinceEpoch % 100000}',
+      customerName: fullName.isEmpty ? 'Reference Lead' : fullName,
+      email: email,
+      phone: contact,
+      status: LeadStatus.warm,
+      subStatus: LeadSubStatus.newLead,
+      source: LeadSource.referral,
+      propertyType: PropertyType.residential,
+      categoryType: CategoryType.b,
+      assignedTo: 'self',
+      assignedToName: 'Me',
+      createdBy: 'self',
+      createdByName: 'Me',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      requirements: note.isEmpty ? null : note,
+    );
+
+    try {
+      final LeadRepository repo = LeadRepository();
+      final response = await repo.createLead(lead);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            response.success
+                ? 'Lead created from reference'
+                : (response.message ?? 'Failed to create lead'),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to create lead')));
+    }
   }
 }
 
