@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import '../utils/helpers.dart';
 // import '../utils/page_transitions.dart';
@@ -7,6 +8,10 @@ import '../utils/helpers.dart';
 import 'site_visit_detail_screen.dart';
 import '../models/lead_model.dart';
 import '../repositories/lead_repository.dart';
+import '../models/project_model.dart';
+import '../repositories/project_repository.dart';
+import '../services/api_service.dart';
+import 'project_detail_screen.dart';
 
 class LeadDetailScreen extends StatelessWidget {
   const LeadDetailScreen({super.key, required this.leadId});
@@ -4283,29 +4288,92 @@ class _PropertyOptionTab extends StatefulWidget {
 }
 
 class _PropertyOptionTabState extends State<_PropertyOptionTab> {
+  final Map<int, String> _selectedProjectByIndex = <int, String>{};
+  List<Project> _projects = <Project>[];
   final List<Map<String, String>> _items = <Map<String, String>>[
     {
       'category': 'Residential',
       'propertyType': '2 BHK Apartment',
       'projectName': 'Green Valley Heights',
-      'description':
-          'Spacious 2 BHK with modern amenities and great connectivity.',
+      'optionType': 'Fresh',
+      'state': 'Gujarat',
+      'city': 'Ahmedabad',
+      'location': 'Gift City',
     },
     {
       'category': 'Commercial',
       'propertyType': 'Office Space',
       'projectName': 'Business Park Plaza',
-      'description':
-          'Premium office space in prime business district with excellent facilities.',
+      'optionType': 'Resale',
+      'state': 'Maharashtra',
+      'city': 'Mumbai',
+      'location': 'BKC',
     },
     {
       'category': 'Residential',
       'propertyType': '3 BHK Villa',
       'projectName': 'Luxury Gardens',
-      'description':
-          'Exclusive villa with private garden and premium finishes.',
+      'optionType': 'Fresh',
+      'state': 'Haryana',
+      'city': 'Gurugram',
+      'location': 'NH 48, Part 2',
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProjects();
+  }
+
+  Future<void> _loadProjects() async {
+    try {
+      final ProjectRepository repo = ProjectRepository();
+      final ApiResponse<List<Project>> res = await repo.getProjects(limit: 50);
+      if (!mounted) return;
+      setState(() {
+        _projects = res.data ?? <Project>[];
+      });
+    } catch (_) {
+      // Fallback demo data if API not available
+      setState(() {
+        _projects = <Project>[
+          Project(
+            id: 'p1',
+            name: 'Green Valley Heights',
+            developerId: 'd1',
+            developerName: 'GV Dev',
+            type: ProjectType.residential,
+            status: ProjectStatus.planning,
+            city: 'Ahmedabad',
+            state: 'Gujarat',
+            startingPrice: 4500000,
+            isActive: true,
+            createdBy: 'sys',
+            createdByName: 'System',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+          Project(
+            id: 'p2',
+            name: 'Business Park Plaza',
+            developerId: 'd2',
+            developerName: 'BP Dev',
+            type: ProjectType.commercial,
+            status: ProjectStatus.planning,
+            city: 'Mumbai',
+            state: 'Maharashtra',
+            startingPrice: 12000000,
+            isActive: true,
+            createdBy: 'sys',
+            createdByName: 'System',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        ];
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -4319,7 +4387,7 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: _openAddPropertyOptionSheet,
+                onPressed: _openAddPropertyOptionScreen,
                 icon: const Icon(Icons.add_rounded),
                 label: const Text('Create Property Option'),
               ),
@@ -4351,39 +4419,230 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
-                                  Chip(
-                                    label: Text(item['category'] ?? '-'),
-                                    backgroundColor: Colors.blue.shade100,
-                                    labelStyle: TextStyle(
-                                      color: Colors.blue.shade800,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: <Widget>[
+                                        Text(
+                                          'Select',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: Colors.grey.shade700,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        const Checkbox(
+                                          value: false,
+                                          onChanged: null,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Project',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: Colors.grey.shade700,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          item['projectName'] ?? '-',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Action',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: Colors.grey.shade700,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: <Widget>[
+                                            _actionChip(
+                                              Icons.visibility,
+                                              Colors.blue,
+                                              onTap: () {
+                                                final String? pid =
+                                                    _selectedProjectByIndex[index];
+                                                Project? proj;
+                                                if (pid != null &&
+                                                    pid.isNotEmpty) {
+                                                  try {
+                                                    proj = _projects.firstWhere(
+                                                      (Project p) =>
+                                                          p.id == pid,
+                                                    );
+                                                  } catch (_) {
+                                                    proj = _projects.isNotEmpty
+                                                        ? _projects.first
+                                                        : null;
+                                                  }
+                                                }
+                                                final Map<String, dynamic>
+                                                payload = <String, dynamic>{
+                                                  'name':
+                                                      proj?.name ??
+                                                      (item['projectName'] ??
+                                                          '-'),
+                                                  'category':
+                                                      item['category'] ??
+                                                      'Residential',
+                                                  'currentPrice':
+                                                      proj?.maxPrice ??
+                                                      proj?.startingPrice,
+                                                  'launchPrice':
+                                                      proj?.startingPrice,
+                                                  'price': proj?.startingPrice,
+                                                  'reraNo': proj?.reraNumber,
+                                                  'reraAuthority': 'HRERA',
+                                                  'location': item['location'],
+                                                  'city': item['city'],
+                                                  'state': item['state'],
+                                                };
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute<void>(
+                                                    builder:
+                                                        (BuildContext ctx) =>
+                                                            ProjectDetailScreen(
+                                                              project: payload,
+                                                            ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            _actionChip(
+                                              Icons.link,
+                                              Colors.teal,
+                                              onTap: () {
+                                                final String url =
+                                                    _buildPropertyOptionUrl(
+                                                      item,
+                                                    );
+                                                Clipboard.setData(
+                                                  ClipboardData(text: url),
+                                                );
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('URL copied'),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            _actionChip(
+                                              Icons.chat_bubble,
+                                              Colors.lightBlue,
+                                              onTap: () {
+                                                final String msg =
+                                                    _buildShareMessage(item);
+                                                Clipboard.setData(
+                                                  ClipboardData(text: msg),
+                                                );
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Message copied',
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            _actionChip(
+                                              Icons.share,
+                                              Colors.green,
+                                              onTap: () async {
+                                                final String msg =
+                                                    _buildShareMessage(item);
+                                                final Uri wa = Uri.parse(
+                                                  'https://wa.me/?text=${Uri.encodeComponent(msg)}',
+                                                );
+                                                if (await canLaunchUrl(wa)) {
+                                                  await launchUrl(
+                                                    wa,
+                                                    mode: LaunchMode
+                                                        .externalApplication,
+                                                  );
+                                                } else {
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        'Unable to open WhatsApp',
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+                                              },
+                                            ),
+                                            _actionChip(
+                                              Icons.delete,
+                                              Colors.red,
+                                              onTap: () {
+                                                setState(() {
+                                                  _items.removeAt(index);
+                                                });
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('Deleted'),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Chip(
-                                    label: Text(item['propertyType'] ?? '-'),
-                                    backgroundColor: Colors.green.shade100,
-                                    labelStyle: TextStyle(
-                                      color: Colors.green.shade800,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: <Widget>[
+                                        Text(
+                                          'Property Type',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: Colors.grey.shade700,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          item['category'] ?? '-',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              Text(
-                                item['projectName'] ?? '-',
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                              if ((item['description'] ?? '')
-                                  .isNotEmpty) ...<Widget>[
-                                const SizedBox(height: 6),
-                                Text(
-                                  item['description']!,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
+                              // Project/Inventories sections removed per request
                             ],
                           ),
                         );
@@ -4396,50 +4655,147 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
     );
   }
 
-  void _openAddPropertyOptionSheet() {
-    String category = 'Residential';
-    String propertyType = 'Apartment';
-    final TextEditingController projectCtrl = TextEditingController();
-    final TextEditingController descCtrl = TextEditingController();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (BuildContext ctx) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModal) {
-            return SingleChildScrollView(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Text(
-                        'Create Property Option',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+  // Removed key/value badges display
+
+  // Removed project dropdown and inventory list per requirement.
+
+  Widget _actionChip(IconData icon, Color color, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(icon, color: Colors.white, size: 16),
+      ),
+    );
+  }
+
+  String _buildPropertyOptionUrl(Map<String, String> item) {
+    final String name = Uri.encodeComponent(item['projectName'] ?? 'project');
+    return 'https://tiggeron.com/projects/$name';
+  }
+
+  String _buildShareMessage(Map<String, String> item) {
+    final String name = item['projectName'] ?? '-';
+    final String cat = item['category'] ?? '-';
+    final String loc = [
+      item['city'],
+      item['state'],
+    ].where((e) => (e ?? '').isNotEmpty).join(', ');
+    final String url = _buildPropertyOptionUrl(item);
+    return 'Check out $name ($cat) at $loc\n$url';
+  }
+
+  Future<void> _openAddPropertyOptionScreen() async {
+    final Map<String, String>? result = await Navigator.of(context).push(
+      MaterialPageRoute<Map<String, String>>(
+        builder: (BuildContext ctx) => const CreatePropertyOptionScreen(),
+      ),
+    );
+    if (result != null) {
+      setState(() {
+        _items.insert(0, result);
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Property option created')));
+    }
+  }
+}
+
+class CreatePropertyOptionScreen extends StatefulWidget {
+  const CreatePropertyOptionScreen();
+  @override
+  State<CreatePropertyOptionScreen> createState() =>
+      _CreatePropertyOptionScreenState();
+}
+
+class _CreatePropertyOptionScreenState
+    extends State<CreatePropertyOptionScreen> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  String optionType = '';
+  String projectName = '';
+  String category = '';
+  String propertyType = '';
+  String stateValue = '';
+  String cityValue = '';
+  String location = '';
+  final TextEditingController _descCtrl = TextEditingController();
+  final List<Project> _projects = <Project>[];
+  final Set<String> _selectedProjectIds = <String>{};
+
+  void _clear() {
+    setState(() {
+      optionType = projectName = category = propertyType = stateValue =
+          cityValue = location = '';
+      _descCtrl.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Create Property Option')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    _label('Option Type *'),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: optionType.isEmpty ? null : optionType,
+                      items: const <String>['Fresh', 'Resale']
+                          .map(
+                            (String e) => DropdownMenuItem<String>(
+                              value: e,
+                              child: Text(e),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (String? v) =>
+                          setState(() => optionType = v ?? optionType),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'Select',
                       ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: category,
-                          items: const <String>['Residential', 'Commercial']
+                      validator: (String? v) =>
+                          (v == null || v.isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    _label('Project Name *'),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: projectName.isEmpty ? null : projectName,
+                      items:
+                          const <String>[
+                                'Green Valley Heights',
+                                'Business Park Plaza',
+                                'Luxury Gardens',
+                              ]
                               .map(
                                 (String e) => DropdownMenuItem<String>(
                                   value: e,
@@ -4447,84 +4803,519 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
                                 ),
                               )
                               .toList(),
-                          onChanged: (String? v) =>
-                              setModal(() => category = v ?? category),
-                          decoration: const InputDecoration(
-                            labelText: 'Category',
-                            border: OutlineInputBorder(),
+                      onChanged: (String? v) =>
+                          setState(() => projectName = v ?? projectName),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'Select',
+                      ),
+                      validator: (String? v) =>
+                          (v == null || v.isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    _label('Category'),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: category.isEmpty ? null : category,
+                      items: const <String>['Residential', 'Commercial']
+                          .map(
+                            (String e) => DropdownMenuItem<String>(
+                              value: e,
+                              child: Text(e),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (String? v) =>
+                          setState(() => category = v ?? category),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'Select',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _label('Property Type'),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: propertyType.isEmpty ? null : propertyType,
+                      items:
+                          const <String>['Apartment', 'Villa', 'Office', 'Shop']
+                              .map(
+                                (String e) => DropdownMenuItem<String>(
+                                  value: e,
+                                  child: Text(e),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (String? v) =>
+                          setState(() => propertyType = v ?? propertyType),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'Select',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              _label('State'),
+                              const SizedBox(height: 6),
+                              DropdownButtonFormField<String>(
+                                value: stateValue.isEmpty ? null : stateValue,
+                                items:
+                                    const <String>[
+                                          'Gujarat',
+                                          'Maharashtra',
+                                          'Haryana',
+                                        ]
+                                        .map(
+                                          (String e) =>
+                                              DropdownMenuItem<String>(
+                                                value: e,
+                                                child: Text(e),
+                                              ),
+                                        )
+                                        .toList(),
+                                onChanged: (String? v) => setState(
+                                  () => stateValue = v ?? stateValue,
+                                ),
+                                decoration: const InputDecoration(
+                                  border: OutlineInputBorder(),
+                                  hintText: 'Select',
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: propertyType,
-                          items:
-                              const <String>[
-                                    'Apartment',
-                                    'Villa',
-                                    'Office',
-                                    'Shop',
-                                  ]
-                                  .map(
-                                    (String e) => DropdownMenuItem<String>(
-                                      value: e,
-                                      child: Text(e),
-                                    ),
-                                  )
-                                  .toList(),
-                          onChanged: (String? v) =>
-                              setModal(() => propertyType = v ?? propertyType),
-                          decoration: const InputDecoration(
-                            labelText: 'Property Type',
-                            border: OutlineInputBorder(),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              _label('City'),
+                              const SizedBox(height: 6),
+                              DropdownButtonFormField<String>(
+                                value: cityValue.isEmpty ? null : cityValue,
+                                items:
+                                    const <String>[
+                                          'Ahmedabad',
+                                          'Mumbai',
+                                          'Gurugram',
+                                        ]
+                                        .map(
+                                          (String e) =>
+                                              DropdownMenuItem<String>(
+                                                value: e,
+                                                child: Text(e),
+                                              ),
+                                        )
+                                        .toList(),
+                                onChanged: (String? v) =>
+                                    setState(() => cityValue = v ?? cityValue),
+                                decoration: const InputDecoration(
+                                  border: OutlineInputBorder(),
+                                  hintText: 'Select',
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _label('Location'),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: location.isEmpty ? null : location,
+                      items: const <String>['Gift City', 'NH 48, Part 2']
+                          .map(
+                            (String e) => DropdownMenuItem<String>(
+                              value: e,
+                              child: Text(e),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (String? v) =>
+                          setState(() => location = v ?? location),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'Select',
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: projectCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Create Project Name',
-                      border: OutlineInputBorder(),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: descCtrl,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Create Description',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: <Widget>[
+                        OutlinedButton(
+                          onPressed: _clear,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          child: const Text('Clear'),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _items.insert(0, <String, String>{
-                            'category': category,
-                            'propertyType': propertyType,
-                            'projectName': projectCtrl.text.trim(),
-                            'description': descCtrl.text.trim(),
-                          });
-                        });
-                        Navigator.of(ctx).pop();
-                      },
-                      icon: const Icon(Icons.check_rounded),
-                      label: const Text('Create Property Option'),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            );
-          },
-        );
+
+              const SizedBox(height: 16),
+
+              // Projects list card
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        const Icon(
+                          Icons.list_alt,
+                          size: 18,
+                          color: Colors.teal,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Projects',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(height: 220, child: _buildProjectsList()),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Inventories list card
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        const Icon(
+                          Icons.list_alt,
+                          size: 18,
+                          color: Colors.teal,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Inventories',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(height: 220, child: _buildInventoriesList()),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Save button
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(
+                  onPressed: () {
+                    if (!(_formKey.currentState?.validate() ?? false)) return;
+                    final Map<String, String> payload = <String, String>{
+                      'optionType': optionType,
+                      'projectName': projectName,
+                      'category': category,
+                      'propertyType': propertyType,
+                      'state': stateValue,
+                      'city': cityValue,
+                      'location': location,
+                    };
+                    Navigator.of(context).pop(payload);
+                  },
+                  child: const Text('Save'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _label(String t) => Text(
+    t,
+    style: Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+  );
+
+  Widget _buildProjectsList() {
+    // Use repository if available; for now build demo if empty
+    final List<Project> items = _projects.isNotEmpty
+        ? _projects
+        : <Project>[
+            Project(
+              id: 'p1',
+              name: '32 Milestone',
+              developerId: 'd1',
+              developerName: 'XYZ Dev',
+              type: ProjectType.residential,
+              status: ProjectStatus.planning,
+              city: 'Gurugram',
+              state: 'Haryana',
+              startingPrice: 15000,
+              priceUnit: 'Square Feet',
+              isActive: true,
+              createdBy: 'sys',
+              createdByName: 'System',
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+            Project(
+              id: 'p2',
+              name: '3B Homes Pataudi One',
+              developerId: 'd2',
+              developerName: 'ABC Dev',
+              type: ProjectType.residential,
+              status: ProjectStatus.planning,
+              city: 'Gurugram',
+              state: 'Haryana',
+              startingPrice: 0,
+              isActive: true,
+              createdBy: 'sys',
+              createdByName: 'System',
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+          ];
+
+    return Scrollbar(
+      child: ListView.separated(
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const Divider(height: 16),
+        itemBuilder: (BuildContext context, int i) {
+          final Project p = items[i];
+          final bool checked = _selectedProjectIds.contains(p.id);
+          final String typeText =
+              p.type.name[0].toUpperCase() + p.type.name.substring(1);
+          final String startText =
+              p.startingPrice != null && p.startingPrice! > 0
+              ? '₹ ${p.startingPrice!.toStringAsFixed(0)} / ${p.priceUnit ?? ''}'
+                    .trim()
+              : '-';
+          final String locationText = <String?>[
+            p.address,
+            p.city,
+            p.state,
+          ].where((String? s) => (s ?? '').isNotEmpty).join(', ');
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Checkbox(
+                value: checked,
+                onChanged: (bool? v) {
+                  setState(() {
+                    if (v == true) {
+                      _selectedProjectIds.add(p.id);
+                    } else {
+                      _selectedProjectIds.remove(p.id);
+                    }
+                  });
+                },
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      children: <Widget>[
+                        Text(
+                          p.name,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        Text('/', style: Theme.of(context).textTheme.bodySmall),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.black12),
+                          ),
+                          child: Text(
+                            typeText,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    RichText(
+                      text: TextSpan(
+                        style: Theme.of(context).textTheme.bodySmall,
+                        children: <TextSpan>[
+                          const TextSpan(
+                            text: 'Starting From : ',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextSpan(
+                            text: startText,
+                            style: const TextStyle(color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    RichText(
+                      text: TextSpan(
+                        style: Theme.of(context).textTheme.bodySmall,
+                        children: <TextSpan>[
+                          const TextSpan(
+                            text: 'Location : ',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextSpan(
+                            text: locationText.isEmpty ? '-' : locationText,
+                            style: const TextStyle(color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildInventoriesList() {
+    final List<Map<String, String>> inventories = <Map<String, String>>[
+      <String, String>{
+        'name': '2 BHK',
+        'project': 'ADORE THE SELECT PREMIA',
+        'type': 'Appartments',
       },
+      <String, String>{
+        'name': '3 BHK',
+        'project': 'Green Valley Heights',
+        'type': 'Appartments',
+      },
+      <String, String>{
+        'name': 'Retail-12',
+        'project': 'Business Park Plaza',
+        'type': 'Shop',
+      },
+    ];
+
+    return Scrollbar(
+      child: ListView.separated(
+        itemCount: inventories.length,
+        separatorBuilder: (_, __) => const Divider(height: 16),
+        itemBuilder: (BuildContext context, int i) {
+          final Map<String, String> inv = inventories[i];
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Checkbox(value: false, onChanged: null),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Wrap(
+                      spacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: <Widget>[
+                        Text(
+                          inv['name'] ?? '-',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        Text('/', style: Theme.of(context).textTheme.bodySmall),
+                        Text(
+                          inv['project'] ?? '-',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    RichText(
+                      text: TextSpan(
+                        style: Theme.of(context).textTheme.bodySmall,
+                        children: <TextSpan>[
+                          const TextSpan(
+                            text: 'Type : ',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextSpan(
+                            text: inv['type'] ?? '-',
+                            style: const TextStyle(color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
