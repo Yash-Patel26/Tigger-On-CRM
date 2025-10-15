@@ -3333,38 +3333,41 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                   children: <Widget>[
                     Text(
                       'Action',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(fontWeight: FontWeight.w600, color: Colors.black54),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black54,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     GestureDetector(
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (BuildContext ctx) => SiteVisitDetailScreen(
-                              siteVisitId: v['leadRef'] ?? 'SITEVISIT',
-                              siteVisitData: <String, dynamic>{
-                                'contact': v['contact'],
-                                'leadRef': v['leadRef'],
-                                'name': v['name'],
-                                'attender': v['attender'],
-                                'purpose': v['purpose'],
-                                'mode': v['mode'],
-                                'from': v['from'],
-                                'to': v['to'],
-                                'location': v['location'],
-                                'address': v['address'],
-                              },
-                            ),
+                            builder: (BuildContext ctx) =>
+                                SiteVisitDetailScreen(
+                                  siteVisitId: v['leadRef'] ?? 'SITEVISIT',
+                                  siteVisitData: <String, dynamic>{
+                                    'contact': v['contact'],
+                                    'leadRef': v['leadRef'],
+                                    'name': v['name'],
+                                    'attender': v['attender'],
+                                    'purpose': v['purpose'],
+                                    'mode': v['mode'],
+                                    'from': v['from'],
+                                    'to': v['to'],
+                                    'location': v['location'],
+                                    'address': v['address'],
+                                  },
+                                ),
                           ),
                         );
                       },
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Icon(
@@ -3390,10 +3393,10 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
       children: <Widget>[
         Text(
           keyLabel,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(fontWeight: FontWeight.w600, color: Colors.black54),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: Colors.black54,
+          ),
         ),
         const SizedBox(height: 4),
         Text(value, maxLines: 2, overflow: TextOverflow.ellipsis),
@@ -3425,7 +3428,18 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
 
   String _monthName(int m) {
     const List<String> names = <String>[
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     if (m < 1 || m > 12) return '-';
     return names[m - 1];
