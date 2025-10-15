@@ -3247,6 +3247,7 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
       'to': '2025-09-25 12:00',
       'location': 'Gift City',
       'address': 'Plot 21, Gift City, Gandhinagar',
+      'status': 'Scheduled',
     },
   ];
 
@@ -3301,128 +3302,133 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  v['name'] ?? '-',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withOpacity(0.60),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withOpacity(0.30),
-                  ),
-                ),
-                child: Text(
-                  v['mode'] ?? '-',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _kvSmall(context, 'Date', _formatVisitDate(v['from'])),
+                const SizedBox(height: 10),
+                _kvSmall(context, 'Purpose', v['purpose'] ?? '-'),
+                const SizedBox(height: 10),
+                _kvSmall(context, 'Location', v['location'] ?? '-'),
+                const SizedBox(height: 10),
+                _kvSmall(context, 'Status', v['status'] ?? 'Scheduled'),
+              ],
+            ),
           ),
-          const SizedBox(height: 6),
-          Row(
-            children: <Widget>[
-              const Icon(Icons.call_outlined, size: 14),
-              const SizedBox(width: 6),
-              Text(v['contact'] ?? '-'),
-              const SizedBox(width: 12),
-              const Icon(Icons.person_outline, size: 14),
-              const SizedBox(width: 6),
-              Text('Allocated: ${v['attender'] ?? '-'}'),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: <Widget>[
-              const Icon(Icons.flag_outlined, size: 14),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  v['purpose'] ?? '-',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: <Widget>[
-              const Icon(Icons.schedule, size: 14),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '${v['from']} → ${v['to']}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: <Widget>[
-              const Icon(Icons.location_on_outlined, size: 14),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '${v['location']} • ${v['address']}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (BuildContext ctx) => SiteVisitDetailScreen(
-                      siteVisitId: v['leadRef'] ?? 'SITEVISIT',
-                      siteVisitData: <String, dynamic>{
-                        'contact': v['contact'],
-                        'leadRef': v['leadRef'],
-                        'name': v['name'],
-                        'attender': v['attender'],
-                        'purpose': v['purpose'],
-                        'mode': v['mode'],
-                        'from': v['from'],
-                        'to': v['to'],
-                        'location': v['location'],
-                        'address': v['address'],
-                      },
+          const SizedBox(width: 24),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _kvSmall(context, 'Appointed To', v['attender'] ?? '-'),
+                const SizedBox(height: 10),
+                _kvSmall(context, 'Mode', v['mode'] ?? '-'),
+                const SizedBox(height: 10),
+                _kvSmall(context, 'Address', v['address'] ?? '-'),
+                const SizedBox(height: 10),
+                Row(
+                  children: <Widget>[
+                    Text(
+                      'Action',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(fontWeight: FontWeight.w600, color: Colors.black54),
                     ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.visibility, size: 16),
-              label: const Text('View'),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (BuildContext ctx) => SiteVisitDetailScreen(
+                              siteVisitId: v['leadRef'] ?? 'SITEVISIT',
+                              siteVisitData: <String, dynamic>{
+                                'contact': v['contact'],
+                                'leadRef': v['leadRef'],
+                                'name': v['name'],
+                                'attender': v['attender'],
+                                'purpose': v['purpose'],
+                                'mode': v['mode'],
+                                'from': v['from'],
+                                'to': v['to'],
+                                'location': v['location'],
+                                'address': v['address'],
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Icon(
+                          Icons.visibility,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _kvSmall(BuildContext context, String keyLabel, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          keyLabel,
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(fontWeight: FontWeight.w600, color: Colors.black54),
+        ),
+        const SizedBox(height: 4),
+        Text(value, maxLines: 2, overflow: TextOverflow.ellipsis),
+      ],
+    );
+  }
+
+  String _formatVisitDate(String? from) {
+    if (from == null || from.isEmpty) return '-';
+    try {
+      final List<String> parts = from.split(' ');
+      final List<String> d = parts[0].split('-');
+      final List<String> t = parts[1].split(':');
+      final int y = int.parse(d[0]);
+      final int m = int.parse(d[1]);
+      final int day = int.parse(d[2]);
+      int h = int.parse(t[0]);
+      final int min = int.parse(t[1]);
+      final bool pm = h >= 12;
+      h = h % 12;
+      if (h == 0) h = 12;
+      final String hh = h.toString().padLeft(2, '0');
+      final String mm = min.toString().padLeft(2, '0');
+      return '${_monthName(m)} ${day.toString().padLeft(2, '0')}, $y\n$hh:$mm ${pm ? 'PM' : 'AM'}';
+    } catch (_) {
+      return from;
+    }
+  }
+
+  String _monthName(int m) {
+    const List<String> names = <String>[
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    if (m < 1 || m > 12) return '-';
+    return names[m - 1];
   }
 
   void _openAddVisitSheet() {
@@ -4290,6 +4296,7 @@ class _TicketTabState extends State<_TicketTab> {
           'Customer facing difficulties with online payment gateway during booking process.',
       'createdBy': 'Me',
       'priority': 'High',
+      'createdAt': "${0}", // placeholder to be set in initState
     },
     {
       'id': 'TKT-002',
@@ -4298,6 +4305,7 @@ class _TicketTabState extends State<_TicketTab> {
           'KYC documents are taking longer than expected to get verified.',
       'createdBy': 'Anita',
       'priority': 'Medium',
+      'createdAt': "${0}",
     },
     {
       'id': 'TKT-003',
@@ -4306,8 +4314,47 @@ class _TicketTabState extends State<_TicketTab> {
           'Need to coordinate site visit for multiple customers on the same day.',
       'createdBy': 'Chetan',
       'priority': 'Low',
+      'createdAt': "${0}",
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Stamp demo data with creation times spread over hours for display
+    final DateTime now = DateTime.now();
+    _items[0]['createdAt'] = now
+        .subtract(const Duration(hours: 1))
+        .toIso8601String();
+    if (_items.length > 1) {
+      _items[1]['createdAt'] = now
+          .subtract(const Duration(hours: 5))
+          .toIso8601String();
+    }
+    if (_items.length > 2) {
+      _items[2]['createdAt'] = now
+          .subtract(const Duration(hours: 23))
+          .toIso8601String();
+    }
+    setState(() {});
+  }
+
+  String _formatRelative(String? iso) {
+    if (iso == null || iso.isEmpty) return '-';
+    DateTime? ts;
+    try {
+      ts = DateTime.tryParse(iso)?.toLocal();
+    } catch (_) {
+      ts = null;
+    }
+    if (ts == null) return '-';
+    final Duration diff = DateTime.now().difference(ts);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    final int days = diff.inDays;
+    return days == 1 ? '1d ago' : '${days}d ago';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -4418,6 +4465,27 @@ class _TicketTabState extends State<_TicketTab> {
                                   const SizedBox(width: 4),
                                   Text(
                                     'Created by ${item['createdBy'] ?? '-'}',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(color: Colors.grey.shade600),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    width: 4,
+                                    height: 4,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade400,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    Icons.access_time,
+                                    size: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _formatRelative(item['createdAt']),
                                     style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(color: Colors.grey.shade600),
                                   ),
@@ -5093,7 +5161,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
-                  height: 320,
+                  height: 240,
                   child: TabBarView(
                     children: <Widget>[
                       _infoPanel(context),
@@ -5125,7 +5193,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
-                  height: 260,
+                  height: 220,
                   child: TabBarView(
                     children: <Widget>[
                       _dispositionLogsView(context),
@@ -5213,43 +5281,51 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          _twoCol(context, 'Service Category', 'Customer', 'Service Name', '—'),
-          const SizedBox(height: 12),
-          _twoCol(
-            context,
-            'Service Type',
-            'General Query',
-            'Alternate Mobile Number',
-            '—',
-          ),
-          const SizedBox(height: 12),
-          _twoCol(
-            context,
-            'Issue Title',
-            widget.ticket['title'] ?? '-',
-            'Unit Number',
-            '—',
-          ),
-          const SizedBox(height: 12),
-          _twoCol(
-            context,
-            'Contact Person',
-            widget.ticket['createdBy'] ?? '-',
-            'Priority',
-            widget.ticket['priority'] ?? '-',
-          ),
-          const SizedBox(height: 16),
-          Text('Description', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 6),
-          Text(
-            widget.ticket['description']?.trim().isEmpty == true
-                ? '—'
-                : widget.ticket['description']!,
-          ),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            _twoCol(
+              context,
+              'Service Category',
+              'Customer',
+              'Service Name',
+              '—',
+            ),
+            const SizedBox(height: 12),
+            _twoCol(
+              context,
+              'Service Type',
+              'General Query',
+              'Alternate Mobile Number',
+              '—',
+            ),
+            const SizedBox(height: 12),
+            _twoCol(
+              context,
+              'Issue Title',
+              widget.ticket['title'] ?? '-',
+              'Unit Number',
+              '—',
+            ),
+            const SizedBox(height: 12),
+            _twoCol(
+              context,
+              'Contact Person',
+              widget.ticket['createdBy'] ?? '-',
+              'Priority',
+              widget.ticket['priority'] ?? '-',
+            ),
+            const SizedBox(height: 16),
+            Text('Description', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 6),
+            Text(
+              widget.ticket['description']?.trim().isEmpty == true
+                  ? '—'
+                  : widget.ticket['description']!,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -5274,7 +5350,12 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 2),
         Text(value, style: Theme.of(context).textTheme.bodyMedium),
       ],
@@ -5332,17 +5413,19 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          _twoCol(context, 'Customer Name', '—', 'Contact Number', '—'),
-          const SizedBox(height: 12),
-          _twoCol(context, 'Email', '—', 'City', '—'),
-          const SizedBox(height: 12),
-          Text('Address', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 6),
-          const Text('—'),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            _twoCol(context, 'Customer Name', '—', 'Contact Number', '—'),
+            const SizedBox(height: 12),
+            _twoCol(context, 'Email', '—', 'City', '—'),
+            const SizedBox(height: 12),
+            Text('Address', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 6),
+            const Text('—'),
+          ],
+        ),
       ),
     );
   }
@@ -5351,70 +5434,72 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Text(
-                'Conversation',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const Spacer(),
-              FilledButton(
-                onPressed: _openReplySheet,
-                child: const Text('Reply'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  'Replied By',
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Text(
+                  'Conversation',
                   style: Theme.of(
                     context,
-                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                 ),
-              ),
-              Expanded(
-                child: Text(
-                  'Replied At',
-                  textAlign: TextAlign.right,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                const Spacer(),
+                FilledButton(
+                  onPressed: _openReplySheet,
+                  child: const Text('Reply'),
                 ),
-              ),
-            ],
-          ),
-          const Divider(),
-          if (_conversationLogs.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('No replies yet.'),
-            )
-          else
-            ..._conversationLogs.map((Map<String, String> log) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: <Widget>[
-                    Expanded(child: Text(log['repliedBy'] ?? '-')),
-                    Expanded(
-                      child: Text(
-                        log['repliedAt'] ?? '-',
-                        textAlign: TextAlign.right,
-                      ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Replied By',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
+                  ),
                 ),
-              );
-            }),
-        ],
+                Expanded(
+                  child: Text(
+                    'Replied At',
+                    textAlign: TextAlign.right,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Divider(),
+            if (_conversationLogs.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('No replies yet.'),
+              )
+            else
+              ..._conversationLogs.map((Map<String, String> log) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(child: Text(log['repliedBy'] ?? '-')),
+                      Expanded(
+                        child: Text(
+                          log['repliedAt'] ?? '-',
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+          ],
+        ),
       ),
     );
   }
