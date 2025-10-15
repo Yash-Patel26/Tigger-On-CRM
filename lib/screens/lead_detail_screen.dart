@@ -3024,19 +3024,25 @@ class _ReferenceTabState extends State<_ReferenceTab> {
               ),
             ),
             const SizedBox(height: 12),
-            Expanded(
-              child: _refs.isEmpty
-                  ? const Center(child: Text('No references yet'))
-                  : ListView.separated(
-                      itemCount: _refs.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (BuildContext context, int index) {
-                        final Map<String, String> r = _refs[index];
-                        return _refCard(context, r);
-                      },
-                    ),
+            Text(
+              'Referred To Details',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
-            // Removed Referred To/By detail cards from Reference tab per request
+            const SizedBox(height: 8),
+            _referredToCard(context),
+            const SizedBox(height: 12),
+            Divider(color: Colors.grey.withOpacity(0.2)),
+            const SizedBox(height: 12),
+            Text(
+              'Referred By Details',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            _referredByCard(context),
           ],
         ),
       ),
@@ -3058,34 +3064,130 @@ class _ReferenceTabState extends State<_ReferenceTab> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  '${r['firstName'] ?? ''} ${r['lastName'] ?? ''}'.trim(),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _kvSmall(
+                  context,
+                  'Referred To Name',
+                  '${r['firstName'] ?? ''} ${r['middleName'] ?? ''} ${r['lastName'] ?? ''}'
+                      .replaceAll(RegExp(r'\s+'), ' ')
+                      .trim(),
+                  isLink: true,
                 ),
-              ),
-              Text(
-                r['contact'] ?? '-',
-                style: Theme.of(context).textTheme.labelMedium,
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 6),
-          Text(r['email'] ?? '-', maxLines: 1, overflow: TextOverflow.ellipsis),
-          if ((r['note'] ?? '').isNotEmpty) ...<Widget>[
-            const SizedBox(height: 6),
-            Text(r['note']!, maxLines: 2, overflow: TextOverflow.ellipsis),
-          ],
+          const SizedBox(width: 24),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _kvSmall(context, 'Referred Date', _formatNowDateTime()),
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Widget _referredToCard(BuildContext context) {
+    final Map<String, String> r = _refs.isNotEmpty
+        ? _refs.first
+        : <String, String>{};
+    return _refCard(context, r);
+  }
+
+  Widget _referredByCard(BuildContext context) {
+    if (_refs.length < 2) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Center(child: Text("Didn't Refer By Anyone")),
+      );
+    }
+    final Map<String, String> r = _refs[1];
+    return _refCard(context, r);
+  }
+
+  Widget _kvSmall(
+    BuildContext context,
+    String keyLabel,
+    String value, {
+    bool isLink = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          keyLabel,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: Colors.black54,
+          ),
+        ),
+        const SizedBox(height: 4),
+        isLink
+            ? Text(
+                value.isEmpty ? '-' : value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  decoration: TextDecoration.underline,
+                ),
+              )
+            : Text(
+                value.isEmpty ? '-' : value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+      ],
+    );
+  }
+
+  String _formatNowDateTime() {
+    final DateTime now = DateTime.now();
+    final String day = now.day.toString().padLeft(2, '0');
+    const List<String> months = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final String mon = months[now.month - 1];
+    final String year = now.year.toString();
+    int h = now.hour;
+    final bool pm = h >= 12;
+    h = h % 12;
+    if (h == 0) h = 12;
+    final String hh = h.toString().padLeft(2, '0');
+    final String mm = now.minute.toString().padLeft(2, '0');
+    return '$day $mon $year $hh:$mm ${pm ? 'Pm' : 'Am'}';
   }
 
   void _openAddRefSheet() {
