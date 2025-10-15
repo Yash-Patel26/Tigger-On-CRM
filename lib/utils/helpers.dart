@@ -83,7 +83,7 @@ class Helpers {
         await launchDialer(cleaned);
       }
     } else {
-      await launchDialer(cleaned);
+    await launchDialer(cleaned);
     }
   }
 

@@ -865,6 +865,7 @@ class _CrossSellTabState extends State<_CrossSellTab> {
       builder: (BuildContext ctx) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModal) {
+            // Inline options are now generated where used to avoid unused warnings
             return SingleChildScrollView(
               padding: EdgeInsets.only(
                 left: 16,
@@ -3443,6 +3444,7 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
       builder: (BuildContext ctx) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModal) {
+            // (Options computed inline where needed to avoid unused warnings)
             return SingleChildScrollView(
               padding: EdgeInsets.only(
                 left: 16,
@@ -3691,6 +3693,7 @@ class _TaskTabState extends State<_TaskTab> {
       builder: (BuildContext ctx) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModal) {
+            // Inline options will be generated where needed; remove unused locals
             return SingleChildScrollView(
               padding: EdgeInsets.only(
                 left: 16,
@@ -4351,12 +4354,21 @@ class _TicketTabState extends State<_TicketTab> {
                             children: <Widget>[
                               Row(
                                 children: <Widget>[
-                                  Text(
-                                    item['id'] ?? '-',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  Expanded(
+                                    child: Tooltip(
+                                      message: item['id'] ?? '-',
+                                      child: Text(
+                                        item['id'] ?? '-',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                    ),
                                   ),
                                   const Spacer(),
                                   Chip(
@@ -4373,18 +4385,26 @@ class _TicketTabState extends State<_TicketTab> {
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              Text(
-                                item['title'] ?? '-',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              Tooltip(
+                                message: item['title'] ?? '-',
+                                child: Text(
+                                  item['title'] ?? '-',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
                               ),
                               if ((item['description'] ?? '')
                                   .isNotEmpty) ...<Widget>[
                                 const SizedBox(height: 6),
-                                Text(
-                                  item['description']!,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
+                                Tooltip(
+                                  message: item['description']!,
+                                  child: Text(
+                                    item['description']!,
+                                    maxLines: 4,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ],
                               const SizedBox(height: 8),
@@ -4400,6 +4420,40 @@ class _TicketTabState extends State<_TicketTab> {
                                     'Created by ${item['createdBy'] ?? '-'}',
                                     style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: <Widget>[
+                                  OutlinedButton.icon(
+                                    onPressed: () => _viewTicket(item),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                      side: BorderSide(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary.withOpacity(0.4),
+                                      ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.visibility_outlined,
+                                      size: 18,
+                                    ),
+                                    label: const Text('View'),
+                                  ),
+                                  FilledButton.icon(
+                                    onPressed: () =>
+                                        _openEditTicketSheet(index),
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      size: 18,
+                                    ),
+                                    label: const Text('Edit'),
                                   ),
                                 ],
                               ),
@@ -4423,6 +4477,156 @@ class _TicketTabState extends State<_TicketTab> {
   Color _getPriorityTextColor(String priority) {
     // Black text on the new light background
     return Colors.black87;
+  }
+
+  void _viewTicket(Map<String, String> item) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => TicketDetailScreen(ticket: item)),
+    );
+  }
+
+  void _openEditTicketSheet(int index) {
+    final Map<String, String> item = _items[index];
+    final TextEditingController idCtrl = TextEditingController(
+      text: item['id'] ?? '',
+    );
+    final TextEditingController titleCtrl = TextEditingController(
+      text: item['title'] ?? '',
+    );
+    final TextEditingController descCtrl = TextEditingController(
+      text: item['description'] ?? '',
+    );
+    String createdBy = item['createdBy'] ?? 'Me';
+    String priority = item['priority'] ?? 'Medium';
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (BuildContext ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModal) {
+            return SingleChildScrollView(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Text(
+                        'Edit Ticket',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: idCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'ID',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Title',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: createdBy,
+                          items: const <String>['Me', 'Anita', 'Chetan']
+                              .map(
+                                (String e) => DropdownMenuItem<String>(
+                                  value: e,
+                                  child: Text(e),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (String? v) =>
+                              setModal(() => createdBy = v ?? createdBy),
+                          decoration: const InputDecoration(
+                            labelText: 'Created By',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: priority,
+                          items: const <String>['Low', 'Medium', 'High']
+                              .map(
+                                (String e) => DropdownMenuItem<String>(
+                                  value: e,
+                                  child: Text(e),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (String? v) =>
+                              setModal(() => priority = v ?? priority),
+                          decoration: const InputDecoration(
+                            labelText: 'Priority',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _items[index] = <String, String>{
+                            'id': idCtrl.text.trim(),
+                            'title': titleCtrl.text.trim(),
+                            'description': descCtrl.text.trim(),
+                            'createdBy': createdBy,
+                            'priority': priority,
+                          };
+                        });
+                        Navigator.of(ctx).pop();
+                      },
+                      icon: const Icon(Icons.check_rounded),
+                      label: const Text('Save'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _openCreateTicketSheet() {
@@ -4540,12 +4744,10 @@ class _TicketTabState extends State<_TicketTab> {
                             _buildDropdownField(
                               'Lead List*',
                               leadList,
-                              const <String>[
-                                'Lead A',
-                                'Lead B',
-                                'Lead C',
-                                'Lead D',
-                              ],
+                              List<String>.generate(12, (int i) {
+                                if (i == 0) return 'Mayank11 · 9816353871';
+                                return 'Customer ${i + 1} · ${9000000000 + i}';
+                              }),
                               (String? v) => setModal(() => leadList = v),
                               isRequired: true,
                             ),
@@ -4556,11 +4758,7 @@ class _TicketTabState extends State<_TicketTab> {
                             _buildDropdownField(
                               'Vendor List*',
                               vendorList,
-                              const <String>[
-                                'Vendor A',
-                                'Vendor B',
-                                'Vendor C',
-                              ],
+                              const <String>['Skyline Builders', 'GreenHomes'],
                               (String? v) => setModal(() => vendorList = v),
                               isRequired: true,
                             ),
@@ -4837,6 +5035,721 @@ class _TicketTabState extends State<_TicketTab> {
           style: const TextStyle(color: Colors.black87, fontSize: 14),
         ),
       ],
+    );
+  }
+}
+
+class TicketDetailScreen extends StatefulWidget {
+  const TicketDetailScreen({super.key, required this.ticket});
+
+  final Map<String, String> ticket;
+
+  @override
+  State<TicketDetailScreen> createState() => _TicketDetailScreenState();
+}
+
+class _TicketDetailScreenState extends State<TicketDetailScreen> {
+  late String _status;
+  late String _assignedTo;
+  final List<Map<String, String>> _allocationLogs = <Map<String, String>>[];
+  final List<Map<String, String>> _dispositionLogs = <Map<String, String>>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _status = 'Open';
+    _assignedTo = '-';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Ticket Details')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: <Widget>[
+          _header(context),
+          const SizedBox(height: 12),
+          _meta(context),
+          const SizedBox(height: 16),
+          DefaultTabController(
+            length: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Container(
+                  decoration: _cardDecoration(),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: const TabBar(
+                    indicatorColor: Colors.blue,
+                    labelColor: Colors.black,
+                    tabs: <Widget>[
+                      Tab(text: 'Ticket Info'),
+                      Tab(text: 'Customer Info'),
+                      Tab(text: 'Conversation'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 320,
+                  child: TabBarView(
+                    children: <Widget>[
+                      _infoPanel(context),
+                      _customerInfo(context),
+                      _conversation(context),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          DefaultTabController(
+            length: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Container(
+                  decoration: _cardDecoration(),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: const TabBar(
+                    indicatorColor: Colors.blue,
+                    labelColor: Colors.black,
+                    tabs: <Widget>[
+                      Tab(text: 'Disposition Logs'),
+                      Tab(text: 'Allocation Logs'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 260,
+                  child: TabBarView(
+                    children: <Widget>[
+                      _dispositionLogsView(context),
+                      _allocationLogsView(context),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _header(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            widget.ticket['title'] ?? '-',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: <Widget>[
+              Text(
+                'Ticket Id : ${widget.ticket['id'] ?? '-'}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const Spacer(),
+              Chip(label: Text(widget.ticket['priority'] ?? '-')),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              OutlinedButton(
+                onPressed: _openDispositionSheet,
+                child: const Text('Disposition'),
+              ),
+              FilledButton(
+                onPressed: _status == 'Disposed' ? null : _openAssignSheet,
+                child: const Text('Assign'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _meta(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: _cardDecoration(),
+      child: Column(
+        children: <Widget>[
+          _metaRow(context, 'Created At', _nowString()),
+          _divider(),
+          _metaRow(context, 'Status', _status),
+          _divider(),
+          _metaRow(context, 'Issue Related To', widget.ticket['title'] ?? '-'),
+          _divider(),
+          _metaRow(context, 'Contact Number', '-'),
+          _divider(),
+          _metaRow(context, 'Priority', widget.ticket['priority'] ?? '-'),
+          _divider(),
+          _metaRow(context, 'Assigned By', widget.ticket['createdBy'] ?? '-'),
+          _divider(),
+          _metaRow(context, 'Assigned To', _assignedTo),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoPanel(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _twoCol(context, 'Service Category', 'Customer', 'Service Name', '—'),
+          const SizedBox(height: 12),
+          _twoCol(
+            context,
+            'Service Type',
+            'General Query',
+            'Alternate Mobile Number',
+            '—',
+          ),
+          const SizedBox(height: 12),
+          _twoCol(
+            context,
+            'Issue Title',
+            widget.ticket['title'] ?? '-',
+            'Unit Number',
+            '—',
+          ),
+          const SizedBox(height: 12),
+          _twoCol(
+            context,
+            'Contact Person',
+            widget.ticket['createdBy'] ?? '-',
+            'Priority',
+            widget.ticket['priority'] ?? '-',
+          ),
+          const SizedBox(height: 16),
+          Text('Description', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 6),
+          Text(
+            widget.ticket['description']?.trim().isEmpty == true
+                ? '—'
+                : widget.ticket['description']!,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _twoCol(
+    BuildContext context,
+    String l1,
+    String v1,
+    String l2,
+    String v2,
+  ) {
+    return Row(
+      children: <Widget>[
+        Expanded(child: _kv(context, l1, v1)),
+        const SizedBox(width: 16),
+        Expanded(child: _kv(context, l2, v2)),
+      ],
+    );
+  }
+
+  Widget _kv(BuildContext context, String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 2),
+        Text(value, style: Theme.of(context).textTheme.bodyMedium),
+      ],
+    );
+  }
+
+  Widget _metaRow(BuildContext context, String k, String v) {
+    return Row(
+      children: <Widget>[
+        Expanded(child: Text(k)),
+        Text(v, style: const TextStyle(color: Colors.black54)),
+      ],
+    );
+  }
+
+  Widget _divider() => Divider(color: Colors.grey.withOpacity(0.2));
+
+  BoxDecoration _cardDecoration() => BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(12),
+    boxShadow: <BoxShadow>[
+      BoxShadow(
+        color: Colors.grey.withOpacity(0.1),
+        spreadRadius: 1,
+        blurRadius: 8,
+        offset: const Offset(0, 2),
+      ),
+    ],
+  );
+
+  String _nowString() {
+    final DateTime now = DateTime.now();
+    return '${now.day.toString().padLeft(2, '0')} ${_month(now.month)} ${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _month(int m) {
+    const List<String> names = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return names[(m - 1).clamp(0, 11)];
+  }
+
+  Widget _customerInfo(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _twoCol(context, 'Customer Name', '—', 'Contact Number', '—'),
+          const SizedBox(height: 12),
+          _twoCol(context, 'Email', '—', 'City', '—'),
+          const SizedBox(height: 12),
+          Text('Address', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 6),
+          const Text('—'),
+        ],
+      ),
+    );
+  }
+
+  Widget _conversation(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const CircleAvatar(
+                radius: 12,
+                child: Icon(Icons.person, size: 14),
+              ),
+              const SizedBox(width: 8),
+              Text(_nowString(), style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text('No conversation yet.'),
+        ],
+      ),
+    );
+  }
+
+  Widget _allocationLogsView(BuildContext context) {
+    if (_allocationLogs.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: _cardDecoration(),
+        child: const Center(child: Text('No allocation logs')),
+      );
+    }
+    return ListView.separated(
+      itemCount: _allocationLogs.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (BuildContext _, int i) {
+        final Map<String, String> log = _allocationLogs[i];
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: _cardDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              _metaRow(context, 'Assigned By', log['assignedBy'] ?? '-'),
+              _divider(),
+              _metaRow(context, 'Assigned To', log['assignedTo'] ?? '-'),
+              _divider(),
+              _metaRow(context, 'Assigned At', log['assignedAt'] ?? '-'),
+              const SizedBox(height: 6),
+              Text(
+                'Description',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                (log['description'] ?? '').isEmpty ? '—' : log['description']!,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _dispositionLogsView(BuildContext context) {
+    if (_dispositionLogs.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: _cardDecoration(),
+        child: const Center(child: Text('No disposition logs')),
+      );
+    }
+    return ListView.separated(
+      itemCount: _dispositionLogs.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (BuildContext _, int i) {
+        final Map<String, String> log = _dispositionLogs[i];
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: _cardDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              _metaRow(context, 'Disposed At', log['disposedAt'] ?? '-'),
+              _divider(),
+              _metaRow(context, 'Disposed By', log['disposedBy'] ?? '-'),
+              _divider(),
+              _metaRow(context, 'Disposed From', log['disposedFrom'] ?? '-'),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _openAssignSheet() {
+    String selected = _assignedTo == '-' ? 'Abhishek' : _assignedTo;
+    final TextEditingController descCtrl = TextEditingController();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: 16 + MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Text(
+                'Assign Ticket',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              const Text('Assign To'),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                value: selected,
+                items:
+                    const <String>[
+                          'Abhishek',
+                          'Anita',
+                          'Ravi',
+                          'Sunil',
+                          'Chetan',
+                        ]
+                        .map(
+                          (String e) => DropdownMenuItem<String>(
+                            value: e,
+                            child: Text(e),
+                          ),
+                        )
+                        .toList(),
+                onChanged: (String? v) => selected = v ?? selected,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              const Text('Description'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: descCtrl,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Description',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    setState(() {
+                      _assignedTo = selected;
+                      _allocationLogs.insert(0, <String, String>{
+                        'assignedBy': 'Me',
+                        'assignedTo': selected,
+                        'assignedAt': _nowString(),
+                        'description': descCtrl.text.trim(),
+                      });
+                    });
+                    Navigator.of(ctx).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Assigned to $selected')),
+                    );
+                  },
+                  child: const Text('Assign'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _openDispositionSheet() {
+    String mainDisp = 'New';
+    String subDisp = 'Created';
+    DateTime date = DateTime.now();
+    TimeOfDay time = const TimeOfDay(hour: 13, minute: 0);
+    bool initiatedByAgent = true; // false => Customer
+    final TextEditingController remarkCtrl = TextEditingController();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (BuildContext ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModal) {
+            return SingleChildScrollView(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: 16 + MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      const Text(
+                        'Ticket Disposition',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Main Disposition
+                  DropdownButtonFormField<String>(
+                    value: mainDisp,
+                    items:
+                        const <String>[
+                              'New',
+                              'In Progress',
+                              'Follow-up',
+                              'Closed',
+                            ]
+                            .map(
+                              (String e) => DropdownMenuItem<String>(
+                                value: e,
+                                child: Text(e),
+                              ),
+                            )
+                            .toList(),
+                    onChanged: (String? v) =>
+                        setModal(() => mainDisp = v ?? mainDisp),
+                    decoration: const InputDecoration(
+                      labelText: 'Main Disposition *',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Sub Disposition
+                  DropdownButtonFormField<String>(
+                    value: subDisp,
+                    items:
+                        const <String>[
+                              'Created',
+                              'Called',
+                              'Rescheduled',
+                              'Resolved',
+                            ]
+                            .map(
+                              (String e) => DropdownMenuItem<String>(
+                                value: e,
+                                child: Text(e),
+                              ),
+                            )
+                            .toList(),
+                    onChanged: (String? v) =>
+                        setModal(() => subDisp = v ?? subDisp),
+                    decoration: const InputDecoration(
+                      labelText: 'Sub Disposition *',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Follow-Up Date Time
+                  const Text('Follow-Up Date Time *'),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final DateTime? d = await showDatePicker(
+                              context: ctx,
+                              firstDate: DateTime.now().subtract(
+                                const Duration(days: 365),
+                              ),
+                              lastDate: DateTime.now().add(
+                                const Duration(days: 365),
+                              ),
+                              initialDate: date,
+                            );
+                            if (d != null) setModal(() => date = d);
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                            ),
+                            child: Text(
+                              '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}',
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final TimeOfDay? t = await showTimePicker(
+                              context: ctx,
+                              initialTime: time,
+                            );
+                            if (t != null) setModal(() => time = t);
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                            ),
+                            child: Text(
+                              '${time.hourOfPeriod.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')} ${time.period == DayPeriod.am ? 'am' : 'pm'}',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Initiated By
+                  const Text('Initiated By'),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text('Agent'),
+                          selected: initiatedByAgent,
+                          onSelected: (bool s) =>
+                              setModal(() => initiatedByAgent = true),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text('Customer'),
+                          selected: !initiatedByAgent,
+                          onSelected: (bool s) =>
+                              setModal(() => initiatedByAgent = false),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Remark
+                  TextFormField(
+                    controller: remarkCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Remark',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () {
+                        if (mainDisp.isEmpty || subDisp.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please complete required fields'),
+                            ),
+                          );
+                          return;
+                        }
+                        setState(() {
+                          _dispositionLogs.insert(0, <String, String>{
+                            'disposedAt': _nowString(),
+                            'disposedBy': initiatedByAgent
+                                ? 'Agent'
+                                : 'Customer',
+                            'disposedFrom': initiatedByAgent
+                                ? 'System'
+                                : 'Portal',
+                          });
+                        });
+                        Navigator.of(ctx).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Disposition saved')),
+                        );
+                      },
+                      child: const Text('Save Changes'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
