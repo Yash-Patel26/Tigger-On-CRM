@@ -3079,6 +3079,23 @@ class _ReferenceTabState extends State<_ReferenceTab> {
                       .replaceAll(RegExp(r'\s+'), ' ')
                       .trim(),
                   isLink: true,
+                  onTap: () {
+                    final String? leadId = r['leadId'];
+                    if (leadId == null || leadId.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Lead not linked to this reference'),
+                        ),
+                      );
+                      return;
+                    }
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (BuildContext ctx) =>
+                            LeadDetailScreen(leadId: leadId),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -3133,6 +3150,7 @@ class _ReferenceTabState extends State<_ReferenceTab> {
     String keyLabel,
     String value, {
     bool isLink = false,
+    VoidCallback? onTap,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3146,13 +3164,16 @@ class _ReferenceTabState extends State<_ReferenceTab> {
         ),
         const SizedBox(height: 4),
         isLink
-            ? Text(
-                value.isEmpty ? '-' : value,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.primary,
-                  decoration: TextDecoration.underline,
+            ? InkWell(
+                onTap: onTap,
+                child: Text(
+                  value.isEmpty ? '-' : value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                  ),
                 ),
               )
             : Text(
@@ -3415,6 +3436,14 @@ class _ReferenceTabState extends State<_ReferenceTab> {
       final LeadRepository repo = LeadRepository();
       final response = await repo.createLead(lead);
       if (!mounted) return;
+      // Attach a usable leadId to newest reference so tapping the name can open details
+      if (_refs.isNotEmpty) {
+        final String resolvedLeadId =
+            response.data?.leadId ?? response.data?.id ?? lead.leadId;
+        setState(() {
+          _refs.first['leadId'] = resolvedLeadId;
+        });
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
