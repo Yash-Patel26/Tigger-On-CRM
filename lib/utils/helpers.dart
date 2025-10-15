@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/supabase_service.dart';
+import '../services/location_service.dart';
 import 'constants.dart';
 
 class Helpers {
@@ -43,6 +44,7 @@ class Helpers {
         Permission.microphone,
         Permission.phone,
         Permission.notification,
+        Permission.location,
       ].request();
 
       final bool micGranted =
@@ -494,5 +496,39 @@ class Helpers {
     }
     if (value is int) return value != 0;
     return defaultValue;
+  }
+
+  /// Get current location coordinates
+  static Future<String?> getCurrentLocation() async {
+    try {
+      final String? location = await LocationService.getLocationString();
+      if (location != null) {
+        print('[Location] Current location: $location');
+      }
+      return location;
+    } catch (e) {
+      print('[Location] Error getting current location: $e');
+      return null;
+    }
+  }
+
+  /// Check if location services are available
+  static Future<bool> isLocationAvailable() async {
+    try {
+      return await LocationService.isLocationAvailable();
+    } catch (e) {
+      print('[Location] Error checking location availability: $e');
+      return false;
+    }
+  }
+
+  /// Request location permissions
+  static Future<bool> requestLocationPermission() async {
+    try {
+      return await LocationService.requestLocationPermission();
+    } catch (e) {
+      print('[Location] Error requesting location permission: $e');
+      return false;
+    }
   }
 }

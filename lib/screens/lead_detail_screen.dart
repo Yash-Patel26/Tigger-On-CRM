@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:math' as math;
 import '../utils/helpers.dart';
@@ -4427,15 +4426,26 @@ class _TicketTabState extends State<_TicketTab> {
   }
 
   void _openCreateTicketSheet() {
-    final TextEditingController idCtrl = TextEditingController();
-    final TextEditingController titleCtrl = TextEditingController();
-    final TextEditingController descCtrl = TextEditingController();
-    String createdBy = 'Me';
-    String priority = 'Medium';
+    final TextEditingController registeredMobileCtrl = TextEditingController();
+    final TextEditingController contactNameCtrl = TextEditingController();
+    final TextEditingController issueTitleCtrl = TextEditingController();
+    final TextEditingController alternateMobileCtrl = TextEditingController();
+    final TextEditingController unitNumberCtrl = TextEditingController();
+    final TextEditingController issueDescriptionCtrl = TextEditingController();
+
+    String? ticketCategory = 'Customer';
+    String? leadList;
+    String? vendorList;
+    String? ticketType;
+    String? serviceType;
+    String? priority = 'Low';
+    String? assignTo;
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: Colors.white,
       builder: (BuildContext ctx) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModal) {
@@ -4454,103 +4464,254 @@ class _TicketTabState extends State<_TicketTab> {
                     children: <Widget>[
                       Text(
                         'Create Ticket',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
+                        ),
                       ),
                       const Spacer(),
                       IconButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: idCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'ID',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: titleCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Title',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: descCtrl,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Description',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: createdBy,
-                          items: const <String>['Me', 'Anita', 'Chetan']
-                              .map(
-                                (String e) => DropdownMenuItem<String>(
-                                  value: e,
-                                  child: Text(e),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (String? v) =>
-                              setModal(() => createdBy = v ?? createdBy),
-                          decoration: const InputDecoration(
-                            labelText: 'Created By',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: priority,
-                          items: const <String>['Low', 'Medium', 'High']
-                              .map(
-                                (String e) => DropdownMenuItem<String>(
-                                  value: e,
-                                  child: Text(e),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (String? v) =>
-                              setModal(() => priority = v ?? priority),
-                          decoration: const InputDecoration(
-                            labelText: 'Priority',
-                            border: OutlineInputBorder(),
-                          ),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.black,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 20),
+
+                  // Single column form layout (with conditional fields)
+                  Builder(
+                    builder: (BuildContext context) {
+                      final bool isInternal = ticketCategory == 'Internal';
+                      final bool isVendor = ticketCategory == 'Vendor';
+                      return Column(
+                        children: <Widget>[
+                          _buildDropdownField(
+                            'Ticket Category*',
+                            ticketCategory,
+                            const <String>['Customer', 'Vendor', 'Internal'],
+                            (String? v) => setModal(() => ticketCategory = v),
+                            isRequired: true,
+                          ),
+                          const SizedBox(height: 16),
+
+                          if (!isInternal)
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: <Widget>[
+                                Expanded(
+                                  child: _buildTextField(
+                                    'Registered Mobile*',
+                                    registeredMobileCtrl,
+                                    isRequired: true,
+                                    keyboardType: TextInputType.phone,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                SizedBox(
+                                  height: 56,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Fetching details...'),
+                                        ),
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: const Text('Fetch Details'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          if (!isInternal) const SizedBox(height: 16),
+
+                          if (!isInternal && !isVendor)
+                            _buildDropdownField(
+                              'Lead List*',
+                              leadList,
+                              const <String>[
+                                'Lead A',
+                                'Lead B',
+                                'Lead C',
+                                'Lead D',
+                              ],
+                              (String? v) => setModal(() => leadList = v),
+                              isRequired: true,
+                            ),
+                          if (!isInternal && !isVendor)
+                            const SizedBox(height: 16),
+
+                          if (!isInternal && isVendor)
+                            _buildDropdownField(
+                              'Vendor List*',
+                              vendorList,
+                              const <String>[
+                                'Vendor A',
+                                'Vendor B',
+                                'Vendor C',
+                              ],
+                              (String? v) => setModal(() => vendorList = v),
+                              isRequired: true,
+                            ),
+                          if (!isInternal && isVendor)
+                            const SizedBox(height: 16),
+
+                          _buildDropdownField(
+                            'Service Type*',
+                            serviceType,
+                            const <String>[
+                              'Maintenance',
+                              'Repair',
+                              'Cleaning',
+                              'Installation',
+                            ],
+                            (String? v) => setModal(() => serviceType = v),
+                            isRequired: true,
+                          ),
+                          const SizedBox(height: 16),
+
+                          _buildTextField('Contact Name', contactNameCtrl),
+                          const SizedBox(height: 16),
+
+                          _buildTextField('Issue Title', issueTitleCtrl),
+                          const SizedBox(height: 16),
+
+                          _buildDropdownField(
+                            'Assign To',
+                            assignTo,
+                            const <String>['Anita', 'Ravi', 'Sunil', 'Chetan'],
+                            (String? v) => setModal(() => assignTo = v),
+                          ),
+                          const SizedBox(height: 16),
+
+                          _buildDropdownField(
+                            'Ticket Type*',
+                            ticketType,
+                            const <String>[
+                              'Issue',
+                              'Request',
+                              'Complaint',
+                              'Enquiry',
+                            ],
+                            (String? v) => setModal(() => ticketType = v),
+                            isRequired: true,
+                          ),
+                          const SizedBox(height: 16),
+
+                          _buildDropdownField(
+                            'Priority',
+                            priority,
+                            const <String>['Low', 'Medium', 'High', 'Critical'],
+                            (String? v) => setModal(() => priority = v),
+                          ),
+                          const SizedBox(height: 16),
+
+                          _buildTextField(
+                            'Alternate Mobile Number',
+                            alternateMobileCtrl,
+                            keyboardType: TextInputType.phone,
+                          ),
+                          const SizedBox(height: 16),
+
+                          _buildTextField('Unit Number', unitNumberCtrl),
+                          const SizedBox(height: 16),
+
+                          _buildTextField(
+                            'Issues Description',
+                            issueDescriptionCtrl,
+                            maxLines: 4,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Create Button
                   SizedBox(
                     width: double.infinity,
-                    child: FilledButton.icon(
+                    child: ElevatedButton(
                       onPressed: () {
+                        final bool isInternal = ticketCategory == 'Internal';
+                        final bool isVendor = ticketCategory == 'Vendor';
+                        final bool needMobile = !isInternal;
+                        final bool needLead = !isInternal && !isVendor;
+                        final bool needVendor = !isInternal && isVendor;
+
+                        final bool missingMobile =
+                            needMobile &&
+                            registeredMobileCtrl.text.trim().isEmpty;
+                        final bool missingLead = needLead && (leadList == null);
+                        final bool missingVendor =
+                            needVendor && (vendorList == null);
+                        final bool missingService = serviceType == null;
+                        final bool missingType = ticketType == null;
+
+                        if (ticketCategory == null ||
+                            missingMobile ||
+                            missingLead ||
+                            missingVendor ||
+                            missingService ||
+                            missingType) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please fill all required fields'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
                         setState(() {
                           _items.insert(0, <String, String>{
-                            'id': idCtrl.text.trim(),
-                            'title': titleCtrl.text.trim(),
-                            'description': descCtrl.text.trim(),
-                            'createdBy': createdBy,
-                            'priority': priority,
+                            'id':
+                                'TKT-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
+                            'title': issueTitleCtrl.text.trim().isNotEmpty
+                                ? issueTitleCtrl.text.trim()
+                                : 'Ticket for ${registeredMobileCtrl.text.trim()}',
+                            'description':
+                                issueDescriptionCtrl.text.trim().isNotEmpty
+                                ? issueDescriptionCtrl.text.trim()
+                                : 'Category: $ticketCategory, Type: $ticketType, Service: $serviceType',
+                            'createdBy': assignTo ?? 'Me',
+                            'priority': priority ?? 'Low',
                           });
                         });
                         Navigator.of(ctx).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Ticket created successfully'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
                       },
-                      icon: const Icon(Icons.check_rounded),
-                      label: const Text('Create'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Create',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -4559,6 +4720,123 @@ class _TicketTabState extends State<_TicketTab> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildDropdownField(
+    String label,
+    String? value,
+    List<String> items,
+    ValueChanged<String?> onChanged, {
+    bool isRequired = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: value,
+          items: items.map((String item) {
+            return DropdownMenuItem<String>(
+              value: item,
+              child: Text(item, style: const TextStyle(fontSize: 14)),
+            );
+          }).toList(),
+          onChanged: onChanged,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.grey.shade50,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.green, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.red, width: 1),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 16,
+            ),
+            hintText: 'Select',
+            hintStyle: TextStyle(color: Colors.grey.shade500),
+          ),
+          style: const TextStyle(color: Colors.black87, fontSize: 14),
+          dropdownColor: Colors.white,
+          icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade600),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller, {
+    bool isRequired = false,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.grey.shade50,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.green, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.red, width: 1),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 16,
+            ),
+            hintText: label,
+            hintStyle: TextStyle(color: Colors.grey.shade500),
+          ),
+          style: const TextStyle(color: Colors.black87, fontSize: 14),
+        ),
+      ],
     );
   }
 }
@@ -4640,14 +4918,6 @@ Widget _dateTimePicker(
     ),
   );
 }
-
-// Removed unused _DetailRow; compact label/value widgets are used elsewhere
-
-// Deprecated _ActionButtons replaced by _QuickActionsStickyRow
-
-// Removed unused _actionButton helper
-
-// Removed _HeaderCard per request
 
 class _StatusUpdateCard extends StatefulWidget {
   @override
@@ -4988,9 +5258,3 @@ class _ActivityLogCard extends StatelessWidget {
     );
   }
 }
-
-// Removed _badge helper
-
-// Removed _iconText helper
-
-// Removed legacy panel color helpers; all cards use white + shadow now
