@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
-import 'services/supabase_service.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'services/auth_service.dart';
 import 'utils/constants.dart';
 import 'splash/splash_screen.dart';
 import 'onboarding/email_login_screen.dart';
+import 'widgets/auth_guard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SupabaseService.init(
+
+  await Supabase.initialize(
     url: AppConstants.supabaseUrl,
     anonKey: AppConstants.supabaseAnonKey,
   );
-  // Quick connectivity check
-  final bool supaOk = await SupabaseService.testConnection(
-    bucket: AppConstants.recordingsBucket,
-  );
-  // ignore: avoid_print
-  print('[Supabase] storage connectivity: ${supaOk ? 'OK' : 'FAILED'}');
+
   runApp(const MyApp());
 }
 
@@ -24,6 +23,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (context) => AuthService(),
+      child: _buildApp(),
+    );
+  }
+
+  Widget _buildApp() {
     // Color schema: #E55934 (Orange) as primary
     // Adopted mapping: Primary=#E55934, Secondary=#E55934 variants, Light surfaces=#E55934/90E0EF, Dark surfaces=#E55934 variants
     // New palette: surfaces/backgrounds use #E1F0E4; keep accents readable
@@ -270,7 +276,9 @@ class MyApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: SplashScreen(nextPageBuilder: (_) => const EmailLoginScreen()),
+      home: SplashScreen(
+        nextPageBuilder: (_) => const AuthGuard(child: EmailLoginScreen()),
+      ),
     );
   }
 }

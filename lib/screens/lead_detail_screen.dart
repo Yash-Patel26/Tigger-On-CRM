@@ -3862,11 +3862,28 @@ class _TaskTab extends StatefulWidget {
 class _TaskTabState extends State<_TaskTab> {
   final List<Map<String, String>> tasks = <Map<String, String>>[
     <String, String>{
-      'title': 'Follow up',
-      'desc': 'Call customer',
-      'assign': 'Anita',
+      'title': 'Follow up with customer',
+      'desc':
+          'Call the customer to discuss shortlisted properties and next steps. Share brochure and pricing details via email as requested.',
+      'assign': 'Me',
       'priority': 'High',
       'status': 'Open',
+    },
+    <String, String>{
+      'title': 'Schedule site visit',
+      'desc':
+          'Coordinate a site visit for Saturday afternoon. Confirm availability with the customer and project sales office.',
+      'assign': 'Anita',
+      'priority': 'Medium',
+      'status': 'In Progress',
+    },
+    <String, String>{
+      'title': 'Share loan options',
+      'desc':
+          'Send comparative home loan options from partner banks along with eligibility checklist and required documents.',
+      'assign': 'Chetan',
+      'priority': 'Low',
+      'status': 'Completed',
     },
   ];
 
@@ -3893,8 +3910,8 @@ class _TaskTabState extends State<_TaskTab> {
                   ? const Center(child: Text('No tasks yet'))
                   : ListView(
                       children: <Widget>[
-                        ...tasks.map(
-                          (Map<String, String> t) => Container(
+                        ...tasks.asMap().entries.map(
+                          (MapEntry<int, Map<String, String>> e) => Container(
                             margin: const EdgeInsets.only(bottom: 8),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -3913,15 +3930,40 @@ class _TaskTabState extends State<_TaskTab> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Text(
-                                  t['title'] ?? '-',
+                                  e.value['title'] ?? '-',
                                   style: Theme.of(context).textTheme.titleSmall
                                       ?.copyWith(fontWeight: FontWeight.w700),
                                 ),
                                 const SizedBox(height: 4),
-                                Text(t['desc'] ?? '-'),
+                                Text(e.value['desc'] ?? '-'),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Assign To: ${t['assign']} • Priority: ${t['priority']} • Status: ${t['status']}',
+                                  'Assign To: ${e.value['assign']} • Priority: ${e.value['priority']} • Status: ${e.value['status']}',
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: <Widget>[
+                                    OutlinedButton.icon(
+                                      onPressed: () =>
+                                          _openChangeStatusDialog(e.key),
+                                      icon: const Icon(
+                                        Icons.sync_alt_rounded,
+                                        size: 18,
+                                      ),
+                                      label: const Text('Change Status'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    FilledButton.icon(
+                                      onPressed: () =>
+                                          _openEditTaskDialog(e.key),
+                                      icon: const Icon(
+                                        Icons.edit_rounded,
+                                        size: 18,
+                                      ),
+                                      label: const Text('Edit'),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -3945,166 +3987,316 @@ class _TaskTabState extends State<_TaskTab> {
     TimeOfDay endTime = const TimeOfDay(hour: 18, minute: 0);
     String assignTo = 'Me';
     String priority = 'Medium';
-    showModalBottomSheet<void>(
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (BuildContext ctx) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModal) {
-            // Inline options will be generated where needed; remove unused locals
-            return SingleChildScrollView(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Row(
+            return AlertDialog(
+              title: const Text('Create Task'),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Text(
-                        'Create Task',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: titleCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Title',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _datePicker(
-                          context,
-                          'Start Date',
-                          startDate,
-                          (DateTime d) => setModal(() => startDate = d),
+                      TextFormField(
+                        controller: titleCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Title *',
+                          border: OutlineInputBorder(),
                         ),
+                        validator: (String? v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _timePicker(
-                          context,
-                          'Start Time',
-                          startTime,
-                          (TimeOfDay t) => setModal(() => startTime = t),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _datePicker(
-                          context,
-                          'End Date',
-                          endDate,
-                          (DateTime d) => setModal(() => endDate = d),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _timePicker(
-                          context,
-                          'End Time',
-                          endTime,
-                          (TimeOfDay t) => setModal(() => endTime = t),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: assignTo,
-                          items: const <String>['Me', 'Anita', 'Chetan']
-                              .map(
-                                (String e) => DropdownMenuItem<String>(
-                                  value: e,
-                                  child: Text(e),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (String? v) =>
-                              setModal(() => assignTo = v ?? assignTo),
-                          decoration: const InputDecoration(
-                            labelText: 'Assign To',
-                            border: OutlineInputBorder(),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: _datePicker(
+                              context,
+                              'Start Date *',
+                              startDate,
+                              (DateTime d) => setModal(() => startDate = d),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: priority,
-                          items: const <String>['Low', 'Medium', 'High']
-                              .map(
-                                (String e) => DropdownMenuItem<String>(
-                                  value: e,
-                                  child: Text(e),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (String? v) =>
-                              setModal(() => priority = v ?? priority),
-                          decoration: const InputDecoration(
-                            labelText: 'Priority',
-                            border: OutlineInputBorder(),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _timePicker(
+                              context,
+                              'Start Time *',
+                              startTime,
+                              (TimeOfDay t) => setModal(() => startTime = t),
+                            ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: _datePicker(
+                              context,
+                              'End Date *',
+                              endDate,
+                              (DateTime d) => setModal(() => endDate = d),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _timePicker(
+                              context,
+                              'End Time *',
+                              endTime,
+                              (TimeOfDay t) => setModal(() => endTime = t),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              initialValue: assignTo,
+                              items: const <String>['Me', 'Anita', 'Chetan']
+                                  .map(
+                                    (String e) => DropdownMenuItem<String>(
+                                      value: e,
+                                      child: Text(e),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (String? v) =>
+                                  setModal(() => assignTo = v ?? assignTo),
+                              decoration: const InputDecoration(
+                                labelText: 'Assign To *',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (String? v) =>
+                                  (v == null || v.isEmpty) ? 'Required' : null,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              initialValue: priority,
+                              items: const <String>['Low', 'Medium', 'High']
+                                  .map(
+                                    (String e) => DropdownMenuItem<String>(
+                                      value: e,
+                                      child: Text(e),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (String? v) =>
+                                  setModal(() => priority = v ?? priority),
+                              decoration: const InputDecoration(
+                                labelText: 'Priority *',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (String? v) =>
+                                  (v == null || v.isEmpty) ? 'Required' : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: descCtrl,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Description',
+                          border: OutlineInputBorder(),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: descCtrl,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Description',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          tasks.insert(0, <String, String>{
-                            'title': titleCtrl.text.trim(),
-                            'desc': descCtrl.text.trim(),
-                            'assign': assignTo,
-                            'priority': priority,
-                            'status': 'Open',
-                          });
-                        });
-                        Navigator.of(ctx).pop();
-                      },
-                      icon: const Icon(Icons.check_rounded),
-                      label: const Text('Create Task'),
-                    ),
-                  ),
-                ],
+                ),
               ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton.icon(
+                  onPressed: () {
+                    if (!(formKey.currentState?.validate() ?? false)) {
+                      return;
+                    }
+                    setState(() {
+                      tasks.insert(0, <String, String>{
+                        'title': titleCtrl.text.trim(),
+                        'desc': descCtrl.text.trim(),
+                        'assign': assignTo,
+                        'priority': priority,
+                        'status': 'Open',
+                      });
+                    });
+                    Navigator.of(ctx).pop();
+                  },
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('Add Task'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openChangeStatusDialog(int index) {
+    final List<String> statuses = <String>[
+      'Open',
+      'In Progress',
+      'Completed',
+      'Cancelled',
+    ];
+    String selected = tasks[index]['status'] ?? 'Open';
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setStateDialog) {
+            return AlertDialog(
+              title: const Text('Change Status'),
+              content: DropdownButtonFormField<String>(
+                value: selected,
+                items: statuses
+                    .map(
+                      (String s) =>
+                          DropdownMenuItem<String>(value: s, child: Text(s)),
+                    )
+                    .toList(),
+                onChanged: (String? v) =>
+                    setStateDialog(() => selected = v ?? selected),
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    setState(() {
+                      tasks[index]['status'] = selected;
+                    });
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text('Update'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openEditTaskDialog(int index) {
+    final TextEditingController titleCtrl = TextEditingController(
+      text: tasks[index]['title'] ?? '',
+    );
+    final TextEditingController descCtrl = TextEditingController(
+      text: tasks[index]['desc'] ?? '',
+    );
+    String assignTo = tasks[index]['assign'] ?? 'Me';
+    String priority = tasks[index]['priority'] ?? 'Medium';
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModal) {
+            return AlertDialog(
+              title: const Text('Edit Task'),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      TextFormField(
+                        controller: titleCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Title *',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (String? v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: assignTo,
+                        items: const <String>['Me', 'Anita', 'Chetan']
+                            .map(
+                              (String e) => DropdownMenuItem<String>(
+                                value: e,
+                                child: Text(e),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (String? v) =>
+                            setModal(() => assignTo = v ?? assignTo),
+                        decoration: const InputDecoration(
+                          labelText: 'Assign To *',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: priority,
+                        items: const <String>['Low', 'Medium', 'High']
+                            .map(
+                              (String e) => DropdownMenuItem<String>(
+                                value: e,
+                                child: Text(e),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (String? v) =>
+                            setModal(() => priority = v ?? priority),
+                        decoration: const InputDecoration(
+                          labelText: 'Priority *',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: descCtrl,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Description',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    if (!(formKey.currentState?.validate() ?? false)) return;
+                    setState(() {
+                      tasks[index]['title'] = titleCtrl.text.trim();
+                      tasks[index]['desc'] = descCtrl.text.trim();
+                      tasks[index]['assign'] = assignTo;
+                      tasks[index]['priority'] = priority;
+                    });
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
             );
           },
         );

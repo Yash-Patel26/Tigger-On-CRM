@@ -1,9 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../splash/widgets/animated_glowing_logo.dart';
 import '../utils/page_transitions.dart';
 import '../screens/home_screen.dart';
 import '../splash/widgets/splash_background.dart';
+import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,6 +25,30 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final authService = Provider.of<AuthService>(context, listen: false);
+
+    final success = await authService.signInWithEmail(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
+
+    if (success && mounted) {
+      Navigator.of(context).pushReplacement(
+        SmoothPageTransitions.slideFromRight<void>(child: const HomeScreen()),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authService.error ?? 'Login failed'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -106,10 +132,21 @@ class _LoginScreenState extends State<LoginScreen> {
                               const SizedBox(height: 12),
                               TextFormField(
                                 controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
                                 decoration: const InputDecoration(
                                   labelText: 'Email',
                                 ),
-                                // Validation removed
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter your email';
+                                  }
+                                  if (!RegExp(
+                                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                  ).hasMatch(value)) {
+                                    return 'Please enter a valid email';
+                                  }
+                                  return null;
+                                },
                               ),
                               const SizedBox(height: 12),
                               TextFormField(
@@ -127,22 +164,41 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                                 ),
-                                // Validation removed
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter your password';
+                                  }
+                                  if (value.length < 6) {
+                                    return 'Password must be at least 6 characters';
+                                  }
+                                  return null;
+                                },
                               ),
                               const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton(
-                                  onPressed: () {
-                                    // Validation removed - proceed without validation
-                                    Navigator.of(context).pushReplacement(
-                                      SmoothPageTransitions.slideFromBottom<
-                                        void
-                                      >(child: const HomeScreen()),
-                                    );
-                                  },
-                                  child: const Text('Login'),
-                                ),
+                              Consumer<AuthService>(
+                                builder: (context, authService, child) {
+                                  return SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton(
+                                      onPressed: authService.isLoading
+                                          ? null
+                                          : _handleLogin,
+                                      child: authService.isLoading
+                                          ? const SizedBox(
+                                              height: 20,
+                                              width: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(Colors.white),
+                                              ),
+                                            )
+                                          : const Text('Login'),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
