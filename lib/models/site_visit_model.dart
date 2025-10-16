@@ -76,59 +76,78 @@ class SiteVisit {
   });
 
   factory SiteVisit.fromJson(Map<String, dynamic> json) {
+    String? s(String a, String b) =>
+        (json[a] as String?) ?? (json[b] as String?);
+    DateTime? d(String a, String b) {
+      final String? v = s(a, b);
+      return v == null ? null : DateTime.parse(v);
+    }
+
+    T enumVal<T>(List<T> values, String a, String b, T fallback) {
+      final String? v = s(a, b);
+      if (v == null) return fallback;
+      return values.firstWhere(
+        (e) => (e as dynamic).name == v,
+        orElse: () => fallback,
+      );
+    }
+
     return SiteVisit(
-      id: json['id'] as String,
-      srNo: json['srNo'] as String,
-      leadId: json['leadId'] as String,
-      customerId: json['customerId'] as String,
-      customerName: json['customerName'] as String,
-      customerPhone: json['customerPhone'] as String,
-      projectId: json['projectId'] as String,
-      projectName: json['projectName'] as String,
-      unitNo: json['unitNo'] as String?,
-      visitMode: VisitMode.values.firstWhere(
-        (e) => e.name == json['visitMode'],
-        orElse: () => VisitMode.physical,
+      id: s('id', 'id') ?? '',
+      srNo: s('srNo', 'sr_no') ?? '',
+      leadId: s('leadId', 'lead_id') ?? '',
+      customerId: s('customerId', 'customer_id') ?? '',
+      customerName: s('customerName', 'customer_name') ?? '',
+      customerPhone: s('customerPhone', 'customer_phone') ?? '',
+      projectId: s('projectId', 'project_id') ?? '',
+      projectName: s('projectName', 'project_name') ?? '',
+      unitNo: s('unitNo', 'unit_no'),
+      visitMode: enumVal<VisitMode>(
+        VisitMode.values,
+        'visitMode',
+        'visit_mode',
+        VisitMode.physical,
       ),
-      visitType: VisitType.values.firstWhere(
-        (e) => e.name == json['visitType'],
-        orElse: () => VisitType.propertyInspection,
+      visitType: enumVal<VisitType>(
+        VisitType.values,
+        'visitType',
+        'visit_type',
+        VisitType.propertyInspection,
       ),
-      status: SiteVisitStatus.values.firstWhere(
-        (e) => e.name == json['status'],
-        orElse: () => SiteVisitStatus.scheduled,
+      status: enumVal<SiteVisitStatus>(
+        SiteVisitStatus.values,
+        'status',
+        'status',
+        SiteVisitStatus.scheduled,
       ),
-      telecallerId: json['telecallerId'] as String?,
-      telecallerName: json['telecallerName'] as String?,
-      allocatedAt: json['allocatedAt'] != null
-          ? DateTime.parse(json['allocatedAt'] as String)
-          : null,
-      allocatedBy: json['allocatedBy'] as String?,
-      source: json['source'] as String?,
-      meetingFrom: json['meetingFrom'] != null
-          ? DateTime.parse(json['meetingFrom'] as String)
-          : null,
-      meetingTo: json['meetingTo'] != null
-          ? DateTime.parse(json['meetingTo'] as String)
-          : null,
-      purpose: json['purpose'] as String?,
-      address: json['address'] as String?,
-      minutes: json['minutes'] as String?,
-      attenderId: json['attenderId'] as String?,
-      attenderName: json['attenderName'] as String?,
-      officeMeetingDateTime: json['officeMeetingDateTime'] != null
-          ? DateTime.parse(json['officeMeetingDateTime'] as String)
-          : null,
-      feedback: json['feedback'] as String?,
-      notes: json['notes'] as String?,
-      attachments: json['attachments'] != null
-          ? List<String>.from(json['attachments'] as List)
-          : null,
-      createdBy: json['createdBy'] as String,
-      createdByName: json['createdByName'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      customFields: json['customFields'] as Map<String, dynamic>?,
+      telecallerId: s('telecallerId', 'telecaller_id'),
+      telecallerName: s('telecallerName', 'telecaller_name'),
+      allocatedAt: d('allocatedAt', 'allocated_at'),
+      allocatedBy: s('allocatedBy', 'allocated_by'),
+      source: s('source', 'source'),
+      meetingFrom: d('meetingFrom', 'meeting_from'),
+      meetingTo: d('meetingTo', 'meeting_to'),
+      purpose: s('purpose', 'purpose'),
+      address: s('address', 'address'),
+      minutes: s('minutes', 'minutes'),
+      attenderId: s('attenderId', 'attender_id'),
+      attenderName: s('attenderName', 'attender_name'),
+      officeMeetingDateTime: d(
+        'officeMeetingDateTime',
+        'office_meeting_date_time',
+      ),
+      feedback: s('feedback', 'feedback'),
+      notes: s('notes', 'notes'),
+      attachments: (json['attachments'] as List?)
+          ?.map((e) => e.toString())
+          .toList(),
+      createdBy: s('createdBy', 'created_by') ?? '',
+      createdByName: s('createdByName', 'created_by_name') ?? '',
+      createdAt: d('createdAt', 'created_at') ?? DateTime.now(),
+      updatedAt: d('updatedAt', 'updated_at') ?? DateTime.now(),
+      customFields:
+          (json['customFields'] as Map<String, dynamic>?) ??
+          json['custom_fields'] as Map<String, dynamic>?,
     );
   }
 

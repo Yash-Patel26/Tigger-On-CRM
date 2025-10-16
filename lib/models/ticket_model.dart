@@ -152,54 +152,74 @@ class Ticket {
   });
 
   factory Ticket.fromJson(Map<String, dynamic> json) {
+    String? s(String a, String b) =>
+        (json[a] as String?) ?? (json[b] as String?);
+    DateTime? d(String a, String b) {
+      final String? v = s(a, b);
+      return v == null ? null : DateTime.parse(v);
+    }
+
+    T enumVal<T>(List<T> values, String a, String b, T fallback) {
+      final String? v = s(a, b);
+      if (v == null) return fallback;
+      return values.firstWhere(
+        (e) => (e as dynamic).name == v,
+        orElse: () => fallback,
+      );
+    }
+
     return Ticket(
-      id: json['id'] as String,
-      ticketNumber: json['ticketNumber'] as String,
-      leadId: json['leadId'] as String?,
-      customerId: json['customerId'] as String?,
-      projectId: json['projectId'] as String?,
-      unitNumber: json['unitNumber'] as String?,
-      contactName: json['contactName'] as String,
-      contactMobile: json['contactMobile'] as String,
-      alternateNumber: json['alternateNumber'] as String?,
-      issueTitle: json['issueTitle'] as String,
-      issueDescription: json['issueDescription'] as String,
-      ticketType: TicketType.values.firstWhere(
-        (e) => e.name == json['ticketType'],
-        orElse: () => TicketType.issue,
+      id: s('id', 'id') ?? '',
+      ticketNumber: s('ticketNumber', 'ticket_number') ?? '',
+      leadId: s('leadId', 'lead_id'),
+      customerId: s('customerId', 'customer_id'),
+      projectId: s('projectId', 'project_id'),
+      unitNumber: s('unitNumber', 'unit_number'),
+      contactName: s('contactName', 'contact_name') ?? '-',
+      contactMobile: s('contactMobile', 'contact_mobile') ?? '-',
+      alternateNumber: s('alternateNumber', 'alternate_number'),
+      issueTitle: s('issueTitle', 'issue_title') ?? '-',
+      issueDescription: s('issueDescription', 'issue_description') ?? '-',
+      ticketType: enumVal<TicketType>(
+        TicketType.values,
+        'ticketType',
+        'ticket_type',
+        TicketType.issue,
       ),
-      serviceType: ServiceType.values.firstWhere(
-        (e) => e.name == json['serviceType'],
-        orElse: () => ServiceType.other,
+      serviceType: enumVal<ServiceType>(
+        ServiceType.values,
+        'serviceType',
+        'service_type',
+        ServiceType.other,
       ),
-      priority: TicketPriority.values.firstWhere(
-        (e) => e.name == json['priority'],
-        orElse: () => TicketPriority.medium,
+      priority: enumVal<TicketPriority>(
+        TicketPriority.values,
+        'priority',
+        'priority',
+        TicketPriority.medium,
       ),
-      status: TicketStatus.values.firstWhere(
-        (e) => e.name == json['status'],
-        orElse: () => TicketStatus.open,
+      status: enumVal<TicketStatus>(
+        TicketStatus.values,
+        'status',
+        'status',
+        TicketStatus.open,
       ),
-      assignedTo: json['assignedTo'] as String?,
-      assignedToName: json['assignedToName'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String)
-          : null,
-      resolvedAt: json['resolvedAt'] != null
-          ? DateTime.parse(json['resolvedAt'] as String)
-          : null,
-      closedAt: json['closedAt'] != null
-          ? DateTime.parse(json['closedAt'] as String)
-          : null,
-      resolution: json['resolution'] as String?,
-      notes: json['notes'] as String?,
+      assignedTo: s('assignedTo', 'assigned_to'),
+      assignedToName: s('assignedToName', 'assigned_to_name'),
+      createdAt: d('createdAt', 'created_at') ?? DateTime.now(),
+      updatedAt: d('updatedAt', 'updated_at'),
+      resolvedAt: d('resolvedAt', 'resolved_at'),
+      closedAt: d('closedAt', 'closed_at'),
+      resolution: s('resolution', 'resolution'),
+      notes: s('notes', 'notes'),
       attachments:
           (json['attachments'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
-      metadata: json['metadata'] as Map<String, dynamic>?,
+      metadata:
+          (json['metadata'] as Map<String, dynamic>?) ??
+          json['metadata'] as Map<String, dynamic>?,
     );
   }
 

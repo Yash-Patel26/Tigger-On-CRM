@@ -118,47 +118,60 @@ class Task {
   });
 
   factory Task.fromJson(Map<String, dynamic> json) {
+    String? s(String a, String b) =>
+        (json[a] as String?) ?? (json[b] as String?);
+    DateTime? d(String a, String b) {
+      final String? v = s(a, b);
+      return v == null ? null : DateTime.parse(v);
+    }
+
+    String req(String a, String b) => s(a, b) ?? '';
+    T enumVal<T>(List<T> values, String a, String b, T fallback) {
+      final String v = s(a, b) ?? '';
+      return values.firstWhere(
+        (e) => (e as dynamic).name == v,
+        orElse: () => fallback,
+      );
+    }
+
     return Task(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String,
-      type: TaskType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => TaskType.other,
+      id: req('id', 'id'),
+      title: req('title', 'title'),
+      description: s('description', 'description') ?? '',
+      type: enumVal<TaskType>(TaskType.values, 'type', 'type', TaskType.other),
+      priority: enumVal<TaskPriority>(
+        TaskPriority.values,
+        'priority',
+        'priority',
+        TaskPriority.medium,
       ),
-      priority: TaskPriority.values.firstWhere(
-        (e) => e.name == json['priority'],
-        orElse: () => TaskPriority.medium,
+      status: enumVal<TaskStatus>(
+        TaskStatus.values,
+        'status',
+        'status',
+        TaskStatus.pending,
       ),
-      status: TaskStatus.values.firstWhere(
-        (e) => e.name == json['status'],
-        orElse: () => TaskStatus.pending,
-      ),
-      assignedTo: json['assignedTo'] as String?,
-      assignedToName: json['assignedToName'] as String?,
-      createdBy: json['createdBy'] as String?,
-      createdByName: json['createdByName'] as String?,
-      leadId: json['leadId'] as String?,
-      customerId: json['customerId'] as String?,
-      projectId: json['projectId'] as String?,
-      siteVisitId: json['siteVisitId'] as String?,
-      dueDate: json['dueDate'] != null
-          ? DateTime.parse(json['dueDate'] as String)
-          : null,
-      completedAt: json['completedAt'] != null
-          ? DateTime.parse(json['completedAt'] as String)
-          : null,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String)
-          : null,
-      notes: json['notes'] as String?,
+      assignedTo: s('assignedTo', 'assigned_to'),
+      assignedToName: s('assignedToName', 'assigned_to_name'),
+      createdBy: s('createdBy', 'created_by'),
+      createdByName: s('createdByName', 'created_by_name'),
+      leadId: s('leadId', 'lead_id'),
+      customerId: s('customerId', 'customer_id'),
+      projectId: s('projectId', 'project_id'),
+      siteVisitId: s('siteVisitId', 'site_visit_id'),
+      dueDate: d('dueDate', 'due_date'),
+      completedAt: d('completedAt', 'completed_at'),
+      createdAt: d('createdAt', 'created_at') ?? DateTime.now(),
+      updatedAt: d('updatedAt', 'updated_at'),
+      notes: s('notes', 'notes'),
       attachments:
           (json['attachments'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
-      metadata: json['metadata'] as Map<String, dynamic>?,
+      metadata:
+          (json['metadata'] as Map<String, dynamic>?) ??
+          json['metadata'] as Map<String, dynamic>?,
     );
   }
 

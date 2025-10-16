@@ -9,14 +9,39 @@ import 'site_visit_detail_screen.dart';
 import '../models/lead_model.dart';
 import '../repositories/lead_repository.dart';
 import '../models/project_model.dart';
-import '../repositories/project_repository.dart';
-import '../services/api_service.dart';
-import 'project_detail_screen.dart';
+// import '../repositories/project_repository.dart';
+// import '../services/api_service.dart';
+import '../services/database_service.dart';
+import '../models/models.dart';
+// import 'project_detail_screen.dart';
 
-class LeadDetailScreen extends StatelessWidget {
+class LeadDetailScreen extends StatefulWidget {
   const LeadDetailScreen({super.key, required this.leadId});
 
   final String leadId;
+
+  @override
+  State<LeadDetailScreen> createState() => _LeadDetailScreenState();
+}
+
+class _LeadDetailScreenState extends State<LeadDetailScreen> {
+  final LeadRepository _leadRepository = LeadRepository();
+
+  late Future<Lead> _leadFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _leadFuture = _fetchLead();
+  }
+
+  Future<Lead> _fetchLead() async {
+    final response = await _leadRepository.getLead(widget.leadId);
+    if (response.success && response.data != null) {
+      return response.data!;
+    }
+    throw Exception(response.error ?? 'Failed to load lead');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +56,7 @@ class LeadDetailScreen extends StatelessWidget {
             children: <Widget>[
               const Text('Lead Details', style: TextStyle(fontSize: 18)),
               Text(
-                leadId,
+                widget.leadId,
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.normal,
@@ -174,60 +199,80 @@ class LeadDetailScreen extends StatelessWidget {
             ),
           ),
         ),
-        body: TabBarView(
-          children: <Widget>[
-            // Lead Detail tab
-            SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  _SectionCard(
-                    title: '',
-                    children: <Widget>[_ContactCompact()],
+        body: FutureBuilder<Lead>(
+          future: _leadFuture,
+          builder: (BuildContext context, AsyncSnapshot<Lead> snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Failed to load lead: ${snapshot.error}',
+                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 12),
-                  _CollapsibleCard(
-                    title: 'Preferred Project & Location',
-                    child: _ProjectLocationCompact(),
-                  ),
-                  const SizedBox(height: 12),
+                ),
+              );
+            }
+            final Lead lead = snapshot.data!;
+            return TabBarView(
+              children: <Widget>[
+                // Lead Detail tab
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _SectionCard(
+                        title: '',
+                        children: <Widget>[_ContactCompact(lead: lead)],
+                      ),
+                      const SizedBox(height: 12),
+                      _CollapsibleCard(
+                        title: 'Preferred Project & Location',
+                        child: _ProjectLocationCompact(lead: lead),
+                      ),
+                      const SizedBox(height: 12),
 
-                  _CollapsibleCard(
-                    title: 'Personal Information',
-                    child: _PersonalInfoCard(),
-                  ),
-                  const SizedBox(height: 12),
+                      _CollapsibleCard(
+                        title: 'Personal Information',
+                        child: _PersonalInfoCard(),
+                      ),
+                      const SizedBox(height: 12),
 
-                  // Removed Schedule Follow-up card per spec
-                  _CollapsibleCard(
-                    title: 'Timeline',
-                    child: _TimelineCompact(),
+                      // Removed Schedule Follow-up card per spec
+                      _CollapsibleCard(
+                        title: 'Timeline',
+                        child: _TimelineCompact(leadId: lead.id),
+                      ),
+                      const SizedBox(height: 12),
+                      _CollapsibleCard(
+                        title: 'Activity & Assignment History',
+                        child: _ActivityCompact(),
+                      ),
+                      const SizedBox(height: 72),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  _CollapsibleCard(
-                    title: 'Activity & Assignment History',
-                    child: _ActivityCompact(),
-                  ),
-                  const SizedBox(height: 72),
-                ],
-              ),
-            ),
-            // Cross Sell
-            const _CrossSellTab(),
-            // Reference
-            const _ReferenceTab(),
-            // Site Visit
-            const _SiteVisitTab(),
-            // Task
-            const _TaskTab(),
-            // Question
-            const _QuestionTab(),
-            // Property Option
-            const _PropertyOptionTab(),
-            // Ticket
-            const _TicketTab(),
-          ],
+                ),
+                // Cross Sell
+                _CrossSellTab(leadId: lead.id),
+                // Reference
+                _ReferenceTab(leadId: lead.id),
+                // Site Visit
+                _SiteVisitTab(leadId: lead.id),
+                // Task
+                _TaskTab(leadId: lead.id),
+                // Question
+                const _QuestionTab(),
+                // Property Option
+                const _PropertyOptionTab(),
+                // Ticket
+                _TicketTab(leadId: lead.id),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -736,21 +781,20 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
 }
 
 class _CrossSellTab extends StatefulWidget {
-  const _CrossSellTab();
+  const _CrossSellTab({required this.leadId});
+  final String leadId;
   @override
   State<_CrossSellTab> createState() => _CrossSellTabState();
 }
 
 class _CrossSellTabState extends State<_CrossSellTab> {
-  final List<Map<String, String>> _items = <Map<String, String>>[
-    <String, String>{
-      'category': 'Residential',
-      'propertyType': 'Apartment',
-      'project': 'Project Alpha',
-      'allocatedTo': 'Me',
-      'description': '2BHK options in Alpha',
-    },
-  ];
+  late Future<List<Map<String, dynamic>>> _itemsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _itemsFuture = DatabaseService.getLeadCrossSells(leadId: widget.leadId);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -769,23 +813,42 @@ class _CrossSellTabState extends State<_CrossSellTab> {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: _items.isEmpty
-                ? const Center(child: Text('No cross sells yet'))
-                : ListView.separated(
-                    itemCount: _items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (BuildContext context, int index) {
-                      final Map<String, String> it = _items[index];
-                      return _crossSellCard(context, it);
-                    },
-                  ),
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _itemsFuture,
+              builder:
+                  (
+                    BuildContext context,
+                    AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
+                  ) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return const Center(
+                        child: Text('Failed to load cross sells'),
+                      );
+                    }
+                    final items = snapshot.data ?? <Map<String, dynamic>>[];
+                    if (items.isEmpty) {
+                      return const Center(child: Text('No cross sells yet'));
+                    }
+                    return ListView.separated(
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (BuildContext context, int index) {
+                        final Map<String, dynamic> it = items[index];
+                        return _crossSellCard(context, it);
+                      },
+                    );
+                  },
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _crossSellCard(BuildContext context, Map<String, String> it) {
+  Widget _crossSellCard(BuildContext context, Map<String, dynamic> it) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -807,7 +870,7 @@ class _CrossSellTabState extends State<_CrossSellTab> {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  it['project'] ?? '-',
+                  (it['project_name'] ?? it['project'] ?? '-') as String,
                   style: Theme.of(
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -827,7 +890,7 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                   ),
                 ),
                 child: Text(
-                  it['category'] ?? '-',
+                  (it['category'] ?? '-') as String,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.w700,
@@ -841,16 +904,20 @@ class _CrossSellTabState extends State<_CrossSellTab> {
             children: <Widget>[
               const Icon(Icons.apartment, size: 14),
               const SizedBox(width: 6),
-              Text(it['propertyType'] ?? '-'),
+              Text(
+                (it['property_type'] ?? it['propertyType'] ?? '-') as String,
+              ),
               const SizedBox(width: 12),
               const Icon(Icons.person_outline, size: 14),
               const SizedBox(width: 6),
-              Text('Allocated: ${it['allocatedTo'] ?? '-'}'),
+              Text(
+                'Allocated: ${(it['allocated_to_name'] ?? it['allocatedTo'] ?? '-') as String}',
+              ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
-            it['description'] ?? '-',
+            (it['description'] ?? '-') as String,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
@@ -863,7 +930,8 @@ class _CrossSellTabState extends State<_CrossSellTab> {
     String category = 'Residential';
     String propertyType = 'Apartment';
     String project = 'Project Alpha';
-    String allocatedTo = 'Me';
+    String allocatedTo = '';
+    String? allocatedToId;
     final TextEditingController descCtrl = TextEditingController();
     showModalBottomSheet<void>(
       context: context,
@@ -954,22 +1022,52 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: allocatedTo,
-                    items: const <String>['Me', 'Team 1', 'Team 2']
-                        .map(
-                          (String e) => DropdownMenuItem<String>(
-                            value: e,
-                            child: Text(e),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (String? v) =>
-                        setModal(() => allocatedTo = v ?? allocatedTo),
-                    decoration: const InputDecoration(
-                      labelText: 'Allocated To',
-                      border: OutlineInputBorder(),
-                    ),
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future:
+                        DatabaseServiceUsersAndDisposition.getAssignableUsers(),
+                    builder:
+                        (
+                          BuildContext _,
+                          AsyncSnapshot<List<Map<String, dynamic>>> snap,
+                        ) {
+                          if (snap.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (snap.hasError) {
+                            return const Text('Failed to load assignees');
+                          }
+                          final List<Map<String, dynamic>> users =
+                              snap.data ?? <Map<String, dynamic>>[];
+                          return DropdownButtonFormField<String>(
+                            value: allocatedToId,
+                            items: users
+                                .map(
+                                  (Map<String, dynamic> u) =>
+                                      DropdownMenuItem<String>(
+                                        value: (u['id'] ?? '') as String,
+                                        child: Text(
+                                          (u['name'] ?? '-') as String,
+                                        ),
+                                      ),
+                                )
+                                .toList(),
+                            onChanged: (String? v) => setModal(() {
+                              allocatedToId = v;
+                              final Map<String, dynamic>? user = users
+                                  .firstWhere(
+                                    (Map<String, dynamic> e) => e['id'] == v,
+                                    orElse: () => <String, dynamic>{},
+                                  );
+                              allocatedTo = (user?['name'] ?? '-') as String;
+                            }),
+                            decoration: const InputDecoration(
+                              labelText: 'Allocated To',
+                              border: OutlineInputBorder(),
+                            ),
+                          );
+                        },
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -984,17 +1082,54 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _items.insert(0, <String, String>{
-                            'category': category,
-                            'propertyType': propertyType,
-                            'project': project,
-                            'allocatedTo': allocatedTo,
-                            'description': descCtrl.text.trim(),
+                      onPressed: () async {
+                        try {
+                          // Auto-create a minimal linked lead based on context
+                          final String inferredName = [
+                            project.trim().isEmpty ? null : project.trim(),
+                            category.trim().isEmpty ? null : category.trim(),
+                            propertyType.trim().isEmpty
+                                ? null
+                                : propertyType.trim(),
+                          ].whereType<String>().join(' ');
+                          final Lead linkedLead =
+                              await DatabaseService.createLeadMinimal(
+                                customerName: inferredName.isEmpty
+                                    ? 'Cross-sell Lead'
+                                    : 'Cross-sell: $inferredName',
+                                source: LeadSource.referral,
+                              );
+
+                          await DatabaseService.createLeadCrossSell(
+                            leadId: widget.leadId,
+                            category: category,
+                            propertyType: propertyType,
+                            projectName: project,
+                            allocatedToName: allocatedTo,
+                            allocatedToId: allocatedToId,
+                            description: descCtrl.text.trim(),
+                            linkedLeadId: linkedLead.id,
+                          );
+                          if (!mounted) return;
+                          setState(() {
+                            _itemsFuture = DatabaseService.getLeadCrossSells(
+                              leadId: widget.leadId,
+                            );
                           });
-                        });
-                        Navigator.of(ctx).pop();
+                          Navigator.of(ctx).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Cross sell and linked lead created',
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+                        }
                       },
                       icon: const Icon(Icons.check_rounded),
                       label: const Text('Create'),
@@ -1011,9 +1146,11 @@ class _CrossSellTabState extends State<_CrossSellTab> {
 }
 
 class _ContactCompact extends StatelessWidget {
+  const _ContactCompact({required this.lead});
+  final Lead lead;
   @override
   Widget build(BuildContext context) {
-    final DateTime requestAt = DateTime.now().subtract(const Duration(days: 3));
+    final DateTime requestAt = lead.createdAt;
     // In a real app, read gender from customer data
     const String gender = 'Male';
     final IconData genderIcon = gender == 'Female'
@@ -1074,7 +1211,7 @@ class _ContactCompact extends StatelessWidget {
         Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            'Mayank11',
+            lead.customerName.isEmpty ? '-' : lead.customerName,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(
@@ -1084,7 +1221,7 @@ class _ContactCompact extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         // Contact numbers and email removed as requested
-        _LeadInfoKeyValues(),
+        _LeadInfoKeyValues(lead: lead),
       ],
     );
   }
@@ -1417,6 +1554,8 @@ class _LeadMetaCompactState extends State<_LeadMetaCompact> {
 }
 
 class _LeadInfoKeyValues extends StatelessWidget {
+  const _LeadInfoKeyValues({required this.lead});
+  final Lead lead;
   @override
   Widget build(BuildContext context) {
     final TextStyle labelStyle = Theme.of(context).textTheme.bodyMedium!
@@ -1455,39 +1594,57 @@ class _LeadInfoKeyValues extends StatelessWidget {
     return Column(
       children: <Widget>[
         const Divider(height: 1),
-        kv('E-Mail', vText('m*y@gm*il.com', link: true)),
+        kv('E-Mail', vText(lead.email.isEmpty ? '-' : lead.email, link: true)),
         const Divider(height: 1),
-        kv('Alternate Number', vText('-')),
+        kv('Alternate Number', vText(lead.alternatePhone ?? '-')),
         const Divider(height: 1),
-        kv('Project Name', vText('4s The Aurrum', link: true)),
+        kv('Project Name', vText(lead.projectName ?? '-', link: true)),
         const Divider(height: 1),
-        kv('Raw Mobile', vText('9816353871', link: true)),
+        kv(
+          'Raw Mobile',
+          vText(lead.phone.isEmpty ? '-' : lead.phone, link: true),
+        ),
         const Divider(height: 1),
-        kv('Allocated To', vText('Anita', link: true)),
+        kv(
+          'Allocated To',
+          vText(
+            lead.assignedToName.isEmpty ? '-' : lead.assignedToName,
+            link: true,
+          ),
+        ),
         const Divider(height: 1),
-        kv('Status', vText('-')),
+        kv('Status', vText(lead.status.name)),
         const Divider(height: 1),
-        kv('Follow-Up At', vText('-')),
+        kv(
+          'Follow-Up At',
+          vText(
+            lead.nextFollowUpDate == null
+                ? '-'
+                : lead.nextFollowUpDate!.toLocal().toString(),
+          ),
+        ),
         const Divider(height: 1),
-        kv('Purchase Plan', vText('-')),
+        kv('Purchase Plan', vText(lead.budgetRange ?? '-')),
         const Divider(height: 1),
-        kv('State', vText('Haryana')),
+        kv('State', vText(lead.state ?? '-')),
         const Divider(height: 1),
-        kv('City', vText('Gurgaon')),
+        kv('City', vText(lead.city ?? '-')),
         const Divider(height: 1),
-        kv('Category', vText('Residential', link: true)),
+        kv('Category', vText(lead.categoryType.name, link: true)),
         const Divider(height: 1),
-        kv('Property Type', vText('Apartment', link: true)),
+        kv('Property Type', vText(lead.propertyType.name, link: true)),
         const Divider(height: 1),
-        kv('Occupation', vText('Software Engineer')),
+        kv('Occupation', vText('-')),
         const Divider(height: 1),
-        kv('Customer Location', vText('Andheri West, Mumbai')),
+        kv('Customer Location', vText(lead.address ?? '-')),
       ],
     );
   }
 }
 
 class _ProjectLocationCompact extends StatelessWidget {
+  const _ProjectLocationCompact({required this.lead});
+  final Lead lead;
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -1495,24 +1652,27 @@ class _ProjectLocationCompact extends StatelessWidget {
       children: <Widget>[
         Row(
           children: <Widget>[
-            const Expanded(
+            Expanded(
               child: _LabelValueText(
                 label: 'Project: ',
-                value: 'Project Alpha',
+                value: lead.projectName ?? '-',
               ),
             ),
-            const _LabelValueText(label: 'City: ', value: 'Mumbai'),
+            _LabelValueText(label: 'City: ', value: lead.city ?? '-'),
           ],
         ),
         const SizedBox(height: 8),
-        const _LabelValueText(label: 'State: ', value: 'Maharashtra'),
+        _LabelValueText(label: 'State: ', value: lead.state ?? '-'),
         const SizedBox(height: 4),
-        const _LabelValueText(
+        _LabelValueText(
           label: 'Customer Location: ',
-          value: 'Andheri West, Mumbai',
+          value: lead.address ?? '-',
         ),
         const SizedBox(height: 4),
-        const _LabelValueText(label: 'Purchase Plan: ', value: '2 BHK'),
+        _LabelValueText(
+          label: 'Purchase Plan: ',
+          value: lead.requirements ?? '-',
+        ),
       ],
     );
   }
@@ -2860,9 +3020,44 @@ class _FollowUpInlineState extends State<_FollowUpInline> {
 // Removed _PreferencesCompact per request
 
 class _TimelineCompact extends StatelessWidget {
+  const _TimelineCompact({required this.leadId});
+  final String leadId;
   @override
   Widget build(BuildContext context) {
-    return _TimelineCard();
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: LeadRepository()
+          .getLeadTimeline(leadId)
+          .then((r) => r.data ?? <Map<String, dynamic>>[]),
+      builder:
+          (
+            BuildContext context,
+            AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
+          ) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Failed to load timeline: ${snapshot.error}'),
+              );
+            }
+            final List<Map<String, dynamic>> items =
+                snapshot.data ?? <Map<String, dynamic>>[];
+            if (items.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No timeline events'),
+              );
+            }
+            return _TimelineCard(items: items);
+          },
+    );
   }
 }
 
@@ -2996,22 +3191,28 @@ void _launchWhatsAppWeb(String phoneNumber) async {
 }
 
 class _ReferenceTab extends StatefulWidget {
-  const _ReferenceTab();
+  const _ReferenceTab({required this.leadId});
+  final String leadId;
   @override
   State<_ReferenceTab> createState() => _ReferenceTabState();
 }
 
 class _ReferenceTabState extends State<_ReferenceTab> {
-  final List<Map<String, String>> _refs = <Map<String, String>>[
-    <String, String>{
-      'firstName': 'Rahul',
-      'middleName': '',
-      'lastName': 'Verma',
-      'contact': '+91 98765 11111',
-      'email': 'rahul.verma@example.com',
-      'note': 'Looking for 2BHK near city center.',
-    },
-  ];
+  late Future<List<Map<String, dynamic>>> _refsFutureTo;
+  late Future<List<Map<String, dynamic>>> _refsFutureBy;
+
+  @override
+  void initState() {
+    super.initState();
+    _refsFutureTo = DatabaseService.getLeadReferences(
+      leadId: widget.leadId,
+      direction: 'to',
+    );
+    _refsFutureBy = DatabaseService.getLeadReferences(
+      leadId: widget.leadId,
+      direction: 'by',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3120,34 +3321,113 @@ class _ReferenceTabState extends State<_ReferenceTab> {
   }
 
   Widget _referredToCard(BuildContext context) {
-    final Map<String, String> r = _refs.isNotEmpty
-        ? _refs.first
-        : <String, String>{};
-    return _refCard(context, r);
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _refsFutureTo,
+      builder:
+          (
+            BuildContext context,
+            AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
+          ) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+            if (snapshot.hasError) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Center(child: Text('Failed to load')),
+              );
+            }
+            final r =
+                (snapshot.data ?? <Map<String, dynamic>>[]).firstOrNull ??
+                <String, dynamic>{};
+            return _refCard(
+              context,
+              r.map((k, v) => MapEntry(k, v?.toString() ?? '')),
+            );
+          },
+    );
   }
 
   Widget _referredByCard(BuildContext context) {
-    if (_refs.length < 2) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: <BoxShadow>[
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: const Center(child: Text("Didn't Refer By Anyone")),
-      );
-    }
-    final Map<String, String> r = _refs[1];
-    return _refCard(context, r);
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _refsFutureBy,
+      builder:
+          (
+            BuildContext context,
+            AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
+          ) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+            if (snapshot.hasError) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Center(child: Text('Failed to load')),
+              );
+            }
+            final items = snapshot.data ?? <Map<String, dynamic>>[];
+            if (items.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Center(child: Text("Didn't Refer By Anyone")),
+              );
+            }
+            final r = items.first;
+            return _refCard(
+              context,
+              r.map((k, v) => MapEntry(k, v?.toString() ?? '')),
+            );
+          },
+    );
   }
 
   Widget _kvSmall(
@@ -3372,27 +3652,58 @@ class _ReferenceTabState extends State<_ReferenceTab> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: () {
+                    onPressed: () async {
                       if (!(formKey.currentState?.validate() ?? false)) return;
-                      setState(() {
-                        _refs.insert(0, <String, String>{
-                          'firstName': fCtrl.text.trim(),
-                          'middleName': mCtrl.text.trim(),
-                          'lastName': lCtrl.text.trim(),
-                          'contact': cCtrl.text.trim(),
-                          'email': eCtrl.text.trim(),
-                          'note': noteCtrl.text.trim(),
+                      try {
+                        // Auto-create a linked lead from the reference details
+                        final String customerName = <String>[
+                          fCtrl.text.trim(),
+                          mCtrl.text.trim(),
+                          lCtrl.text.trim(),
+                        ].where((String s) => s.isNotEmpty).join(' ');
+                        final Lead linkedLead =
+                            await DatabaseService.createLeadMinimal(
+                              customerName: customerName.isEmpty
+                                  ? 'New Referral'
+                                  : customerName,
+                              email: eCtrl.text.trim(),
+                              phone: cCtrl.text.trim(),
+                              source: LeadSource.referral,
+                            );
+
+                        // Create the reference with linked_lead_id set
+                        await DatabaseService.createLeadReference(
+                          leadId: widget.leadId,
+                          direction: 'to',
+                          firstName: fCtrl.text.trim(),
+                          middleName: mCtrl.text.trim().isEmpty
+                              ? null
+                              : mCtrl.text.trim(),
+                          lastName: lCtrl.text.trim(),
+                          contact: cCtrl.text.trim(),
+                          email: eCtrl.text.trim(),
+                          note: noteCtrl.text.trim(),
+                          linkedLeadId: linkedLead.id,
+                        );
+                        if (!mounted) return;
+                        setState(() {
+                          _refsFutureTo = DatabaseService.getLeadReferences(
+                            leadId: widget.leadId,
+                            direction: 'to',
+                          );
                         });
-                      });
-                      _createLeadFromReference(
-                        firstName: fCtrl.text.trim(),
-                        middleName: mCtrl.text.trim(),
-                        lastName: lCtrl.text.trim(),
-                        contact: cCtrl.text.trim(),
-                        email: eCtrl.text.trim(),
-                        note: noteCtrl.text.trim(),
-                      );
-                      Navigator.of(ctx).pop();
+                        Navigator.of(ctx).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Reference and linked lead created'),
+                          ),
+                        );
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to create: $e')),
+                        );
+                      }
                     },
                     child: const Text('Create'),
                   ),
@@ -3404,92 +3715,26 @@ class _ReferenceTabState extends State<_ReferenceTab> {
       },
     );
   }
-
-  Future<void> _createLeadFromReference({
-    required String firstName,
-    required String middleName,
-    required String lastName,
-    required String contact,
-    required String email,
-    required String note,
-  }) async {
-    final String fullName = <String>[
-      firstName,
-      middleName,
-      lastName,
-    ].where((String s) => s.trim().isNotEmpty).join(' ');
-    final Lead lead = Lead(
-      id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
-      leadId: 'LD-${DateTime.now().millisecondsSinceEpoch % 100000}',
-      customerName: fullName.isEmpty ? 'Reference Lead' : fullName,
-      email: email,
-      phone: contact,
-      status: LeadStatus.warm,
-      subStatus: LeadSubStatus.newLead,
-      source: LeadSource.referral,
-      propertyType: PropertyType.residential,
-      categoryType: CategoryType.b,
-      assignedTo: 'self',
-      assignedToName: 'Me',
-      createdBy: 'self',
-      createdByName: 'Me',
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      requirements: note.isEmpty ? null : note,
-    );
-
-    try {
-      final LeadRepository repo = LeadRepository();
-      final response = await repo.createLead(lead);
-      if (!mounted) return;
-      // Attach a usable leadId to newest reference so tapping the name can open details
-      if (_refs.isNotEmpty) {
-        final String resolvedLeadId =
-            response.data?.leadId ?? response.data?.id ?? lead.leadId;
-        setState(() {
-          _refs.first['leadId'] = resolvedLeadId;
-        });
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            response.success
-                ? 'Lead created from reference'
-                : (response.message ?? 'Failed to create lead'),
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Failed to create lead')));
-    }
-  }
 }
 
 class _SiteVisitTab extends StatefulWidget {
-  const _SiteVisitTab();
+  const _SiteVisitTab({required this.leadId});
+  final String leadId;
   @override
   State<_SiteVisitTab> createState() => _SiteVisitTabState();
 }
 
 class _SiteVisitTabState extends State<_SiteVisitTab> {
-  final List<Map<String, String>> _visits = <Map<String, String>>[
-    <String, String>{
-      'contact': '+91 98765 43210',
-      'leadRef': 'LD-1001123567',
-      'name': 'Alex Johnson',
-      'attender': 'Riya',
-      'purpose': 'Project briefing',
-      'mode': 'Onsite',
-      'from': '2025-09-25 11:00',
-      'to': '2025-09-25 12:00',
-      'location': 'Gift City',
-      'address': 'Plot 21, Gift City, Gandhinagar',
-      'status': 'Scheduled',
-    },
-  ];
+  late Future<List<SiteVisit>> _visitsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _visitsFuture = DatabaseService.getSiteVisits(
+      leadId: widget.leadId,
+      limit: 200,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3510,16 +3755,35 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: _visits.isEmpty
-                  ? const Center(child: Text('No site visits yet'))
-                  : ListView.separated(
-                      itemCount: _visits.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (BuildContext context, int index) {
-                        final Map<String, String> v = _visits[index];
-                        return _visitCard(context, v);
-                      },
-                    ),
+              child: FutureBuilder<List<SiteVisit>>(
+                future: _visitsFuture,
+                builder:
+                    (
+                      BuildContext context,
+                      AsyncSnapshot<List<SiteVisit>> snapshot,
+                    ) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Text('Failed to load site visits'),
+                        );
+                      }
+                      final List<SiteVisit> visits =
+                          snapshot.data ?? <SiteVisit>[];
+                      if (visits.isEmpty)
+                        return const Center(child: Text('No site visits yet'));
+                      return ListView.separated(
+                        itemCount: visits.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (BuildContext context, int index) {
+                          final SiteVisit v = visits[index];
+                          return _visitCard(context, v);
+                        },
+                      );
+                    },
+              ),
             ),
           ],
         ),
@@ -3527,7 +3791,7 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
     );
   }
 
-  Widget _visitCard(BuildContext context, Map<String, String> v) {
+  Widget _visitCard(BuildContext context, SiteVisit v) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -3548,13 +3812,13 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                _kvSmall(context, 'Date', _formatVisitDate(v['from'])),
+                _kvSmall(context, 'Date', _formatVisitDate(v.meetingFrom)),
                 const SizedBox(height: 10),
-                _kvSmall(context, 'Purpose', v['purpose'] ?? '-'),
+                _kvSmall(context, 'Purpose', v.purpose ?? '-'),
                 const SizedBox(height: 10),
-                _kvSmall(context, 'Location', v['location'] ?? '-'),
+                _kvSmall(context, 'Location', v.address ?? '-'),
                 const SizedBox(height: 10),
-                _kvSmall(context, 'Status', v['status'] ?? 'Scheduled'),
+                _kvSmall(context, 'Status', v.status.name),
               ],
             ),
           ),
@@ -3563,11 +3827,11 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                _kvSmall(context, 'Appointed To', v['attender'] ?? '-'),
+                _kvSmall(context, 'Appointed To', v.attenderName ?? '-'),
                 const SizedBox(height: 10),
-                _kvSmall(context, 'Mode', v['mode'] ?? '-'),
+                _kvSmall(context, 'Mode', v.visitMode.name),
                 const SizedBox(height: 10),
-                _kvSmall(context, 'Address', v['address'] ?? '-'),
+                _kvSmall(context, 'Address', v.address ?? '-'),
                 const SizedBox(height: 10),
                 Row(
                   children: <Widget>[
@@ -3585,19 +3849,8 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                           MaterialPageRoute<void>(
                             builder: (BuildContext ctx) =>
                                 SiteVisitDetailScreen(
-                                  siteVisitId: v['leadRef'] ?? 'SITEVISIT',
-                                  siteVisitData: <String, dynamic>{
-                                    'contact': v['contact'],
-                                    'leadRef': v['leadRef'],
-                                    'name': v['name'],
-                                    'attender': v['attender'],
-                                    'purpose': v['purpose'],
-                                    'mode': v['mode'],
-                                    'from': v['from'],
-                                    'to': v['to'],
-                                    'location': v['location'],
-                                    'address': v['address'],
-                                  },
+                                  siteVisitId: v.id,
+                                  siteVisitData: <String, dynamic>{},
                                 ),
                           ),
                         );
@@ -3644,26 +3897,19 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
     );
   }
 
-  String _formatVisitDate(String? from) {
-    if (from == null || from.isEmpty) return '-';
-    try {
-      final List<String> parts = from.split(' ');
-      final List<String> d = parts[0].split('-');
-      final List<String> t = parts[1].split(':');
-      final int y = int.parse(d[0]);
-      final int m = int.parse(d[1]);
-      final int day = int.parse(d[2]);
-      int h = int.parse(t[0]);
-      final int min = int.parse(t[1]);
-      final bool pm = h >= 12;
-      h = h % 12;
-      if (h == 0) h = 12;
-      final String hh = h.toString().padLeft(2, '0');
-      final String mm = min.toString().padLeft(2, '0');
-      return '${_monthName(m)} ${day.toString().padLeft(2, '0')}, $y\n$hh:$mm ${pm ? 'PM' : 'AM'}';
-    } catch (_) {
-      return from;
-    }
+  String _formatVisitDate(DateTime? from) {
+    if (from == null) return '-';
+    final int y = from.year;
+    final int m = from.month;
+    final int day = from.day;
+    int h = from.hour;
+    final int min = from.minute;
+    final bool pm = h >= 12;
+    h = h % 12;
+    if (h == 0) h = 12;
+    final String hh = h.toString().padLeft(2, '0');
+    final String mm = min.toString().padLeft(2, '0');
+    return '${_monthName(m)} ${day.toString().padLeft(2, '0')}, $y\n$hh:$mm ${pm ? 'PM' : 'AM'}';
   }
 
   String _monthName(int m) {
@@ -3821,24 +4067,48 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _visits.insert(0, <String, String>{
-                            'contact': contactCtrl.text.trim(),
-                            'leadRef': leadRefCtrl.text.trim(),
-                            'name': nameCtrl.text.trim(),
-                            'attender': attenderCtrl.text.trim(),
-                            'purpose': purposeCtrl.text.trim(),
-                            'mode': mode,
-                            'from':
-                                '${from.year}-${from.month.toString().padLeft(2, '0')}-${from.day.toString().padLeft(2, '0')} ${from.hour.toString().padLeft(2, '0')}:${from.minute.toString().padLeft(2, '0')}',
-                            'to':
-                                '${to.year}-${to.month.toString().padLeft(2, '0')}-${to.day.toString().padLeft(2, '0')} ${to.hour.toString().padLeft(2, '0')}:${to.minute.toString().padLeft(2, '0')}',
-                            'location': locationCtrl.text.trim(),
-                            'address': addressCtrl.text.trim(),
+                      onPressed: () async {
+                        try {
+                          final parentState = context
+                              .findAncestorStateOfType<
+                                _LeadDetailScreenState
+                              >();
+                          final String activeLeadId = parentState == null
+                              ? ''
+                              : (await parentState._leadFuture).id;
+                          await DatabaseService.createSiteVisit(
+                            leadId: activeLeadId,
+                            customerName: nameCtrl.text.trim(),
+                            customerPhone: contactCtrl.text.trim(),
+                            attenderName: attenderCtrl.text.trim(),
+                            purpose: purposeCtrl.text.trim(),
+                            address: addressCtrl.text.trim(),
+                            visitMode: mode.toLowerCase() == 'office'
+                                ? VisitMode.office
+                                : VisitMode.physical,
+                            status: SiteVisitStatus.scheduled,
+                            meetingFrom: from,
+                            meetingTo: to,
+                          );
+                          if (!mounted) return;
+                          setState(() {
+                            _visitsFuture = DatabaseService.getSiteVisits(
+                              leadId: activeLeadId,
+                              limit: 200,
+                            );
                           });
-                        });
-                        Navigator.of(ctx).pop();
+                          Navigator.of(ctx).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Site visit created')),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to create visit: $e'),
+                            ),
+                          );
+                        }
                       },
                       icon: const Icon(Icons.check_rounded),
                       label: const Text('Create Site Visit'),
@@ -3855,38 +4125,20 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
 }
 
 class _TaskTab extends StatefulWidget {
-  const _TaskTab();
+  const _TaskTab({required this.leadId});
+  final String leadId;
   @override
   State<_TaskTab> createState() => _TaskTabState();
 }
 
 class _TaskTabState extends State<_TaskTab> {
-  final List<Map<String, String>> tasks = <Map<String, String>>[
-    <String, String>{
-      'title': 'Follow up with customer',
-      'desc':
-          'Call the customer to discuss shortlisted properties and next steps. Share brochure and pricing details via email as requested.',
-      'assign': 'Me',
-      'priority': 'High',
-      'status': 'Open',
-    },
-    <String, String>{
-      'title': 'Schedule site visit',
-      'desc':
-          'Coordinate a site visit for Saturday afternoon. Confirm availability with the customer and project sales office.',
-      'assign': 'Anita',
-      'priority': 'Medium',
-      'status': 'In Progress',
-    },
-    <String, String>{
-      'title': 'Share loan options',
-      'desc':
-          'Send comparative home loan options from partner banks along with eligibility checklist and required documents.',
-      'assign': 'Chetan',
-      'priority': 'Low',
-      'status': 'Completed',
-    },
-  ];
+  late Future<List<Task>> _tasksFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _tasksFuture = DatabaseService.getTasks(leadId: widget.leadId, limit: 200);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3907,71 +4159,63 @@ class _TaskTabState extends State<_TaskTab> {
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: tasks.isEmpty
-                  ? const Center(child: Text('No tasks yet'))
-                  : ListView(
-                      children: <Widget>[
-                        ...tasks.asMap().entries.map(
-                          (MapEntry<int, Map<String, String>> e) => Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: <BoxShadow>[
-                                BoxShadow(
-                                  color: Colors.grey.withOpacity(0.1),
-                                  spreadRadius: 1,
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  e.value['title'] ?? '-',
-                                  style: Theme.of(context).textTheme.titleSmall
-                                      ?.copyWith(fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(e.value['desc'] ?? '-'),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Assign To: ${e.value['assign']} • Priority: ${e.value['priority']} • Status: ${e.value['status']}',
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: <Widget>[
-                                    OutlinedButton.icon(
-                                      onPressed: () =>
-                                          _openChangeStatusDialog(e.key),
-                                      icon: const Icon(
-                                        Icons.sync_alt_rounded,
-                                        size: 18,
-                                      ),
-                                      label: const Text('Change Status'),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    FilledButton.icon(
-                                      onPressed: () =>
-                                          _openEditTaskDialog(e.key),
-                                      icon: const Icon(
-                                        Icons.edit_rounded,
-                                        size: 18,
-                                      ),
-                                      label: const Text('Edit'),
-                                    ),
-                                  ],
-                                ),
-                              ],
+              child: FutureBuilder<List<Task>>(
+                future: _tasksFuture,
+                builder:
+                    (BuildContext context, AsyncSnapshot<List<Task>> snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return const Center(
+                          child: Text('Failed to load tasks'),
+                        );
+                      }
+                      final List<Task> tasks = snapshot.data ?? <Task>[];
+                      if (tasks.isEmpty)
+                        return const Center(child: Text('No tasks yet'));
+                      return ListView(
+                        children: <Widget>[
+                          ...tasks.asMap().entries.map(
+                            (MapEntry<int, Task> e) => Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: <BoxShadow>[
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.1),
+                                    spreadRadius: 1,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    e.value.title,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(e.value.description),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Assign To: ${e.value.assignedToName ?? '-'} • Priority: ${e.value.priority.displayName} • Status: ${e.value.status.displayName}',
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      );
+                    },
+              ),
             ),
           ],
         ),
@@ -4060,24 +4304,72 @@ class _TaskTabState extends State<_TaskTab> {
                       Row(
                         children: <Widget>[
                           Expanded(
-                            child: DropdownButtonFormField<String>(
-                              initialValue: assignTo,
-                              items: const <String>['Me', 'Anita', 'Chetan']
-                                  .map(
-                                    (String e) => DropdownMenuItem<String>(
-                                      value: e,
-                                      child: Text(e),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (String? v) =>
-                                  setModal(() => assignTo = v ?? assignTo),
-                              decoration: const InputDecoration(
-                                labelText: 'Assign To *',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (String? v) =>
-                                  (v == null || v.isEmpty) ? 'Required' : null,
+                            child: FutureBuilder<List<Map<String, dynamic>>>(
+                              future:
+                                  DatabaseServiceUsersAndDisposition.getAssignableUsers(),
+                              builder:
+                                  (
+                                    BuildContext _,
+                                    AsyncSnapshot<List<Map<String, dynamic>>>
+                                    snap,
+                                  ) {
+                                    if (snap.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return const Center(
+                                        child: CircularProgressIndicator(),
+                                      );
+                                    }
+                                    if (snap.hasError) {
+                                      return const Text(
+                                        'Failed to load assignees',
+                                      );
+                                    }
+                                    final List<Map<String, dynamic>> users =
+                                        snap.data ?? <Map<String, dynamic>>[];
+                                    return DropdownButtonFormField<String>(
+                                      value:
+                                          users.any(
+                                            (Map<String, dynamic> u) =>
+                                                u['name'] == assignTo,
+                                          )
+                                          ? users.firstWhere(
+                                                  (Map<String, dynamic> u) =>
+                                                      u['name'] == assignTo,
+                                                )['id']
+                                                as String
+                                          : null,
+                                      items: users
+                                          .map(
+                                            (
+                                              Map<String, dynamic> u,
+                                            ) => DropdownMenuItem<String>(
+                                              value: (u['id'] ?? '') as String,
+                                              child: Text(
+                                                (u['name'] ?? '-') as String,
+                                              ),
+                                            ),
+                                          )
+                                          .toList(),
+                                      onChanged: (String? v) => setModal(() {
+                                        final Map<String, dynamic>? user = users
+                                            .firstWhere(
+                                              (Map<String, dynamic> e) =>
+                                                  e['id'] == v,
+                                              orElse: () => <String, dynamic>{},
+                                            );
+                                        assignTo =
+                                            (user?['name'] ?? '-') as String;
+                                      }),
+                                      decoration: const InputDecoration(
+                                        labelText: 'Assign To *',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      validator: (String? v) =>
+                                          (v == null || v.isEmpty)
+                                          ? 'Required'
+                                          : null,
+                                    );
+                                  },
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -4123,20 +4415,53 @@ class _TaskTabState extends State<_TaskTab> {
                   child: const Text('Cancel'),
                 ),
                 FilledButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
                     if (!(formKey.currentState?.validate() ?? false)) {
                       return;
                     }
-                    setState(() {
-                      tasks.insert(0, <String, String>{
-                        'title': titleCtrl.text.trim(),
-                        'desc': descCtrl.text.trim(),
-                        'assign': assignTo,
-                        'priority': priority,
-                        'status': 'Open',
+                    try {
+                      final parentState = context
+                          .findAncestorStateOfType<_LeadDetailScreenState>();
+                      final String activeLeadId = parentState == null
+                          ? ''
+                          : (await parentState._leadFuture).id;
+                      await DatabaseService.createTask(
+                        leadId: activeLeadId,
+                        title: titleCtrl.text.trim(),
+                        description: descCtrl.text.trim(),
+                        priority: priority.toLowerCase() == 'high'
+                            ? TaskPriority.high
+                            : priority.toLowerCase() == 'low'
+                            ? TaskPriority.low
+                            : TaskPriority.medium,
+                        status: TaskStatus.pending,
+                        type: TaskType.other,
+                        assignedToName: assignTo,
+                        dueDate: DateTime(
+                          endDate.year,
+                          endDate.month,
+                          endDate.day,
+                          endTime.hour,
+                          endTime.minute,
+                        ),
+                      );
+                      if (!mounted) return;
+                      setState(() {
+                        _tasksFuture = DatabaseService.getTasks(
+                          leadId: activeLeadId,
+                          limit: 200,
+                        );
                       });
-                    });
-                    Navigator.of(ctx).pop();
+                      Navigator.of(ctx).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Task created')),
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to create task: $e')),
+                      );
+                    }
                   },
                   icon: const Icon(Icons.check_rounded),
                   label: const Text('Add Task'),
@@ -4149,14 +4474,15 @@ class _TaskTabState extends State<_TaskTab> {
     );
   }
 
-  void _openChangeStatusDialog(int index) {
+  // Removed unused dialog per linter
+  /* void _openChangeStatusDialog(int index) {
     final List<String> statuses = <String>[
       'Open',
       'In Progress',
       'Completed',
       'Cancelled',
     ];
-    String selected = tasks[index]['status'] ?? 'Open';
+    String selected = 'Open';
     showDialog<void>(
       context: context,
       builder: (BuildContext ctx) {
@@ -4183,9 +4509,7 @@ class _TaskTabState extends State<_TaskTab> {
                 ),
                 FilledButton(
                   onPressed: () {
-                    setState(() {
-                      tasks[index]['status'] = selected;
-                    });
+                    // Implement update via DatabaseService if needed
                     Navigator.of(ctx).pop();
                   },
                   child: const Text('Update'),
@@ -4196,17 +4520,14 @@ class _TaskTabState extends State<_TaskTab> {
         );
       },
     );
-  }
+  } */
 
-  void _openEditTaskDialog(int index) {
-    final TextEditingController titleCtrl = TextEditingController(
-      text: tasks[index]['title'] ?? '',
-    );
-    final TextEditingController descCtrl = TextEditingController(
-      text: tasks[index]['desc'] ?? '',
-    );
-    String assignTo = tasks[index]['assign'] ?? 'Me';
-    String priority = tasks[index]['priority'] ?? 'Medium';
+  // Removed unused dialog per linter
+  /* void _openEditTaskDialog(int index) {
+    final TextEditingController titleCtrl = TextEditingController();
+    final TextEditingController descCtrl = TextEditingController();
+    String assignTo = 'Me';
+    String priority = 'Medium';
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
     showDialog<void>(
       context: context,
@@ -4287,12 +4608,7 @@ class _TaskTabState extends State<_TaskTab> {
                 FilledButton(
                   onPressed: () {
                     if (!(formKey.currentState?.validate() ?? false)) return;
-                    setState(() {
-                      tasks[index]['title'] = titleCtrl.text.trim();
-                      tasks[index]['desc'] = descCtrl.text.trim();
-                      tasks[index]['assign'] = assignTo;
-                      tasks[index]['priority'] = priority;
-                    });
+                    // Implement update via DatabaseService if needed
                     Navigator.of(ctx).pop();
                   },
                   child: const Text('Save'),
@@ -4303,7 +4619,7 @@ class _TaskTabState extends State<_TaskTab> {
         );
       },
     );
-  }
+  } */
 }
 
 class _QuestionTab extends StatefulWidget {
@@ -4313,22 +4629,8 @@ class _QuestionTab extends StatefulWidget {
 }
 
 class _QuestionTabState extends State<_QuestionTab> {
-  final List<Map<String, String>> _items = <Map<String, String>>[
-    {
-      'title': 'What is the payment plan for this project?',
-      'notes':
-          'Customer wants to know about EMI options and down payment requirements.',
-    },
-    {
-      'title': 'Are there any ongoing offers or discounts?',
-      'notes':
-          'Interested in current promotional schemes and early bird discounts.',
-    },
-    {
-      'title': 'What is the possession timeline?',
-      'notes': 'Customer needs to plan their move-in date accordingly.',
-    },
-  ];
+  // Local placeholder list replaced with empty list; can be wired to Supabase later
+  final List<Map<String, String>> _items = <Map<String, String>>[];
 
   @override
   Widget build(BuildContext context) {
@@ -4398,7 +4700,7 @@ class _QuestionTabState extends State<_QuestionTab> {
     );
   }
 
-  void _openAddQuestionSheet() {
+  void _openAddQuestionSheet() async {
     final TextEditingController titleCtrl = TextEditingController();
     final TextEditingController notesCtrl = TextEditingController();
     showModalBottomSheet<void>(
@@ -4453,14 +4755,35 @@ class _QuestionTabState extends State<_QuestionTab> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _items.insert(0, <String, String>{
-                        'title': titleCtrl.text.trim(),
-                        'notes': notesCtrl.text.trim(),
+                  onPressed: () async {
+                    final parentState = context
+                        .findAncestorStateOfType<_LeadDetailScreenState>();
+                    final String activeLeadId = parentState == null
+                        ? ''
+                        : (await parentState._leadFuture).id;
+                    try {
+                      await DatabaseService.createLeadQuestion(
+                        leadId: activeLeadId,
+                        title: titleCtrl.text.trim(),
+                        notes: notesCtrl.text.trim(),
+                      );
+                      if (!mounted) return;
+                      setState(() {
+                        _items.insert(0, <String, String>{
+                          'title': titleCtrl.text.trim(),
+                          'notes': notesCtrl.text.trim(),
+                        });
                       });
-                    });
-                    Navigator.of(ctx).pop();
+                      Navigator.of(ctx).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Question created')),
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to create: $e')),
+                      );
+                    }
                   },
                   icon: const Icon(Icons.check_rounded),
                   label: const Text('Create Question'),
@@ -4481,37 +4804,10 @@ class _PropertyOptionTab extends StatefulWidget {
 }
 
 class _PropertyOptionTabState extends State<_PropertyOptionTab> {
-  final Map<int, String> _selectedProjectByIndex = <int, String>{};
+  // Removed: previously used with dummy items; not needed now
+  // final Map<int, String> _selectedProjectByIndex = <int, String>{};
   List<Project> _projects = <Project>[];
-  final List<Map<String, String>> _items = <Map<String, String>>[
-    {
-      'category': 'Residential',
-      'propertyType': '2 BHK Apartment',
-      'projectName': 'Green Valley Heights',
-      'optionType': 'Fresh',
-      'state': 'Gujarat',
-      'city': 'Ahmedabad',
-      'location': 'Gift City',
-    },
-    {
-      'category': 'Commercial',
-      'propertyType': 'Office Space',
-      'projectName': 'Business Park Plaza',
-      'optionType': 'Resale',
-      'state': 'Maharashtra',
-      'city': 'Mumbai',
-      'location': 'BKC',
-    },
-    {
-      'category': 'Residential',
-      'propertyType': '3 BHK Villa',
-      'projectName': 'Luxury Gardens',
-      'optionType': 'Fresh',
-      'state': 'Haryana',
-      'city': 'Gurugram',
-      'location': 'NH 48, Part 2',
-    },
-  ];
+  // Dummy items removed; now using fetched projects list only
 
   @override
   void initState() {
@@ -4521,50 +4817,13 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
 
   Future<void> _loadProjects() async {
     try {
-      final ProjectRepository repo = ProjectRepository();
-      final ApiResponse<List<Project>> res = await repo.getProjects(limit: 50);
+      final List<Project> res = await DatabaseService.getProjects(limit: 50);
       if (!mounted) return;
       setState(() {
-        _projects = res.data ?? <Project>[];
+        _projects = res;
       });
     } catch (_) {
-      // Fallback demo data if API not available
-      setState(() {
-        _projects = <Project>[
-          Project(
-            id: 'p1',
-            name: 'Green Valley Heights',
-            developerId: 'd1',
-            developerName: 'GV Dev',
-            type: ProjectType.residential,
-            status: ProjectStatus.planning,
-            city: 'Ahmedabad',
-            state: 'Gujarat',
-            startingPrice: 4500000,
-            isActive: true,
-            createdBy: 'sys',
-            createdByName: 'System',
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ),
-          Project(
-            id: 'p2',
-            name: 'Business Park Plaza',
-            developerId: 'd2',
-            developerName: 'BP Dev',
-            type: ProjectType.commercial,
-            status: ProjectStatus.planning,
-            city: 'Mumbai',
-            state: 'Maharashtra',
-            startingPrice: 12000000,
-            isActive: true,
-            createdBy: 'sys',
-            createdByName: 'System',
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ),
-        ];
-      });
+      // On failure, show empty state; no dummy data
     }
   }
 
@@ -4587,263 +4846,119 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: _items.isEmpty
-                  ? const Center(child: Text('No property options added yet'))
-                  : ListView.separated(
-                      itemCount: _items.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (BuildContext context, int index) {
-                        final Map<String, String> item = _items[index];
-                        return Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: <BoxShadow>[
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
-                                spreadRadius: 1,
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        Text(
-                                          'Select',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                color: Colors.grey.shade700,
-                                              ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        const Checkbox(
-                                          value: false,
-                                          onChanged: null,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Project',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                color: Colors.grey.shade700,
-                                              ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          item['projectName'] ?? '-',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Action',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                color: Colors.grey.shade700,
-                                              ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          children: <Widget>[
-                                            _actionChip(
-                                              Icons.visibility,
-                                              Colors.blue,
-                                              onTap: () {
-                                                final String? pid =
-                                                    _selectedProjectByIndex[index];
-                                                Project? proj;
-                                                if (pid != null &&
-                                                    pid.isNotEmpty) {
-                                                  try {
-                                                    proj = _projects.firstWhere(
-                                                      (Project p) =>
-                                                          p.id == pid,
-                                                    );
-                                                  } catch (_) {
-                                                    proj = _projects.isNotEmpty
-                                                        ? _projects.first
-                                                        : null;
-                                                  }
-                                                }
-                                                final Map<String, dynamic>
-                                                payload = <String, dynamic>{
-                                                  'name':
-                                                      proj?.name ??
-                                                      (item['projectName'] ??
-                                                          '-'),
-                                                  'category':
-                                                      item['category'] ??
-                                                      'Residential',
-                                                  'currentPrice':
-                                                      proj?.maxPrice ??
-                                                      proj?.startingPrice,
-                                                  'launchPrice':
-                                                      proj?.startingPrice,
-                                                  'price': proj?.startingPrice,
-                                                  'reraNo': proj?.reraNumber,
-                                                  'reraAuthority': 'HRERA',
-                                                  'location': item['location'],
-                                                  'city': item['city'],
-                                                  'state': item['state'],
-                                                };
-                                                Navigator.of(context).push(
-                                                  MaterialPageRoute<void>(
-                                                    builder:
-                                                        (BuildContext ctx) =>
-                                                            ProjectDetailScreen(
-                                                              project: payload,
-                                                            ),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            _actionChip(
-                                              Icons.link,
-                                              Colors.teal,
-                                              onTap: () {
-                                                final String url =
-                                                    _buildPropertyOptionUrl(
-                                                      item,
-                                                    );
-                                                Clipboard.setData(
-                                                  ClipboardData(text: url),
-                                                );
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text('URL copied'),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            _actionChip(
-                                              Icons.chat_bubble,
-                                              Colors.lightBlue,
-                                              onTap: () {
-                                                final String msg =
-                                                    _buildShareMessage(item);
-                                                Clipboard.setData(
-                                                  ClipboardData(text: msg),
-                                                );
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                      'Message copied',
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            _actionChip(
-                                              Icons.share,
-                                              Colors.green,
-                                              onTap: () async {
-                                                final String msg =
-                                                    _buildShareMessage(item);
-                                                final Uri wa = Uri.parse(
-                                                  'https://wa.me/?text=${Uri.encodeComponent(msg)}',
-                                                );
-                                                if (await canLaunchUrl(wa)) {
-                                                  await launchUrl(
-                                                    wa,
-                                                    mode: LaunchMode
-                                                        .externalApplication,
-                                                  );
-                                                } else {
-                                                  ScaffoldMessenger.of(
-                                                    context,
-                                                  ).showSnackBar(
-                                                    const SnackBar(
-                                                      content: Text(
-                                                        'Unable to open WhatsApp',
-                                                      ),
-                                                    ),
-                                                  );
-                                                }
-                                              },
-                                            ),
-                                            _actionChip(
-                                              Icons.delete,
-                                              Colors.red,
-                                              onTap: () {
-                                                setState(() {
-                                                  _items.removeAt(index);
-                                                });
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text('Deleted'),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        Text(
-                                          'Property Type',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                color: Colors.grey.shade700,
-                                              ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          item['category'] ?? '-',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              // Project/Inventories sections removed per request
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+              child: _projects.isEmpty
+                  ? const Center(child: Text('No projects found'))
+                  : _buildProjectsList(),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildProjectsList() {
+    final List<Project> items = _projects;
+    return Scrollbar(
+      child: ListView.separated(
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const Divider(height: 16),
+        itemBuilder: (BuildContext context, int i) {
+          final Project p = items[i];
+          final String typeText =
+              p.type.name[0].toUpperCase() + p.type.name.substring(1);
+          final String startText =
+              p.startingPrice != null && p.startingPrice! > 0
+              ? '₹ ${p.startingPrice!.toStringAsFixed(0)} / ${p.priceUnit ?? ''}'
+                    .trim()
+              : '-';
+          final String locationText = <String?>[
+            p.address,
+            p.city,
+            p.state,
+          ].where((String? s) => (s ?? '').isNotEmpty).join(', ');
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      children: <Widget>[
+                        Text(
+                          p.name,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        Text('/', style: Theme.of(context).textTheme.bodySmall),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.black12),
+                          ),
+                          child: Text(
+                            typeText,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    RichText(
+                      text: TextSpan(
+                        style: Theme.of(context).textTheme.bodySmall,
+                        children: <TextSpan>[
+                          const TextSpan(
+                            text: 'Starting From : ',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextSpan(
+                            text: startText,
+                            style: const TextStyle(color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    RichText(
+                      text: TextSpan(
+                        style: Theme.of(context).textTheme.bodySmall,
+                        children: <TextSpan>[
+                          const TextSpan(
+                            text: 'Location : ',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextSpan(
+                            text: locationText.isEmpty ? '-' : locationText,
+                            style: const TextStyle(color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -4852,35 +4967,9 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
 
   // Removed project dropdown and inventory list per requirement.
 
-  Widget _actionChip(IconData icon, Color color, {VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Icon(icon, color: Colors.white, size: 16),
-      ),
-    );
-  }
+  // Removed unused action chip helpers
 
-  String _buildPropertyOptionUrl(Map<String, String> item) {
-    final String name = Uri.encodeComponent(item['projectName'] ?? 'project');
-    return 'https://tiggeron.com/projects/$name';
-  }
-
-  String _buildShareMessage(Map<String, String> item) {
-    final String name = item['projectName'] ?? '-';
-    final String cat = item['category'] ?? '-';
-    final String loc = [
-      item['city'],
-      item['state'],
-    ].where((e) => (e ?? '').isNotEmpty).join(', ');
-    final String url = _buildPropertyOptionUrl(item);
-    return 'Check out $name ($cat) at $loc\n$url';
-  }
+  // Removed unused URL/share helpers
 
   Future<void> _openAddPropertyOptionScreen() async {
     final Map<String, String>? result = await Navigator.of(context).push(
@@ -4889,9 +4978,7 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
       ),
     );
     if (result != null) {
-      setState(() {
-        _items.insert(0, result);
-      });
+      // In a real flow, persist to backend and refresh projects/options as needed
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -5056,7 +5143,9 @@ class _CreatePropertyOptionScreenState
                               _label('State'),
                               const SizedBox(height: 6),
                               DropdownButtonFormField<String>(
-                                initialValue: stateValue.isEmpty ? null : stateValue,
+                                initialValue: stateValue.isEmpty
+                                    ? null
+                                    : stateValue,
                                 items:
                                     const <String>[
                                           'Gujarat',
@@ -5090,7 +5179,9 @@ class _CreatePropertyOptionScreenState
                               _label('City'),
                               const SizedBox(height: 6),
                               DropdownButtonFormField<String>(
-                                initialValue: cityValue.isEmpty ? null : cityValue,
+                                initialValue: cityValue.isEmpty
+                                    ? null
+                                    : cityValue,
                                 items:
                                     const <String>[
                                           'Ahmedabad',
@@ -5431,144 +5522,28 @@ class _CreatePropertyOptionScreenState
   }
 
   Widget _buildInventoriesList() {
-    final List<Map<String, String>> inventories = <Map<String, String>>[
-      <String, String>{
-        'name': '2 BHK',
-        'project': 'ADORE THE SELECT PREMIA',
-        'type': 'Appartments',
-      },
-      <String, String>{
-        'name': '3 BHK',
-        'project': 'Green Valley Heights',
-        'type': 'Appartments',
-      },
-      <String, String>{
-        'name': 'Retail-12',
-        'project': 'Business Park Plaza',
-        'type': 'Shop',
-      },
-    ];
-
-    return Scrollbar(
-      child: ListView.separated(
-        itemCount: inventories.length,
-        separatorBuilder: (_, __) => const Divider(height: 16),
-        itemBuilder: (BuildContext context, int i) {
-          final Map<String, String> inv = inventories[i];
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Checkbox(value: false, onChanged: null),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Wrap(
-                      spacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: <Widget>[
-                        Text(
-                          inv['name'] ?? '-',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                        Text('/', style: Theme.of(context).textTheme.bodySmall),
-                        Text(
-                          inv['project'] ?? '-',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    RichText(
-                      text: TextSpan(
-                        style: Theme.of(context).textTheme.bodySmall,
-                        children: <TextSpan>[
-                          const TextSpan(
-                            text: 'Type : ',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          TextSpan(
-                            text: inv['type'] ?? '-',
-                            style: const TextStyle(color: Colors.black87),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+    // No inventories API wired yet; show empty list
+    return const Center(child: Text('No inventories'));
   }
 }
 
 class _TicketTab extends StatefulWidget {
-  const _TicketTab();
+  const _TicketTab({required this.leadId});
+  final String leadId;
   @override
   State<_TicketTab> createState() => _TicketTabState();
 }
 
 class _TicketTabState extends State<_TicketTab> {
-  final List<Map<String, String>> _items = <Map<String, String>>[
-    {
-      'id': 'TKT-001',
-      'title': 'Payment Processing Issue',
-      'description':
-          'Customer facing difficulties with online payment gateway during booking process.',
-      'createdBy': 'Me',
-      'priority': 'High',
-      'createdAt': "${0}", // placeholder to be set in initState
-    },
-    {
-      'id': 'TKT-002',
-      'title': 'Document Verification Delay',
-      'description':
-          'KYC documents are taking longer than expected to get verified.',
-      'createdBy': 'Anita',
-      'priority': 'Medium',
-      'createdAt': "${0}",
-    },
-    {
-      'id': 'TKT-003',
-      'title': 'Site Visit Scheduling',
-      'description':
-          'Need to coordinate site visit for multiple customers on the same day.',
-      'createdBy': 'Chetan',
-      'priority': 'Low',
-      'createdAt': "${0}",
-    },
-  ];
+  late Future<List<Ticket>> _ticketsFuture;
 
   @override
   void initState() {
     super.initState();
-    // Stamp demo data with creation times spread over hours for display
-    final DateTime now = DateTime.now();
-    _items[0]['createdAt'] = now
-        .subtract(const Duration(hours: 1))
-        .toIso8601String();
-    if (_items.length > 1) {
-      _items[1]['createdAt'] = now
-          .subtract(const Duration(hours: 5))
-          .toIso8601String();
-    }
-    if (_items.length > 2) {
-      _items[2]['createdAt'] = now
-          .subtract(const Duration(hours: 23))
-          .toIso8601String();
-    }
-    setState(() {});
+    _ticketsFuture = DatabaseService.getTickets(
+      leadId: widget.leadId,
+      limit: 200,
+    );
   }
 
   String _formatRelative(String? iso) {
@@ -5607,161 +5582,186 @@ class _TicketTabState extends State<_TicketTab> {
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: _items.isEmpty
-                  ? const Center(child: Text('No tickets created yet'))
-                  : ListView.separated(
-                      itemCount: _items.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (BuildContext context, int index) {
-                        final Map<String, String> item = _items[index];
-                        return Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: <BoxShadow>[
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
-                                spreadRadius: 1,
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Row(
-                                children: <Widget>[
-                                  Expanded(
-                                    child: Tooltip(
-                                      message: item['id'] ?? '-',
-                                      child: Text(
-                                        item['id'] ?? '-',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Chip(
-                                    label: Text(item['priority'] ?? '-'),
-                                    backgroundColor: _getPriorityColor(
-                                      item['priority'] ?? 'Medium',
-                                    ),
-                                    labelStyle: TextStyle(
-                                      color: _getPriorityTextColor(
-                                        item['priority'] ?? 'Medium',
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Tooltip(
-                                message: item['title'] ?? '-',
-                                child: Text(
-                                  item['title'] ?? '-',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                              if ((item['description'] ?? '')
-                                  .isNotEmpty) ...<Widget>[
-                                const SizedBox(height: 6),
-                                Tooltip(
-                                  message: item['description']!,
-                                  child: Text(
-                                    item['description']!,
-                                    maxLines: 4,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+              child: FutureBuilder<List<Ticket>>(
+                future: _ticketsFuture,
+                builder:
+                    (
+                      BuildContext context,
+                      AsyncSnapshot<List<Ticket>> snapshot,
+                    ) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return const Center(
+                          child: Text('Failed to load tickets'),
+                        );
+                      }
+                      final List<Ticket> items = snapshot.data ?? <Ticket>[];
+                      if (items.isEmpty)
+                        return const Center(
+                          child: Text('No tickets created yet'),
+                        );
+                      return ListView.separated(
+                        itemCount: items.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (BuildContext context, int index) {
+                          final Ticket item = items[index];
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: <BoxShadow>[
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.1),
+                                  spreadRadius: 1,
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
                                 ),
                               ],
-                              const SizedBox(height: 8),
-                              Row(
-                                children: <Widget>[
-                                  Icon(
-                                    Icons.person_outline,
-                                    size: 16,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Created by ${item['createdBy'] ?? '-'}',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(color: Colors.grey.shade600),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    width: 4,
-                                    height: 4,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade400,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Icon(
-                                    Icons.access_time,
-                                    size: 14,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _formatRelative(item['createdAt']),
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(color: Colors.grey.shade600),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: <Widget>[
-                                  OutlinedButton.icon(
-                                    onPressed: () => _viewTicket(item),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                      side: BorderSide(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary.withOpacity(0.4),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Row(
+                                  children: <Widget>[
+                                    Expanded(
+                                      child: Tooltip(
+                                        message: item.ticketNumber,
+                                        child: Text(
+                                          item.ticketNumber,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
                                       ),
                                     ),
-                                    icon: const Icon(
-                                      Icons.visibility_outlined,
-                                      size: 18,
+                                    const Spacer(),
+                                    Chip(
+                                      label: Text(item.priority.displayName),
+                                      backgroundColor: _getPriorityColor(
+                                        item.priority.displayName,
+                                      ),
+                                      labelStyle: TextStyle(
+                                        color: _getPriorityTextColor(
+                                          item.priority.displayName,
+                                        ),
+                                      ),
                                     ),
-                                    label: const Text('View'),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Tooltip(
+                                  message: item.issueTitle,
+                                  child: Text(
+                                    item.issueTitle,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
                                   ),
-                                  FilledButton.icon(
-                                    onPressed: () =>
-                                        _openEditTicketSheet(index),
-                                    icon: const Icon(
-                                      Icons.edit_outlined,
-                                      size: 18,
+                                ),
+                                if (item
+                                    .issueDescription
+                                    .isNotEmpty) ...<Widget>[
+                                  const SizedBox(height: 6),
+                                  Tooltip(
+                                    message: item.issueDescription,
+                                    child: Text(
+                                      item.issueDescription,
+                                      maxLines: 4,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    label: const Text('Edit'),
                                   ),
                                 ],
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: <Widget>[
+                                    Icon(
+                                      Icons.person_outline,
+                                      size: 16,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Assigned to ${item.assignedToName ?? '-'}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: Colors.grey.shade600,
+                                          ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      width: 4,
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade400,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Icon(
+                                      Icons.access_time,
+                                      size: 14,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _formatRelative(
+                                        item.createdAt.toIso8601String(),
+                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: Colors.grey.shade600,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: <Widget>[
+                                    OutlinedButton.icon(
+                                      onPressed: () => _viewTicket(item),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                        side: BorderSide(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary
+                                              .withOpacity(0.4),
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.visibility_outlined,
+                                        size: 18,
+                                      ),
+                                      label: const Text('View'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+              ),
             ),
           ],
         ),
@@ -5779,155 +5779,24 @@ class _TicketTabState extends State<_TicketTab> {
     return Colors.black87;
   }
 
-  void _viewTicket(Map<String, String> item) {
+  void _viewTicket(Ticket item) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => TicketDetailScreen(ticket: item)),
-    );
-  }
-
-  void _openEditTicketSheet(int index) {
-    final Map<String, String> item = _items[index];
-    final TextEditingController idCtrl = TextEditingController(
-      text: item['id'] ?? '',
-    );
-    final TextEditingController titleCtrl = TextEditingController(
-      text: item['title'] ?? '',
-    );
-    final TextEditingController descCtrl = TextEditingController(
-      text: item['description'] ?? '',
-    );
-    String createdBy = item['createdBy'] ?? 'Me';
-    String priority = item['priority'] ?? 'Medium';
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (BuildContext ctx) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModal) {
-            return SingleChildScrollView(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Text(
-                        'Edit Ticket',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: idCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'ID',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: titleCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Title',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: descCtrl,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Description',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: createdBy,
-                          items: const <String>['Me', 'Anita', 'Chetan']
-                              .map(
-                                (String e) => DropdownMenuItem<String>(
-                                  value: e,
-                                  child: Text(e),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (String? v) =>
-                              setModal(() => createdBy = v ?? createdBy),
-                          decoration: const InputDecoration(
-                            labelText: 'Created By',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: priority,
-                          items: const <String>['Low', 'Medium', 'High']
-                              .map(
-                                (String e) => DropdownMenuItem<String>(
-                                  value: e,
-                                  child: Text(e),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (String? v) =>
-                              setModal(() => priority = v ?? priority),
-                          decoration: const InputDecoration(
-                            labelText: 'Priority',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _items[index] = <String, String>{
-                            'id': idCtrl.text.trim(),
-                            'title': titleCtrl.text.trim(),
-                            'description': descCtrl.text.trim(),
-                            'createdBy': createdBy,
-                            'priority': priority,
-                          };
-                        });
-                        Navigator.of(ctx).pop();
-                      },
-                      icon: const Icon(Icons.check_rounded),
-                      label: const Text('Save'),
-                    ),
-                  ),
-                ],
-              ),
-            );
+      MaterialPageRoute<void>(
+        builder: (_) => TicketDetailScreen(
+          ticket: <String, String>{
+            'id': item.ticketNumber,
+            'title': item.issueTitle,
+            'description': item.issueDescription,
+            'createdBy': item.assignedToName ?? '-',
+            'priority': item.priority.displayName,
           },
-        );
-      },
+        ),
+      ),
     );
   }
+
+  // Removed unused method per linter
+  // void _openEditTicketSheet(int index) {}
 
   void _openCreateTicketSheet() {
     final TextEditingController registeredMobileCtrl = TextEditingController();
@@ -6141,7 +6010,7 @@ class _TicketTabState extends State<_TicketTab> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final bool isInternal = ticketCategory == 'Internal';
                         final bool isVendor = ticketCategory == 'Vendor';
                         final bool needMobile = !isInternal;
@@ -6172,28 +6041,63 @@ class _TicketTabState extends State<_TicketTab> {
                           return;
                         }
 
-                        setState(() {
-                          _items.insert(0, <String, String>{
-                            'id':
-                                'TKT-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
-                            'title': issueTitleCtrl.text.trim().isNotEmpty
-                                ? issueTitleCtrl.text.trim()
-                                : 'Ticket for ${registeredMobileCtrl.text.trim()}',
-                            'description':
-                                issueDescriptionCtrl.text.trim().isNotEmpty
-                                ? issueDescriptionCtrl.text.trim()
-                                : 'Category: $ticketCategory, Type: $ticketType, Service: $serviceType',
-                            'createdBy': assignTo ?? 'Me',
-                            'priority': priority ?? 'Low',
+                        try {
+                          final parentState = context
+                              .findAncestorStateOfType<
+                                _LeadDetailScreenState
+                              >();
+                          final String activeLeadId = parentState == null
+                              ? ''
+                              : (await parentState._leadFuture).leadId;
+                          await DatabaseService.createTicket(
+                            leadId: activeLeadId,
+                            issueTitle: issueTitleCtrl.text.trim(),
+                            issueDescription: issueDescriptionCtrl.text.trim(),
+                            priority:
+                                (priority ?? 'Low').toLowerCase() == 'high'
+                                ? TicketPriority.high
+                                : (priority ?? 'Low').toLowerCase() == 'medium'
+                                ? TicketPriority.medium
+                                : TicketPriority.low,
+                            status: TicketStatus.open,
+                            type:
+                                (ticketType ?? 'Issue').toLowerCase() ==
+                                    'request'
+                                ? TicketType.request
+                                : (ticketType ?? 'Issue').toLowerCase() ==
+                                      'complaint'
+                                ? TicketType.complaint
+                                : (ticketType ?? 'Issue').toLowerCase() ==
+                                      'inquiry'
+                                ? TicketType.inquiry
+                                : TicketType.issue,
+                            serviceType: ServiceType.other,
+                            assignedToName: assignTo,
+                            contactName: contactNameCtrl.text.trim(),
+                            contactMobile: registeredMobileCtrl.text.trim(),
+                          );
+                          if (!mounted) return;
+                          setState(() {
+                            _ticketsFuture = DatabaseService.getTickets(
+                              leadId: activeLeadId,
+                              limit: 200,
+                            );
                           });
-                        });
-                        Navigator.of(ctx).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Ticket created successfully'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
+                          Navigator.of(ctx).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Ticket created successfully'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to create ticket: $e'),
+                            ),
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
@@ -6882,7 +6786,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
   }
 
   void _openAssignSheet() {
-    String selected = _assignedTo == '-' ? 'Abhishek' : _assignedTo;
+    String? selectedUserId;
+    String selectedUserName = _assignedTo == '-' ? '' : _assignedTo;
+    final Future<List<Map<String, dynamic>>> usersFuture =
+        DatabaseServiceUsersAndDisposition.getAssignableUsers();
     final TextEditingController descCtrl = TextEditingController();
     showModalBottomSheet<void>(
       context: context,
@@ -6906,25 +6813,46 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
               const SizedBox(height: 12),
               const Text('Assign To'),
               const SizedBox(height: 6),
-              DropdownButtonFormField<String>(
-                initialValue: selected,
-                items:
-                    const <String>[
-                          'Abhishek',
-                          'Anita',
-                          'Ravi',
-                          'Sunil',
-                          'Chetan',
-                        ]
-                        .map(
-                          (String e) => DropdownMenuItem<String>(
-                            value: e,
-                            child: Text(e),
-                          ),
-                        )
-                        .toList(),
-                onChanged: (String? v) => selected = v ?? selected,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: usersFuture,
+                builder:
+                    (
+                      BuildContext _,
+                      AsyncSnapshot<List<Map<String, dynamic>>> snap,
+                    ) {
+                      if (snap.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snap.hasError) {
+                        return const Text('Failed to load users');
+                      }
+                      final List<Map<String, dynamic>> users =
+                          snap.data ?? <Map<String, dynamic>>[];
+                      if (users.isEmpty) return const Text('No active users');
+                      return DropdownButtonFormField<String>(
+                        value: selectedUserId,
+                        items: users
+                            .map(
+                              (Map<String, dynamic> u) =>
+                                  DropdownMenuItem<String>(
+                                    value: (u['id'] ?? '') as String,
+                                    child: Text((u['name'] ?? '-') as String),
+                                  ),
+                            )
+                            .toList(),
+                        onChanged: (String? v) {
+                          selectedUserId = v;
+                          final Map<String, dynamic>? user = users.firstWhere(
+                            (Map<String, dynamic> e) => e['id'] == v,
+                            orElse: () => <String, dynamic>{},
+                          );
+                          selectedUserName = (user?['name'] ?? '-') as String;
+                        },
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                        ),
+                      );
+                    },
               ),
               const SizedBox(height: 12),
               const Text('Description'),
@@ -6943,17 +6871,20 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                 child: FilledButton(
                   onPressed: () {
                     setState(() {
-                      _assignedTo = selected;
+                      _assignedTo =
+                          (selectedUserName.isEmpty && selectedUserId == null)
+                          ? _assignedTo
+                          : selectedUserName;
                       _allocationLogs.insert(0, <String, String>{
                         'assignedBy': 'Me',
-                        'assignedTo': selected,
+                        'assignedTo': _assignedTo,
                         'assignedAt': _nowString(),
                         'description': descCtrl.text.trim(),
                       });
                     });
                     Navigator.of(ctx).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Assigned to $selected')),
+                      SnackBar(content: Text('Assigned to ${_assignedTo}')),
                     );
                   },
                   child: const Text('Assign'),
@@ -6967,8 +6898,12 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
   }
 
   void _openDispositionSheet() {
-    String mainDisp = 'New';
-    String subDisp = 'Created';
+    String? mainDispId;
+    String? subDispId;
+    final Future<List<Map<String, dynamic>>> mainsFuture =
+        DatabaseServiceUsersAndDisposition.getTicketDispositionMains();
+    Future<List<Map<String, dynamic>>> subsFuture =
+        Future<List<Map<String, dynamic>>>.value(<Map<String, dynamic>>[]);
     DateTime date = DateTime.now();
     TimeOfDay time = const TimeOfDay(hour: 13, minute: 0);
     bool initiatedByAgent = true; // false => Customer
@@ -7010,55 +6945,99 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Main Disposition
-                  DropdownButtonFormField<String>(
-                    initialValue: mainDisp,
-                    items:
-                        const <String>[
-                              'New',
-                              'In Progress',
-                              'Follow-up',
-                              'Closed',
-                            ]
-                            .map(
-                              (String e) => DropdownMenuItem<String>(
-                                value: e,
-                                child: Text(e),
-                              ),
-                            )
-                            .toList(),
-                    onChanged: (String? v) =>
-                        setModal(() => mainDisp = v ?? mainDisp),
-                    decoration: const InputDecoration(
-                      labelText: 'Main Disposition *',
-                      border: OutlineInputBorder(),
-                    ),
+                  // Main Disposition from Supabase
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: mainsFuture,
+                    builder:
+                        (
+                          BuildContext _,
+                          AsyncSnapshot<List<Map<String, dynamic>>> snap,
+                        ) {
+                          if (snap.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (snap.hasError) {
+                            return const Text('Failed to load dispositions');
+                          }
+                          final List<Map<String, dynamic>> mains =
+                              snap.data ?? <Map<String, dynamic>>[];
+                          return DropdownButtonFormField<String>(
+                            value: mainDispId,
+                            items: mains
+                                .map(
+                                  (Map<String, dynamic> m) =>
+                                      DropdownMenuItem<String>(
+                                        value: (m['id'] ?? '') as String,
+                                        child: Text(
+                                          (m['name'] ?? '-') as String,
+                                        ),
+                                      ),
+                                )
+                                .toList(),
+                            onChanged: (String? v) async {
+                              setModal(() {
+                                mainDispId = v;
+                                subsFuture =
+                                    DatabaseServiceUsersAndDisposition.getTicketDispositionSubs(
+                                      v ?? '',
+                                    );
+                                subDispId = null;
+                              });
+                            },
+                            decoration: const InputDecoration(
+                              labelText: 'Main Disposition *',
+                              border: OutlineInputBorder(),
+                            ),
+                          );
+                        },
                   ),
                   const SizedBox(height: 12),
 
-                  // Sub Disposition
-                  DropdownButtonFormField<String>(
-                    initialValue: subDisp,
-                    items:
-                        const <String>[
-                              'Created',
-                              'Called',
-                              'Rescheduled',
-                              'Resolved',
-                            ]
-                            .map(
-                              (String e) => DropdownMenuItem<String>(
-                                value: e,
-                                child: Text(e),
-                              ),
-                            )
-                            .toList(),
-                    onChanged: (String? v) =>
-                        setModal(() => subDisp = v ?? subDisp),
-                    decoration: const InputDecoration(
-                      labelText: 'Sub Disposition *',
-                      border: OutlineInputBorder(),
-                    ),
+                  // Sub Disposition from Supabase (depends on main)
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: subsFuture,
+                    builder:
+                        (
+                          BuildContext _,
+                          AsyncSnapshot<List<Map<String, dynamic>>> snap,
+                        ) {
+                          if (snap.connectionState == ConnectionState.waiting) {
+                            return const SizedBox.shrink();
+                          }
+                          if (snap.hasError) {
+                            return const Text(
+                              'Failed to load sub dispositions',
+                            );
+                          }
+                          final List<Map<String, dynamic>> subs =
+                              snap.data ?? <Map<String, dynamic>>[];
+                          return DropdownButtonFormField<String>(
+                            value: subDispId,
+                            items: subs
+                                .map(
+                                  (Map<String, dynamic> s) =>
+                                      DropdownMenuItem<String>(
+                                        value: (s['id'] ?? '') as String,
+                                        child: Text(
+                                          (s['name'] ?? '-') as String,
+                                        ),
+                                      ),
+                                )
+                                .toList(),
+                            onChanged: (String? v) {
+                              setModal(() {
+                                subDispId = v;
+                                // Selected sub disposition stored by id
+                              });
+                            },
+                            decoration: const InputDecoration(
+                              labelText: 'Sub Disposition *',
+                              border: OutlineInputBorder(),
+                            ),
+                          );
+                        },
                   ),
                   const SizedBox(height: 12),
 
@@ -7157,7 +7136,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: () {
-                        if (mainDisp.isEmpty || subDisp.isEmpty) {
+                        if ((mainDispId == null || mainDispId!.isEmpty) ||
+                            (subDispId == null || subDispId!.isEmpty)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Please complete required fields'),
@@ -7502,37 +7482,19 @@ class _PreferencesCardState extends State<_PreferencesCard> {
 // _MediaAttachmentsCard removed from Lead Detail tab
 
 class _TimelineCard extends StatelessWidget {
+  const _TimelineCard({required this.items});
+  final List<Map<String, dynamic>> items;
   @override
   Widget build(BuildContext context) {
-    final List<_TimelineItem> items = <_TimelineItem>[
-      _TimelineItem(
-        'Note added',
-        'Discussed budget range',
-        DateTime.now().subtract(const Duration(hours: 2)),
-        Icons.note_alt_outlined,
-      ),
-      _TimelineItem(
-        'Call',
-        'Call connected for 3m 12s',
-        DateTime.now().subtract(const Duration(days: 1)),
-        Icons.call_outlined,
-      ),
-      _TimelineItem(
-        'Site visit',
-        'Scheduled for tomorrow 11:00 AM',
-        DateTime.now().subtract(const Duration(days: 2)),
-        Icons.location_on_outlined,
-      ),
-    ];
     return _SectionCard(
       title: 'Timeline',
       children: <Widget>[
-        for (final _TimelineItem it in items) ...<Widget>[
+        for (final Map<String, dynamic> it in items) ...<Widget>[
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Icon(
-                it.icon,
+                _iconForType(it['type'] as String?),
                 size: 18,
                 color: Theme.of(context).colorScheme.primary,
               ),
@@ -7542,16 +7504,18 @@ class _TimelineCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      it.title,
+                      (it['type'] as String?)?.replaceAll('_', ' ') ?? '-',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(it.desc),
+                    Text(
+                      it['notes'] as String? ?? it['title'] as String? ?? '-',
+                    ),
                     const SizedBox(height: 2),
                     Text(
-                      _fmt(it.time),
+                      it['timestamp'] as String? ?? '-',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(
                           context,
@@ -7569,17 +7533,21 @@ class _TimelineCard extends StatelessWidget {
     );
   }
 
-  String _fmt(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
+  IconData _iconForType(String? type) {
+    switch (type) {
+      case 'site_visit':
+        return Icons.location_on_outlined;
+      case 'task':
+        return Icons.checklist_rtl_rounded;
+      case 'booking':
+        return Icons.receipt_long_outlined;
+      default:
+        return Icons.history;
+    }
+  }
 }
 
-class _TimelineItem {
-  const _TimelineItem(this.title, this.desc, this.time, this.icon);
-  final String title;
-  final String desc;
-  final DateTime time;
-  final IconData icon;
-}
+// _TimelineItem model removed; using API result instead
 
 class _ActivityLogCard extends StatelessWidget {
   @override

@@ -192,7 +192,7 @@ class _LeadScreenState extends State<LeadScreen> {
         });
       } else {
         setState(() {
-          _error = response.message ?? 'Failed to load leads';
+          _error = response.message ?? response.error ?? 'Failed to load leads';
           _isLoading = false;
         });
       }
