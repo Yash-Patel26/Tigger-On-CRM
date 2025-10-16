@@ -1,0 +1,15 @@
+{
+  "id": "7f9f7f6b-9c76-4a7a-8a9b-environment",
+  "name": "Tigger Supabase Env",
+  "values": [
+    { "key": "baseUrl", "value": "https://tyntmzyinafmuwzirifb.supabase.co", "enabled": true },
+    { "key": "apikey", "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5bnRtenlpbmFmbXV3emlyaWZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzODgxMTQsImV4cCI6MjA3NTk2NDExNH0.DMSdKcF-d17qS4u2bCUhNrsf7rExAehrug7waRTFlvc", "enabled": true },
+    { "key": "jwt", "value": "{{apikey}}", "enabled": true },
+    { "key": "user_id", "value": "550e8400-e29b-41d4-a716-446655440001", "enabled": true },
+    { "key": "lead_id", "value": "950e8400-e29b-41d4-a716-446655440001", "enabled": true }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2025-10-16T00:00:00.000Z",
+  "_postman_exported_using": "Postman/10"
+}
+

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:realtime_client/realtime_client.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import '../utils/helpers.dart';
@@ -12,6 +14,7 @@ import '../models/project_model.dart';
 // import '../repositories/project_repository.dart';
 // import '../services/api_service.dart';
 import '../services/database_service.dart';
+import '../config/supabase_config.dart';
 import '../models/models.dart';
 // import 'project_detail_screen.dart';
 
@@ -28,11 +31,13 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
   final LeadRepository _leadRepository = LeadRepository();
 
   late Future<Lead> _leadFuture;
+  RealtimeChannel? _leadRealtimeChannel;
 
   @override
   void initState() {
     super.initState();
     _leadFuture = _fetchLead();
+    _subscribeToLeadUpdates();
   }
 
   Future<Lead> _fetchLead() async {
@@ -41,6 +46,43 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
       return response.data!;
     }
     throw Exception(response.error ?? 'Failed to load lead');
+  }
+
+  void refreshLead() {
+    if (!mounted) return;
+    setState(() {
+      _leadFuture = _fetchLead();
+    });
+  }
+
+  void _subscribeToLeadUpdates() {
+    // Listen for updates to this lead and refresh UI in realtime
+    final SupabaseClient client = SupabaseConfig.client;
+    _leadRealtimeChannel = client.channel('public:leads:${widget.leadId}');
+    _leadRealtimeChannel!
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'leads',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: widget.leadId,
+          ),
+          callback: (PostgresChangePayload payload) {
+            if (!mounted) return;
+            setState(() {
+              _leadFuture = _fetchLead();
+            });
+          },
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _leadRealtimeChannel?.unsubscribe();
+    super.dispose();
   }
 
   @override
@@ -390,75 +432,20 @@ class _DisposeLeadDialog extends StatefulWidget {
 
 class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
-  final List<String> _mainOptions = <String>[
-    'customer',
-    'disqualified',
-    'follow up',
-    'hot',
-    'opportunity',
-    'spam',
-    'test',
-    'testing',
-    'sub dispose',
-  ];
-
-  String? _main;
-  String? _sub;
+  String? _statusId;
+  String? _subStatusId;
   String _initiatedBy = 'Agent';
   DateTime _date = DateTime.now();
   TimeOfDay _time = const TimeOfDay(hour: 10, minute: 0);
   final TextEditingController _remarkCtrl = TextEditingController();
 
-  List<String> get _subOptions {
-    switch ((_main ?? '').toLowerCase()) {
-      case 'customer':
-        return <String>['booking', 'disqualified'];
-      case 'disqualified':
-        return <String>[
-          'less budget',
-          'no response',
-          'many time call performed',
-          'not interested',
-          'broker',
-          'dead',
-        ];
-      case 'follow up':
-        return <String>[
-          'call back',
-          'busy',
-          'call drop',
-          'client hangup',
-          'not achable',
-          'detailed shared',
-          'future planning',
-          'looking for other project',
-          'call not received',
-        ];
-      case 'hot':
-        return <String>['site visit done', 'negotiation stage', 'ready to buy'];
-      case 'opportunity':
-        return <String>[
-          'site visit scheduled',
-          'plan for site viist',
-          'project finalize',
-          'interested',
-          'detailed shared',
-        ];
-      case 'spam':
-        return <String>['number invalid', 'wrong number', 'marketing call'];
-      default:
-        return const <String>[];
-    }
-  }
-
   bool get _showInitiatedBy {
-    final String m = (_main ?? '').toLowerCase();
+    final String m = (_statusId ?? '').toLowerCase();
     return m == 'customer' || m == 'disqualified' || m == 'spam';
   }
 
   bool get _showDateTime {
-    final String m = (_main ?? '').toLowerCase();
+    final String m = (_statusId ?? '').toLowerCase();
     return m == 'follow up' || m == 'hot' || m == 'opportunity';
   }
 
@@ -478,49 +465,90 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              DropdownButtonFormField<String>(
-                initialValue: _main,
-                isExpanded: true,
-                items: _mainOptions
-                    .map(
-                      (String e) => DropdownMenuItem<String>(
-                        value: e,
-                        child: Text(_capitalize(e)),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (String? v) => setState(() {
-                  _main = v;
-                  _sub = null;
-                }),
-                decoration: const InputDecoration(
-                  labelText: 'Main Disposition',
-                  hintText: 'Select main disposition',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (String? v) =>
-                    v == null || v.isEmpty ? 'Required' : null,
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: DatabaseServiceMasters.getLeadStatuses(),
+                builder:
+                    (
+                      BuildContext _,
+                      AsyncSnapshot<List<Map<String, dynamic>>> snap,
+                    ) {
+                      if (snap.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snap.hasError) return const Text('Failed to load');
+                      final List<Map<String, dynamic>> items =
+                          snap.data ?? <Map<String, dynamic>>[];
+                      return DropdownButtonFormField<String>(
+                        value: _statusId,
+                        isExpanded: true,
+                        items: items
+                            .map(
+                              (Map<String, dynamic> s) =>
+                                  DropdownMenuItem<String>(
+                                    value: (s['id'] ?? '') as String,
+                                    child: Text(
+                                      _capitalize((s['name'] ?? '-') as String),
+                                    ),
+                                  ),
+                            )
+                            .toList(),
+                        onChanged: (String? v) => setState(() {
+                          _statusId = v;
+                          _subStatusId = null;
+                        }),
+                        decoration: const InputDecoration(
+                          labelText: 'Main Disposition',
+                          hintText: 'Select main disposition',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (String? v) =>
+                            v == null || v.isEmpty ? 'Required' : null,
+                      );
+                    },
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _sub,
-                isExpanded: true,
-                items: _subOptions
-                    .map(
-                      (String e) => DropdownMenuItem<String>(
-                        value: e,
-                        child: Text(_capitalize(e)),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (String? v) => setState(() => _sub = v),
-                decoration: const InputDecoration(
-                  labelText: 'Sub Disposition',
-                  hintText: 'Select sub disposition',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (String? v) =>
-                    v == null || v.isEmpty ? 'Required' : null,
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: _statusId == null
+                    ? Future<List<Map<String, dynamic>>>.value(
+                        <Map<String, dynamic>>[],
+                      )
+                    : DatabaseServiceMasters.getLeadSubStatuses(_statusId!),
+                builder:
+                    (
+                      BuildContext _,
+                      AsyncSnapshot<List<Map<String, dynamic>>> snap,
+                    ) {
+                      if (snap.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      if (snap.hasError) return const Text('Failed to load');
+                      final List<Map<String, dynamic>> items =
+                          snap.data ?? <Map<String, dynamic>>[];
+                      return DropdownButtonFormField<String>(
+                        value: _subStatusId,
+                        isExpanded: true,
+                        items: items
+                            .map(
+                              (Map<String, dynamic> s) =>
+                                  DropdownMenuItem<String>(
+                                    value: (s['id'] ?? '') as String,
+                                    child: Text(
+                                      _capitalize((s['name'] ?? '-') as String),
+                                    ),
+                                  ),
+                            )
+                            .toList(),
+                        onChanged: (String? v) =>
+                            setState(() => _subStatusId = v),
+                        decoration: const InputDecoration(
+                          labelText: 'Sub Disposition',
+                          hintText: 'Select sub disposition',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (String? v) =>
+                            v == null || v.isEmpty ? 'Required' : null,
+                      );
+                    },
               ),
               if (_showInitiatedBy) ...<Widget>[
                 const SizedBox(height: 12),
@@ -654,9 +682,9 @@ class _AssignLeadDialog extends StatefulWidget {
 
 class _AssignLeadDialogState extends State<_AssignLeadDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final List<String> _users = <String>['Anita', 'Chetan', 'Sample User'];
-  String? _selected;
   final TextEditingController _descCtrl = TextEditingController();
+  String? _selectedUserId;
+  String _selectedUserName = '';
 
   @override
   Widget build(BuildContext context) {
@@ -672,22 +700,47 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              DropdownButtonFormField<String>(
-                initialValue: _selected,
-                isExpanded: true,
-                items: _users
-                    .map(
-                      (String e) =>
-                          DropdownMenuItem<String>(value: e, child: Text(e)),
-                    )
-                    .toList(),
-                onChanged: (String? v) => setState(() => _selected = v),
-                decoration: const InputDecoration(
-                  labelText: 'Assign to',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (String? v) =>
-                    v == null || v.isEmpty ? 'Required' : null,
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: DatabaseServiceUsersAndDisposition.getAssignableUsers(),
+                builder:
+                    (
+                      BuildContext _,
+                      AsyncSnapshot<List<Map<String, dynamic>>> snap,
+                    ) {
+                      if (snap.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snap.hasError) return const Text('Failed to load');
+                      final List<Map<String, dynamic>> users =
+                          snap.data ?? <Map<String, dynamic>>[];
+                      return DropdownButtonFormField<String>(
+                        value: _selectedUserId,
+                        isExpanded: true,
+                        items: users
+                            .map(
+                              (Map<String, dynamic> u) =>
+                                  DropdownMenuItem<String>(
+                                    value: (u['id'] ?? '') as String,
+                                    child: Text((u['name'] ?? '-') as String),
+                                  ),
+                            )
+                            .toList(),
+                        onChanged: (String? v) => setState(() {
+                          _selectedUserId = v;
+                          final Map<String, dynamic>? sel = users.firstWhere(
+                            (Map<String, dynamic> e) => e['id'] == v,
+                            orElse: () => <String, dynamic>{},
+                          );
+                          _selectedUserName = (sel?['name'] ?? '-') as String;
+                        }),
+                        decoration: const InputDecoration(
+                          labelText: 'Assign to',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (String? v) =>
+                            v == null || v.isEmpty ? 'Required' : null,
+                      );
+                    },
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -716,9 +769,31 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
   void _onAssign() {
     if (!_formKey.currentState!.validate()) return;
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Assigned to ${_selected!}')));
+    // Find active lead id from ancestor
+    final _LeadDetailScreenState? parent = context
+        .findAncestorStateOfType<_LeadDetailScreenState>();
+    if (parent != null && _selectedUserId != null) {
+      parent._leadFuture.then((Lead lead) async {
+        try {
+          await DatabaseService.updateLeadAssignment(
+            leadId: lead.id,
+            assignedToId: _selectedUserId!,
+            assignedToName: _selectedUserName,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Assigned to $_selectedUserName')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Failed to assign: $e')));
+          }
+        }
+      });
+    }
   }
 }
 
@@ -927,9 +1002,10 @@ class _CrossSellTabState extends State<_CrossSellTab> {
   }
 
   void _openAddSheet() {
-    String category = 'Residential';
-    String propertyType = 'Apartment';
-    String project = 'Project Alpha';
+    String category = '';
+    String propertyType = '';
+    String project = '';
+    String? projectId;
     String allocatedTo = '';
     String? allocatedToId;
     final TextEditingController descCtrl = TextEditingController();
@@ -967,59 +1043,126 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: category,
-                    items: const <String>['Residential', 'Commercial']
-                        .map(
-                          (String e) => DropdownMenuItem<String>(
-                            value: e,
-                            child: Text(e),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (String? v) =>
-                        setModal(() => category = v ?? category),
-                    decoration: const InputDecoration(
-                      labelText: 'Category',
-                      border: OutlineInputBorder(),
-                    ),
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: DatabaseServiceMasters.getPropertyCategories(),
+                    builder:
+                        (
+                          BuildContext _,
+                          AsyncSnapshot<List<Map<String, dynamic>>> snap,
+                        ) {
+                          if (snap.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (snap.hasError)
+                            return const Text('Failed to load categories');
+                          final List<Map<String, dynamic>> cats =
+                              snap.data ?? <Map<String, dynamic>>[];
+                          return DropdownButtonFormField<String>(
+                            value: category.isEmpty ? null : category,
+                            items: cats
+                                .map(
+                                  (Map<String, dynamic> c) =>
+                                      DropdownMenuItem<String>(
+                                        value: (c['name'] ?? '-') as String,
+                                        child: Text(
+                                          (c['name'] ?? '-') as String,
+                                        ),
+                                      ),
+                                )
+                                .toList(),
+                            onChanged: (String? v) =>
+                                setModal(() => category = v ?? category),
+                            decoration: const InputDecoration(
+                              labelText: 'Category',
+                              border: OutlineInputBorder(),
+                            ),
+                          );
+                        },
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: propertyType,
-                    items:
-                        const <String>['Apartment', 'Villa', 'Office', 'Shop']
-                            .map(
-                              (String e) => DropdownMenuItem<String>(
-                                value: e,
-                                child: Text(e),
-                              ),
-                            )
-                            .toList(),
-                    onChanged: (String? v) =>
-                        setModal(() => propertyType = v ?? propertyType),
-                    decoration: const InputDecoration(
-                      labelText: 'Property Type',
-                      border: OutlineInputBorder(),
-                    ),
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: DatabaseServiceMasters.getPropertyTypes(),
+                    builder:
+                        (
+                          BuildContext _,
+                          AsyncSnapshot<List<Map<String, dynamic>>> snap,
+                        ) {
+                          if (snap.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (snap.hasError)
+                            return const Text('Failed to load property types');
+                          final List<Map<String, dynamic>> types =
+                              snap.data ?? <Map<String, dynamic>>[];
+                          return DropdownButtonFormField<String>(
+                            value: propertyType.isEmpty ? null : propertyType,
+                            items: types
+                                .map(
+                                  (Map<String, dynamic> t) =>
+                                      DropdownMenuItem<String>(
+                                        value: (t['name'] ?? '-') as String,
+                                        child: Text(
+                                          (t['name'] ?? '-') as String,
+                                        ),
+                                      ),
+                                )
+                                .toList(),
+                            onChanged: (String? v) => setModal(
+                              () => propertyType = v ?? propertyType,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: 'Property Type',
+                              border: OutlineInputBorder(),
+                            ),
+                          );
+                        },
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: project,
-                    items: const <String>['Project Alpha', 'Project Beta']
-                        .map(
-                          (String e) => DropdownMenuItem<String>(
-                            value: e,
-                            child: Text(e),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (String? v) =>
-                        setModal(() => project = v ?? project),
-                    decoration: const InputDecoration(
-                      labelText: 'Project Name',
-                      border: OutlineInputBorder(),
-                    ),
+                  FutureBuilder<List<Project>>(
+                    future: DatabaseService.getProjects(limit: 200),
+                    builder:
+                        (BuildContext _, AsyncSnapshot<List<Project>> snap) {
+                          if (snap.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (snap.hasError)
+                            return const Text('Failed to load projects');
+                          final List<Project> projs = snap.data ?? <Project>[];
+                          return DropdownButtonFormField<String>(
+                            value: projectId,
+                            items: projs
+                                .map(
+                                  (Project p) => DropdownMenuItem<String>(
+                                    value: p.id,
+                                    child: Text(p.name),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (String? v) => setModal(() {
+                              projectId = v;
+                              Project? selected;
+                              if (v != null) {
+                                for (final Project e in projs) {
+                                  if (e.id == v) {
+                                    selected = e;
+                                    break;
+                                  }
+                                }
+                              }
+                              project = selected?.name ?? '';
+                            }),
+                            decoration: const InputDecoration(
+                              labelText: 'Project Name',
+                              border: OutlineInputBorder(),
+                            ),
+                          );
+                        },
                   ),
                   const SizedBox(height: 12),
                   FutureBuilder<List<Map<String, dynamic>>>(
@@ -1104,6 +1247,7 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                             leadId: widget.leadId,
                             category: category,
                             propertyType: propertyType,
+                            projectId: projectId,
                             projectName: project,
                             allocatedToName: allocatedTo,
                             allocatedToId: allocatedToId,
@@ -1250,17 +1394,46 @@ class _EditCustomerDialog extends StatefulWidget {
 }
 
 class _EditCustomerDialogState extends State<_EditCustomerDialog> {
-  final TextEditingController _first = TextEditingController(text: 'Mayank');
+  final TextEditingController _first = TextEditingController();
   final TextEditingController _middle = TextEditingController();
-  final TextEditingController _last = TextEditingController(text: 'K');
-  final TextEditingController _email = TextEditingController(
-    text: 'm*y@gm*il.com',
-  );
-  final TextEditingController _phone = TextEditingController(
-    text: '+91 9816353871',
-  );
+  final TextEditingController _last = TextEditingController();
+  final TextEditingController _email = TextEditingController();
+  final TextEditingController _phone = TextEditingController();
   final TextEditingController _altPhone = TextEditingController();
   final GlobalKey<FormState> _form = GlobalKey<FormState>();
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Seed controllers once after the dialog is built and has context
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final _LeadDetailScreenState? parent = context
+          .findAncestorStateOfType<_LeadDetailScreenState>();
+      if (parent != null) {
+        parent._leadFuture.then((Lead lead) {
+          if (!mounted) return;
+          if (_first.text.isEmpty) _first.text = lead.customerName;
+          if (_email.text.isEmpty) _email.text = lead.email;
+          if (_phone.text.isEmpty) _phone.text = lead.phone;
+          if (_altPhone.text.isEmpty) {
+            _altPhone.text = lead.alternatePhone ?? '';
+          }
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _first.dispose();
+    _middle.dispose();
+    _last.dispose();
+    _email.dispose();
+    _phone.dispose();
+    _altPhone.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1359,14 +1532,85 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () {
-            if (!_form.currentState!.validate()) return;
-            Navigator.of(context).pop();
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Customer updated')));
-          },
-          child: const Text('Update'),
+          onPressed: _saving
+              ? null
+              : () async {
+                  if (!_form.currentState!.validate()) return;
+                  final _LeadDetailScreenState? parent = context
+                      .findAncestorStateOfType<_LeadDetailScreenState>();
+                  if (parent != null) {
+                    // Require authentication to proceed; RLS will block otherwise
+                    if (!SupabaseConfig.isLoggedIn) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please sign in to update this lead'),
+                        ),
+                      );
+                      return;
+                    }
+                    if (mounted) {
+                      setState(() {
+                        _saving = true;
+                      });
+                    }
+                    final Lead lead = await parent._leadFuture;
+                    // Capture parent before popping to ensure we can refresh after close
+                    final _LeadDetailScreenState? parentState = context
+                        .findAncestorStateOfType<_LeadDetailScreenState>();
+                    try {
+                      final String combinedName = <String>[
+                        _first.text.trim(),
+                        _middle.text.trim(),
+                        _last.text.trim(),
+                      ].where((String s) => s.isNotEmpty).join(' ');
+                      final String updatedName =
+                          await DatabaseService.patchLead(
+                            lead.id,
+                            <String, dynamic>{
+                              'customer_name': combinedName,
+                              'email': _email.text.trim(),
+                              'phone': _phone.text.trim(),
+                              'alternate_phone': _altPhone.text.trim().isEmpty
+                                  ? null
+                                  : _altPhone.text.trim(),
+                            },
+                          );
+                      if (!mounted) return;
+                      // Trigger immediate refresh of parent without waiting for realtime
+                      parentState?.refreshLead();
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            updatedName.isEmpty
+                                ? 'Customer updated'
+                                : 'Customer updated: $updatedName',
+                          ),
+                        ),
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to update: $e')),
+                      );
+                      if (mounted) {
+                        setState(() {
+                          _saving = false;
+                        });
+                      }
+                    }
+                  }
+                },
+          child: _saving
+              ? SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Theme.of(context).colorScheme.onPrimary,
+                  ),
+                )
+              : const Text('Update'),
         ),
       ],
     );
@@ -4017,21 +4261,44 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: mode,
-                    items: const <String>['Onsite', 'Office']
-                        .map(
-                          (String e) => DropdownMenuItem<String>(
-                            value: e,
-                            child: Text(e),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (String? v) => setModal(() => mode = v ?? mode),
-                    decoration: const InputDecoration(
-                      labelText: 'Meeting Mode',
-                      border: OutlineInputBorder(),
-                    ),
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: DatabaseServiceMasters.getVisitModes(),
+                    builder:
+                        (
+                          BuildContext _,
+                          AsyncSnapshot<List<Map<String, dynamic>>> snap,
+                        ) {
+                          if (snap.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (snap.hasError) {
+                            return const Text('Failed to load visit modes');
+                          }
+                          final List<Map<String, dynamic>> modes =
+                              snap.data ?? <Map<String, dynamic>>[];
+                          return DropdownButtonFormField<String>(
+                            value: mode.isEmpty ? null : mode,
+                            items: modes
+                                .map(
+                                  (Map<String, dynamic> m) =>
+                                      DropdownMenuItem<String>(
+                                        value: (m['name'] ?? '-') as String,
+                                        child: Text(
+                                          (m['name'] ?? '-') as String,
+                                        ),
+                                      ),
+                                )
+                                .toList(),
+                            onChanged: (String? v) =>
+                                setModal(() => mode = v ?? mode),
+                            decoration: const InputDecoration(
+                              labelText: 'Meeting Mode',
+                              border: OutlineInputBorder(),
+                            ),
+                          );
+                        },
                   ),
                   const SizedBox(height: 12),
                   _dateTimePicker(
