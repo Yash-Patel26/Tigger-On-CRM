@@ -5,7 +5,6 @@ import 'services/auth_service.dart';
 import 'utils/constants.dart';
 import 'splash/splash_screen.dart';
 import 'onboarding/email_login_screen.dart';
-import 'widgets/auth_guard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -276,9 +275,7 @@ class MyApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: SplashScreen(
-        nextPageBuilder: (_) => const AuthGuard(child: EmailLoginScreen()),
-      ),
+      home: SplashScreen(nextPageBuilder: (_) => const EmailLoginScreen()),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../repositories/dashboard_repository.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -9,81 +10,170 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _showToday = true; // true=today, false=total
+  bool _isLoading = true;
+  String? _error;
 
-  // Demo data. Replace with real values wired from backend.
-  final Map<String, int> _today = <String, int>{
-    'Follow ups': 4,
-    'Hot opportunity': 3,
-    'Site visits': 2,
-    'Booking': 1,
-    'Customer': 2,
-    'Disqualified': 1,
-  };
+  // Data from API
+  Map<String, int> _today = <String, int>{};
+  Map<String, int> _total = <String, int>{};
 
-  final Map<String, int> _total = <String, int>{
-    'Follow ups': 86,
-    'Hot opportunity': 24,
-    'Site visits': 40,
-    'Booking': 18,
-    'Customer': 55,
-    'Disqualified': 9,
-  };
+  final DashboardRepository _dashboardRepository = DashboardRepository();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // Load both today and total data
+      final todayResponse = await _dashboardRepository.getTodayStats();
+      final totalResponse = await _dashboardRepository.getTotalStats();
+
+      if (todayResponse.success && totalResponse.success) {
+        setState(() {
+          _today = _parseStatsData(todayResponse.data!);
+          _total = _parseStatsData(totalResponse.data!);
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _error =
+              todayResponse.message ??
+              totalResponse.message ??
+              'Failed to load data';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'Error loading dashboard data: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Map<String, int> _parseStatsData(Map<String, dynamic> data) {
+    return {
+      'Follow ups': data['followUps'] ?? 0,
+      'Hot opportunity': data['hotLeads'] ?? 0,
+      'Site visits': data['siteVisits'] ?? 0,
+      'Booking': data['bookings'] ?? 0,
+      'Customer': data['customers'] ?? 0,
+      'Disqualified': data['disqualified'] ?? 0,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
-    final Map<String, int> data = _showToday ? _today : _total;
-    final int totalLeads = data.values.fold<int>(0, (int a, int b) => a + b);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: <Widget>[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Center(
-              child: SegmentedButton<bool>(
-                segments: const <ButtonSegment<bool>>[
-                  ButtonSegment<bool>(value: true, label: Text('Today')),
-                  ButtonSegment<bool>(value: false, label: Text('Total')),
-                ],
-                selected: <bool>{_showToday},
-                showSelectedIcon: false,
-                onSelectionChanged: (Set<bool> v) {
-                  setState(() => _showToday = v.first);
-                },
+          if (!_isLoading && _error == null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Center(
+                child: SegmentedButton<bool>(
+                  segments: const <ButtonSegment<bool>>[
+                    ButtonSegment<bool>(value: true, label: Text('Today')),
+                    ButtonSegment<bool>(value: false, label: Text('Total')),
+                  ],
+                  selected: <bool>{_showToday},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (Set<bool> v) {
+                    setState(() => _showToday = v.first);
+                  },
+                ),
               ),
             ),
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: _MetricCard(
-                    label: _showToday ? 'Today\'s Leads' : 'Total Leads',
-                    value: totalLeads.toString(),
-                    icon: Icons.leaderboard,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _MetricCard(
-                    label: 'Site Visits',
-                    value: data['Site visits']?.toString() ?? '0',
-                    icon: Icons.place_outlined,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _DonutChartCard(data: data),
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading dashboard data...'),
           ],
         ),
+      );
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+            const SizedBox(height: 16),
+            Text(
+              'Error loading dashboard',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final Map<String, int> data = _showToday ? _today : _total;
+    final int totalLeads = data.values.fold<int>(0, (int a, int b) => a + b);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _MetricCard(
+                  label: _showToday ? 'Today\'s Leads' : 'Total Leads',
+                  value: totalLeads.toString(),
+                  icon: Icons.leaderboard,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _MetricCard(
+                  label: 'Site Visits',
+                  value: data['Site visits']?.toString() ?? '0',
+                  icon: Icons.place_outlined,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _DonutChartCard(data: data),
+        ],
       ),
     );
   }

@@ -53,7 +53,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
     }
 
     // Proceed to login for real estate workspaces
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       SmoothPageTransitions.slideFromRight<void>(
         child: const login.LoginScreen(),
       ),

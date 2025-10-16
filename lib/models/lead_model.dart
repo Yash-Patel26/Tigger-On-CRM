@@ -80,59 +80,76 @@ class Lead {
   });
 
   factory Lead.fromJson(Map<String, dynamic> json) {
+    String? s(Map<String, dynamic> j, String a, String b) =>
+        (j[a] as String?) ?? (j[b] as String?);
+    String sr(Map<String, dynamic> j, String a, String b, String fallback) =>
+        s(j, a, b) ?? fallback;
+    String? opt(Map<String, dynamic> j, String a, String b) =>
+        j[a] as String? ?? j[b] as String?;
+    int? inti(Map<String, dynamic> j, String a, String b) =>
+        (j[a] as int?) ?? (j[b] as int?);
+    bool b(Map<String, dynamic> j, String a, String b, bool d) =>
+        (j[a] as bool?) ?? (j[b] as bool?) ?? d;
+    DateTime dt(Map<String, dynamic> j, String a, String b) =>
+        DateTime.parse(sr(j, a, b, DateTime.now().toIso8601String()));
+    DateTime? dtOpt(Map<String, dynamic> j, String a, String b) {
+      final v = s(j, a, b);
+      return v != null ? DateTime.parse(v) : null;
+    }
+
     return Lead(
-      id: json['id'] as String,
-      leadId: json['leadId'] as String,
-      customerName: json['customerName'] as String,
-      email: json['email'] as String,
-      phone: json['phone'] as String,
-      alternatePhone: json['alternatePhone'] as String?,
-      address: json['address'] as String?,
-      city: json['city'] as String?,
-      state: json['state'] as String?,
-      pincode: json['pincode'] as String?,
+      id: sr(json, 'id', 'id', ''),
+      leadId: sr(json, 'leadId', 'lead_id', ''),
+      customerName: sr(json, 'customerName', 'customer_name', ''),
+      email: sr(json, 'email', 'email', ''),
+      phone: sr(json, 'phone', 'phone', ''),
+      alternatePhone: opt(json, 'alternatePhone', 'alternate_phone'),
+      address: opt(json, 'address', 'address'),
+      city: opt(json, 'city', 'city'),
+      state: opt(json, 'state', 'state'),
+      pincode: opt(json, 'pincode', 'pincode'),
       status: LeadStatus.values.firstWhere(
-        (e) => e.name == json['status'],
+        (e) => e.name == (s(json, 'status', 'status') ?? 'warm'),
         orElse: () => LeadStatus.warm,
       ),
       subStatus: LeadSubStatus.values.firstWhere(
-        (e) => e.name == json['subStatus'],
+        (e) => e.name == (s(json, 'subStatus', 'sub_status') ?? 'newLead'),
         orElse: () => LeadSubStatus.newLead,
       ),
       source: LeadSource.values.firstWhere(
-        (e) => e.name == json['source'],
+        (e) => e.name == (s(json, 'source', 'source') ?? 'website'),
         orElse: () => LeadSource.website,
       ),
       propertyType: PropertyType.values.firstWhere(
-        (e) => e.name == json['propertyType'],
+        (e) =>
+            e.name ==
+            (s(json, 'propertyType', 'property_type') ?? 'residential'),
         orElse: () => PropertyType.residential,
       ),
       categoryType: CategoryType.values.firstWhere(
-        (e) => e.name == json['categoryType'],
+        (e) => e.name == (s(json, 'categoryType', 'category_type') ?? 'b'),
         orElse: () => CategoryType.b,
       ),
-      projectId: json['projectId'] as String?,
-      projectName: json['projectName'] as String?,
-      budgetRange: json['budgetRange'] as String?,
-      requirements: json['requirements'] as String?,
-      notes: json['notes'] as String?,
-      assignedTo: json['assignedTo'] as String,
-      assignedToName: json['assignedToName'] as String,
-      createdBy: json['createdBy'] as String,
-      createdByName: json['createdByName'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      lastFollowUpDate: json['lastFollowUpDate'] != null
-          ? DateTime.parse(json['lastFollowUpDate'] as String)
-          : null,
-      nextFollowUpDate: json['nextFollowUpDate'] != null
-          ? DateTime.parse(json['nextFollowUpDate'] as String)
-          : null,
-      hasSiteVisit: json['hasSiteVisit'] as bool? ?? false,
-      followUpCount: json['followUpCount'] as int? ?? 0,
-      siteVisitCount: json['siteVisitCount'] as int? ?? 0,
-      isDuplicate: json['isDuplicate'] as bool? ?? false,
-      customFields: json['customFields'] as Map<String, dynamic>?,
+      projectId: opt(json, 'projectId', 'project_id'),
+      projectName: opt(json, 'projectName', 'project_name'),
+      budgetRange: opt(json, 'budgetRange', 'budget_range'),
+      requirements: opt(json, 'requirements', 'requirements'),
+      notes: opt(json, 'notes', 'notes'),
+      assignedTo: sr(json, 'assignedTo', 'assigned_to', ''),
+      assignedToName: sr(json, 'assignedToName', 'assigned_to_name', ''),
+      createdBy: sr(json, 'createdBy', 'created_by', ''),
+      createdByName: sr(json, 'createdByName', 'created_by_name', ''),
+      createdAt: dt(json, 'createdAt', 'created_at'),
+      updatedAt: dt(json, 'updatedAt', 'updated_at'),
+      lastFollowUpDate: dtOpt(json, 'lastFollowUpDate', 'last_follow_up_date'),
+      nextFollowUpDate: dtOpt(json, 'nextFollowUpDate', 'next_follow_up_date'),
+      hasSiteVisit: b(json, 'hasSiteVisit', 'has_site_visit', false),
+      followUpCount: inti(json, 'followUpCount', 'follow_up_count') ?? 0,
+      siteVisitCount: inti(json, 'siteVisitCount', 'site_visit_count') ?? 0,
+      isDuplicate: b(json, 'isDuplicate', 'is_duplicate', false),
+      customFields:
+          (json['customFields'] as Map<String, dynamic>?) ??
+          json['custom_fields'] as Map<String, dynamic>?,
     );
   }
 

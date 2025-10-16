@@ -3343,8 +3343,9 @@ class _ReferenceTabState extends State<_ReferenceTab> {
                     border: OutlineInputBorder(),
                   ),
                   validator: (String? v) {
-                    if (v == null || v.trim().isEmpty)
+                    if (v == null || v.trim().isEmpty) {
                       return 'Email is required';
+                    }
                     final bool ok = RegExp(
                       r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
                     ).hasMatch(v.trim());
@@ -4164,7 +4165,7 @@ class _TaskTabState extends State<_TaskTab> {
             return AlertDialog(
               title: const Text('Change Status'),
               content: DropdownButtonFormField<String>(
-                value: selected,
+                initialValue: selected,
                 items: statuses
                     .map(
                       (String s) =>
@@ -4231,7 +4232,7 @@ class _TaskTabState extends State<_TaskTab> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        value: assignTo,
+                        initialValue: assignTo,
                         items: const <String>['Me', 'Anita', 'Chetan']
                             .map(
                               (String e) => DropdownMenuItem<String>(
@@ -4249,7 +4250,7 @@ class _TaskTabState extends State<_TaskTab> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        value: priority,
+                        initialValue: priority,
                         items: const <String>['Low', 'Medium', 'High']
                             .map(
                               (String e) => DropdownMenuItem<String>(
@@ -4900,7 +4901,7 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
 }
 
 class CreatePropertyOptionScreen extends StatefulWidget {
-  const CreatePropertyOptionScreen();
+  const CreatePropertyOptionScreen({super.key});
   @override
   State<CreatePropertyOptionScreen> createState() =>
       _CreatePropertyOptionScreenState();
@@ -4959,7 +4960,7 @@ class _CreatePropertyOptionScreenState
                     _label('Option Type *'),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      value: optionType.isEmpty ? null : optionType,
+                      initialValue: optionType.isEmpty ? null : optionType,
                       items: const <String>['Fresh', 'Resale']
                           .map(
                             (String e) => DropdownMenuItem<String>(
@@ -4981,7 +4982,7 @@ class _CreatePropertyOptionScreenState
                     _label('Project Name *'),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      value: projectName.isEmpty ? null : projectName,
+                      initialValue: projectName.isEmpty ? null : projectName,
                       items:
                           const <String>[
                                 'Green Valley Heights',
@@ -5008,7 +5009,7 @@ class _CreatePropertyOptionScreenState
                     _label('Category'),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      value: category.isEmpty ? null : category,
+                      initialValue: category.isEmpty ? null : category,
                       items: const <String>['Residential', 'Commercial']
                           .map(
                             (String e) => DropdownMenuItem<String>(
@@ -5028,7 +5029,7 @@ class _CreatePropertyOptionScreenState
                     _label('Property Type'),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      value: propertyType.isEmpty ? null : propertyType,
+                      initialValue: propertyType.isEmpty ? null : propertyType,
                       items:
                           const <String>['Apartment', 'Villa', 'Office', 'Shop']
                               .map(
@@ -5055,7 +5056,7 @@ class _CreatePropertyOptionScreenState
                               _label('State'),
                               const SizedBox(height: 6),
                               DropdownButtonFormField<String>(
-                                value: stateValue.isEmpty ? null : stateValue,
+                                initialValue: stateValue.isEmpty ? null : stateValue,
                                 items:
                                     const <String>[
                                           'Gujarat',
@@ -5089,7 +5090,7 @@ class _CreatePropertyOptionScreenState
                               _label('City'),
                               const SizedBox(height: 6),
                               DropdownButtonFormField<String>(
-                                value: cityValue.isEmpty ? null : cityValue,
+                                initialValue: cityValue.isEmpty ? null : cityValue,
                                 items:
                                     const <String>[
                                           'Ahmedabad',
@@ -5120,7 +5121,7 @@ class _CreatePropertyOptionScreenState
                     _label('Location'),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      value: location.isEmpty ? null : location,
+                      initialValue: location.isEmpty ? null : location,
                       items: const <String>['Gift City', 'NH 48, Part 2']
                           .map(
                             (String e) => DropdownMenuItem<String>(
@@ -5860,7 +5861,7 @@ class _TicketTabState extends State<_TicketTab> {
                     children: <Widget>[
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: createdBy,
+                          initialValue: createdBy,
                           items: const <String>['Me', 'Anita', 'Chetan']
                               .map(
                                 (String e) => DropdownMenuItem<String>(
@@ -5880,7 +5881,7 @@ class _TicketTabState extends State<_TicketTab> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: priority,
+                          initialValue: priority,
                           items: const <String>['Low', 'Medium', 'High']
                               .map(
                                 (String e) => DropdownMenuItem<String>(
@@ -6240,7 +6241,7 @@ class _TicketTabState extends State<_TicketTab> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           items: items.map((String item) {
             return DropdownMenuItem<String>(
               value: item,
@@ -6761,7 +6762,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
               const Text('Replied By'),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
-                value: repliedBy,
+                initialValue: repliedBy,
                 items: const <String>['Agent', 'Customer']
                     .map(
                       (String e) =>
@@ -6906,7 +6907,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
               const Text('Assign To'),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
-                value: selected,
+                initialValue: selected,
                 items:
                     const <String>[
                           'Abhishek',
@@ -7011,7 +7012,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
                   // Main Disposition
                   DropdownButtonFormField<String>(
-                    value: mainDisp,
+                    initialValue: mainDisp,
                     items:
                         const <String>[
                               'New',
@@ -7037,7 +7038,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
                   // Sub Disposition
                   DropdownButtonFormField<String>(
-                    value: subDisp,
+                    initialValue: subDisp,
                     items:
                         const <String>[
                               'Created',

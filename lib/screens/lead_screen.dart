@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../utils/helpers.dart';
 import '../utils/page_transitions.dart';
+import '../repositories/lead_repository.dart';
+import '../models/lead_model.dart';
 import 'create_lead_screen.dart';
 import 'lead_detail_screen.dart';
 import 'add_site_visit_screen.dart';
 // assign dialog implemented locally in this file for lead list
 
-// Lead data model for pagination
+// Lead data model for pagination - extends Lead model
 class LeadData {
   final String id;
   final String leadId;
@@ -19,7 +21,7 @@ class LeadData {
   final String subStatus;
   final String timeAgo;
   final DateTime createdAt;
-  final DateTime lastFollowUpDate;
+  final DateTime? lastFollowUpDate;
   final bool hasSiteVisit;
 
   const LeadData({
@@ -34,9 +36,44 @@ class LeadData {
     required this.subStatus,
     required this.timeAgo,
     required this.createdAt,
-    required this.lastFollowUpDate,
+    this.lastFollowUpDate,
     this.hasSiteVisit = false,
   });
+
+  factory LeadData.fromLead(Lead lead) {
+    return LeadData(
+      id: lead.id,
+      leadId: lead.leadId,
+      customerName: lead.customerName,
+      phone: lead.phone,
+      projectName: lead.projectName ?? 'No Project',
+      assignedTo: lead.assignedTo,
+      assignedToName: lead.assignedToName,
+      status: lead.status.name,
+      subStatus: lead.subStatus.name,
+      timeAgo: _getTimeAgo(lead.createdAt),
+      createdAt: lead.createdAt,
+      lastFollowUpDate: lead.lastFollowUpDate,
+      hasSiteVisit: lead.hasSiteVisit,
+    );
+  }
+
+  static String _getTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays == 0) {
+      return 'Today';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inDays < 30) {
+      return '${(difference.inDays / 7).floor()} weeks ago';
+    } else {
+      return '${(difference.inDays / 30).floor()} months ago';
+    }
+  }
 }
 
 class LeadScreen extends StatefulWidget {
@@ -49,12 +86,12 @@ class LeadScreen extends StatefulWidget {
 enum FollowUpFilter { all, today, thisWeek, overdue }
 
 class _LeadScreenState extends State<LeadScreen> {
-  // Demo counts; replace with real data
-  int todaysFollowUp = 3;
-  int todaysLead = 7;
-  int totalFollowUp = 42;
-  int totalLead = 256;
-  int totalDuplicateVisits = 5;
+  // Real data from API
+  int todaysFollowUp = 0;
+  int todaysLead = 0;
+  int totalFollowUp = 0;
+  int totalLead = 0;
+  int totalDuplicateVisits = 0;
 
   String _search = '';
   String? _filterStatus; // 'Hot' | 'Warm' | 'Cold' | null
@@ -65,11 +102,17 @@ class _LeadScreenState extends State<LeadScreen> {
   int _pageSize = 8;
   int _currentPage = 1; // 1-based
   List<LeadData> _pageItems = <LeadData>[];
+  bool _isLoading = false;
+  String? _error;
+  int _totalPages = 0;
+
+  final LeadRepository _leadRepository = LeadRepository();
 
   @override
   void initState() {
     super.initState();
     _loadPage(_currentPage);
+    _loadStats();
   }
 
   @override
@@ -77,69 +120,95 @@ class _LeadScreenState extends State<LeadScreen> {
     super.dispose();
   }
 
-  Future<void> _loadPage(int page) async {
+  Future<void> _loadStats() async {
     try {
-      // Simulate API call delay
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Load dashboard stats for lead counts
+      final response = await _leadRepository.getLeads(
+        page: 1,
+        limit: 1, // Just to get total count
+      );
 
-      // Generate mock data for the page
-      final List<LeadData> newItems = [];
-      final startIndex = (page - 1) * _pageSize;
-      final endIndex = startIndex + _pageSize;
+      if (response.success) {
+        // In a real implementation, you would have separate stats endpoints
+        // For now, we'll calculate from the leads data
+        setState(() {
+          totalLead = response.data?.length ?? 0;
+          // You would call separate endpoints for these stats
+          todaysLead = 0;
+          todaysFollowUp = 0;
+          totalFollowUp = 0;
+          totalDuplicateVisits = 0;
+        });
+      }
+    } catch (e) {
+      print('Error loading stats: $e');
+    }
+  }
 
-      for (int i = startIndex; i < endIndex; i++) {
-        // Simulate total of 1000 leads
-        if (i >= 1000) break;
+  Future<void> _loadPage(int page) async {
+    if (_isLoading) return;
 
-        final now = DateTime.now();
-        final createdDate = now.subtract(Duration(days: i % 7));
-        final followUpDate = now.subtract(Duration(hours: i % 24));
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
-        newItems.add(
-          LeadData(
-            id: i.toString(),
-            leadId:
-                'RELRC-${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(65 + ((i ~/ 26) % 26))}${String.fromCharCode(65 + ((i ~/ 676) % 26))}${String.fromCharCode(65 + ((i ~/ 17576) % 26))}${String.fromCharCode(65 + ((i ~/ 456976) % 26))}-${(10000 + i).toString().padLeft(5, '0')}',
-            customerName: i == 0 ? 'Mayank11' : 'Customer ${i + 1}',
-            phone: i == 0 ? '9816353871' : '${9000000000 + i}',
-            projectName: i == 0
-                ? '4s The Aurrum'
-                : 'Project ${i % 3 == 0
-                      ? 'Alpha'
-                      : i % 3 == 1
-                      ? 'Beta'
-                      : 'Gamma'}',
-            assignedTo: 'user_${i % 5 + 1}',
-            assignedToName: i == 0
-                ? 'Anita(Counsellor)(A-1)'
-                : 'User ${i % 5 + 1}',
-            status: i % 3 == 0
-                ? 'Hot'
-                : i % 3 == 1
-                ? 'Warm'
-                : 'Cold',
-            subStatus: i % 2 == 0 ? 'New' : 'In Progress',
-            timeAgo: i == 0
-                ? 'Yesterday'
-                : i % 3 == 0
-                ? 'Today'
-                : i % 3 == 1
-                ? '2 days ago'
-                : '3 days ago',
-            createdAt: createdDate,
-            lastFollowUpDate: followUpDate,
-            hasSiteVisit: i % 4 == 0,
-          ),
-        );
+    try {
+      // Convert filter values to LeadStatus enum
+      LeadStatus? statusFilter;
+      if (_filterStatus != null) {
+        switch (_filterStatus!.toLowerCase()) {
+          case 'hot':
+            statusFilter = LeadStatus.hot;
+            break;
+          case 'warm':
+            statusFilter = LeadStatus.warm;
+            break;
+          case 'cold':
+            statusFilter = LeadStatus.cold;
+            break;
+        }
       }
 
+      final response = await _leadRepository.getLeads(
+        search: _search.isNotEmpty ? _search : null,
+        status: statusFilter,
+        page: page,
+        limit: _pageSize,
+      );
+
+      if (response.success && response.data != null) {
+        final leads = response.data!;
+        final leadDataList = leads
+            .map((lead) => LeadData.fromLead(lead))
+            .toList();
+
+        setState(() {
+          _pageItems = leadDataList;
+          _currentPage = page;
+          _isLoading = false;
+          // Calculate total pages (this would come from API response in real implementation)
+          _totalPages = (totalLead / _pageSize).ceil();
+        });
+      } else {
+        setState(() {
+          _error = response.message ?? 'Failed to load leads';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
       setState(() {
-        _pageItems = newItems;
-        _currentPage = page;
+        _error = 'Error loading leads: $e';
+        _isLoading = false;
       });
-    } catch (error) {
-      // In real app, show error UI
     }
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {
+      _search = value;
+    });
+    _loadPage(1); // Reset to first page when searching
   }
 
   @override
@@ -212,10 +281,7 @@ class _LeadScreenState extends State<LeadScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: TextField(
-                    onChanged: (String value) {
-                      setState(() => _search = value);
-                      _loadPage(_currentPage);
-                    },
+                    onChanged: _onSearchChanged,
                     decoration: InputDecoration(
                       hintText: 'Search leads by name, id, project...',
                       prefixIcon: const Icon(Icons.search_rounded),
@@ -364,65 +430,7 @@ class _LeadScreenState extends State<LeadScreen> {
             ),
           ),
           // Paged list (explicit navigation)
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.only(bottom: 16),
-              itemCount: _pageItems.length,
-              itemBuilder: (BuildContext context, int index) {
-                final LeadData lead = _pageItems[index];
-                // Search filter
-                if (_search.isNotEmpty &&
-                    !lead.leadId.toLowerCase().contains(
-                      _search.toLowerCase(),
-                    ) &&
-                    !lead.customerName.toLowerCase().contains(
-                      _search.toLowerCase(),
-                    ) &&
-                    !lead.projectName.toLowerCase().contains(
-                      _search.toLowerCase(),
-                    )) {
-                  return const SizedBox.shrink();
-                }
-                // Status filter
-                if (_filterStatus != null &&
-                    lead.status.toLowerCase() != _filterStatus!.toLowerCase()) {
-                  return const SizedBox.shrink();
-                }
-                // With visits filter
-                if (_filterWithVisits != null &&
-                    lead.hasSiteVisit != _filterWithVisits) {
-                  return const SizedBox.shrink();
-                }
-                // Follow-up filter
-                final DateTime now = DateTime.now();
-                final bool include = () {
-                  switch (_followUpFilter) {
-                    case FollowUpFilter.all:
-                      return true;
-                    case FollowUpFilter.today:
-                      return lead.lastFollowUpDate.year == now.year &&
-                          lead.lastFollowUpDate.month == now.month &&
-                          lead.lastFollowUpDate.day == now.day;
-                    case FollowUpFilter.thisWeek:
-                      final DateTime start = now.subtract(
-                        Duration(days: now.weekday - 1),
-                      );
-                      final DateTime end = start.add(const Duration(days: 7));
-                      return lead.lastFollowUpDate.isAfter(
-                            start.subtract(const Duration(seconds: 1)),
-                          ) &&
-                          lead.lastFollowUpDate.isBefore(end);
-                    case FollowUpFilter.overdue:
-                      return lead.lastFollowUpDate.isBefore(
-                        DateTime(now.year, now.month, now.day),
-                      );
-                  }
-                }();
-                if (!include) return const SizedBox.shrink();
-                return _LeadCard(leadData: lead, index: index);
-              },
-            ),
-          ),
+          Expanded(child: _buildLeadList()),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Row(
@@ -430,7 +438,7 @@ class _LeadScreenState extends State<LeadScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: <Widget>[
                 OutlinedButton.icon(
-                  onPressed: _currentPage > 1
+                  onPressed: _currentPage > 1 && !_isLoading
                       ? () => _loadPage(_currentPage - 1)
                       : null,
                   icon: const Icon(Icons.chevron_left),
@@ -438,12 +446,12 @@ class _LeadScreenState extends State<LeadScreen> {
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'Page $_currentPage',
+                  'Page $_currentPage${_totalPages > 0 ? ' of $_totalPages' : ''}',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
-                  onPressed: _pageItems.length == _pageSize
+                  onPressed: _currentPage < _totalPages && !_isLoading
                       ? () => _loadPage(_currentPage + 1)
                       : null,
                   icon: const Icon(Icons.chevron_right),
@@ -454,6 +462,127 @@ class _LeadScreenState extends State<LeadScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLeadList() {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading leads...'),
+          ],
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+            const SizedBox(height: 16),
+            Text(
+              'Error loading leads',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => _loadPage(_currentPage),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_pageItems.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'No leads found',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Try adjusting your search or filters',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 16),
+      itemCount: _pageItems.length,
+      itemBuilder: (BuildContext context, int index) {
+        final LeadData lead = _pageItems[index];
+        // Search filter
+        if (_search.isNotEmpty &&
+            !lead.leadId.toLowerCase().contains(_search.toLowerCase()) &&
+            !lead.customerName.toLowerCase().contains(_search.toLowerCase()) &&
+            !lead.projectName.toLowerCase().contains(_search.toLowerCase())) {
+          return const SizedBox.shrink();
+        }
+        // Status filter
+        if (_filterStatus != null &&
+            lead.status.toLowerCase() != _filterStatus!.toLowerCase()) {
+          return const SizedBox.shrink();
+        }
+        // With visits filter
+        if (_filterWithVisits != null &&
+            lead.hasSiteVisit != _filterWithVisits) {
+          return const SizedBox.shrink();
+        }
+        // Follow-up filter
+        final DateTime now = DateTime.now();
+        final bool include = () {
+          switch (_followUpFilter) {
+            case FollowUpFilter.all:
+              return true;
+            case FollowUpFilter.today:
+              return lead.lastFollowUpDate?.year == now.year &&
+                  lead.lastFollowUpDate?.month == now.month &&
+                  lead.lastFollowUpDate?.day == now.day;
+            case FollowUpFilter.thisWeek:
+              final DateTime start = now.subtract(
+                Duration(days: now.weekday - 1),
+              );
+              final DateTime end = start.add(const Duration(days: 7));
+              return lead.lastFollowUpDate?.isAfter(start) == true &&
+                  lead.lastFollowUpDate?.isBefore(end) == true;
+            case FollowUpFilter.overdue:
+              return lead.lastFollowUpDate?.isBefore(
+                    DateTime(now.year, now.month, now.day),
+                  ) ==
+                  true;
+          }
+        }();
+        if (!include) return const SizedBox.shrink();
+        return _LeadCard(leadData: lead, index: index);
+      },
     );
   }
 
@@ -823,7 +952,9 @@ class _LeadCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     // Last follow up date
                     Text(
-                      _formatDateTime(leadData.lastFollowUpDate),
+                      leadData.lastFollowUpDate != null
+                          ? _formatDateTime(leadData.lastFollowUpDate!)
+                          : 'No follow-up',
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],

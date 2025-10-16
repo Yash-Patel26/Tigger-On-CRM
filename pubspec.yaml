@@ -45,7 +45,7 @@ dependencies:
   http: ^1.2.2
   connectivity_plus: ^7.0.0
   supabase_flutter: ^2.6.0
-  geolocator: ^13.0.1
+  geolocator: ^14.0.2
   provider: ^6.1.2
 
 dev_dependencies:
@@ -74,20 +74,8 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/favicon.webp
-    - "assets/lottie files/ticket.json"
-    - "assets/lottie files/property_finder.json"
-    - "assets/lottie files/vendor_management.json"
-    - "assets/lottie files/Dashboard.json"
-    - "assets/lottie files/lead.json"
-    - "assets/lottie files/site_visit.json"
-    - "assets/lottie files/booking.json"
-    - "assets/lottie files/scheduled.json"
-    - "assets/icons/phone-call.png"
-    - "assets/icons/phone-call.png"
-    - "assets/icons/email.png"
-    - "assets/icons/conversation.png"
-    - "assets/icons/whatsapp.png"
-    - "assets/icons/whatsapp.png"
+    - "assets/lottie files/"
+    - assets/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

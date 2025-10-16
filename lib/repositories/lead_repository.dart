@@ -1,6 +1,6 @@
 import '../models/lead_model.dart';
 import '../services/lead_service.dart';
-import '../services/api_service.dart';
+import '../models/api_response_model.dart';
 
 class LeadRepository {
   final LeadService _leadService;
@@ -105,7 +105,11 @@ class LeadRepository {
     String userId,
     String description,
   ) async {
-    final response = await _leadService.assignLead(leadId, userId, description);
+    final response = await _leadService.assignLead(
+      leadId,
+      userId,
+      notes: description,
+    );
 
     // Update local cache if successful
     // if (response.success && response.data != null) {
