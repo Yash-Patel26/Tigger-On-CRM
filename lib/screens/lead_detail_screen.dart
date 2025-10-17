@@ -4507,13 +4507,40 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                               .findAncestorStateOfType<
                                 _LeadDetailScreenState
                               >();
-                          final String activeLeadId = parentState == null
-                              ? ''
-                              : (await parentState._leadFuture).id;
+                          final String activeLeadId = widget.leadId;
+                          // Resolve lead to fetch project linkage
+                          final Lead lead = parentState == null
+                              ? (await DatabaseService.getLeadById(
+                                  activeLeadId,
+                                ))!
+                              : await parentState._leadFuture;
+                          final String? projectId = lead.projectId;
+                          final String? projectName = lead.projectName;
+                          // Resolve customer by phone (must exist due to DB constraint)
+                          final String phone = contactCtrl.text.trim();
+                          final Map<String, String>? info =
+                              await DatabaseService.lookupByPhone(phone);
+                          final String? customerId =
+                              info != null && (info['type'] ?? '') == 'customer'
+                              ? info['customer_id']
+                              : null;
+                          if (customerId == null ||
+                              (projectId == null || projectId.isEmpty)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Missing linked customer or project. Ensure phone matches an existing customer and lead has a project.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
                           await DatabaseService.createSiteVisit(
                             leadId: activeLeadId,
                             customerName: nameCtrl.text.trim(),
-                            customerPhone: contactCtrl.text.trim(),
+                            customerPhone: phone,
+                            projectId: projectId,
+                            projectName: projectName,
                             attenderName: attenderCtrl.text.trim(),
                             purpose: purposeCtrl.text.trim(),
                             address: addressCtrl.text.trim(),
