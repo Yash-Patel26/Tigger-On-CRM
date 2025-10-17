@@ -1333,12 +1333,13 @@ class _ContactCompact extends StatelessWidget {
             IconButton(
               tooltip: 'Edit customer',
               icon: Icon(
-                Icons.edit_square,
+                Icons.edit,
                 color: Theme.of(context).colorScheme.primary,
                 size: 20,
               ),
-              onPressed: () => _openEditCustomer(context),
+              onPressed: () => _openEditCustomer(context, lead),
             ),
+            const SizedBox(width: 8),
             IconButton(
               tooltip: 'Source',
               icon: Icon(
@@ -1378,61 +1379,156 @@ String _daysBefore(DateTime when) {
   return '$days Days Before';
 }
 
-void _openEditCustomer(BuildContext context) {
+void _openEditCustomer(BuildContext context, Lead lead) {
   showDialog<void>(
     context: context,
-    builder: (BuildContext context) => const _EditCustomerDialog(),
+    builder: (BuildContext context) => _EditCustomerDialog(lead: lead),
   );
 }
 
 // Removed _openViewCustomer; view dialog not used from header anymore
 
 class _EditCustomerDialog extends StatefulWidget {
-  const _EditCustomerDialog();
+  const _EditCustomerDialog({required this.lead});
+
+  final Lead lead;
+
   @override
   State<_EditCustomerDialog> createState() => _EditCustomerDialogState();
 }
 
 class _EditCustomerDialogState extends State<_EditCustomerDialog> {
-  final TextEditingController _first = TextEditingController();
-  final TextEditingController _middle = TextEditingController();
-  final TextEditingController _last = TextEditingController();
-  final TextEditingController _email = TextEditingController();
-  final TextEditingController _phone = TextEditingController();
-  final TextEditingController _altPhone = TextEditingController();
-  final GlobalKey<FormState> _form = GlobalKey<FormState>();
-  bool _saving = false;
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _middleNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _alternatePhoneController =
+      TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  bool _isSaving = false;
+  late final String _leadId;
 
   @override
   void initState() {
     super.initState();
-    // Seed controllers once after the dialog is built and has context
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final _LeadDetailScreenState? parent = context
-          .findAncestorStateOfType<_LeadDetailScreenState>();
-      if (parent != null) {
-        parent._leadFuture.then((Lead lead) {
-          if (!mounted) return;
-          if (_first.text.isEmpty) _first.text = lead.customerName;
-          if (_email.text.isEmpty) _email.text = lead.email;
-          if (_phone.text.isEmpty) _phone.text = lead.phone;
-          if (_altPhone.text.isEmpty) {
-            _altPhone.text = lead.alternatePhone ?? '';
-          }
-        });
-      }
-    });
+    // Seed from the provided lead synchronously to avoid loading spinner
+    _leadId = widget.lead.id;
+    _populateFields(widget.lead);
   }
 
   @override
   void dispose() {
-    _first.dispose();
-    _middle.dispose();
-    _last.dispose();
-    _email.dispose();
-    _phone.dispose();
-    _altPhone.dispose();
+    _firstNameController.dispose();
+    _middleNameController.dispose();
+    _lastNameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _alternatePhoneController.dispose();
     super.dispose();
+  }
+
+  // Removed async loading; we seed from constructor
+
+  void _populateFields(Lead lead) {
+    // Parse the customer name into parts
+    final List<String> nameParts = lead.customerName.split(' ');
+    _firstNameController.text = nameParts.isNotEmpty ? nameParts[0] : '';
+    _lastNameController.text = nameParts.length > 1 ? nameParts.last : '';
+
+    // Middle name is everything between first and last
+    if (nameParts.length > 2) {
+      _middleNameController.text = nameParts
+          .sublist(1, nameParts.length - 1)
+          .join(' ');
+    }
+
+    _emailController.text = lead.email;
+    _phoneController.text = lead.phone;
+    _alternatePhoneController.text = lead.alternatePhone ?? '';
+  }
+
+  Future<void> _saveCustomerData() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      // Combine name parts
+      final List<String> nameParts = [
+        _firstNameController.text.trim(),
+        _middleNameController.text.trim(),
+        _lastNameController.text.trim(),
+      ].where((part) => part.isNotEmpty).toList();
+
+      final String fullName = nameParts.join(' ');
+
+      // Prepare update data
+      final Map<String, dynamic> updateData = {
+        'customer_name': fullName,
+        'email': _emailController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'alternate_phone': _alternatePhoneController.text.trim().isEmpty
+            ? null
+            : _alternatePhoneController.text.trim(),
+      };
+
+      // Update the lead on server
+      await DatabaseService.patchLead(_leadId, updateData);
+
+      // Prepare optimistic updated lead for instant UI update
+      final Lead updatedLead = widget.lead.copyWith(
+        customerName: fullName,
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        alternatePhone: _alternatePhoneController.text.trim().isEmpty
+            ? null
+            : _alternatePhoneController.text.trim(),
+      );
+
+      if (mounted) {
+        // Optimistically update parent UI immediately and then refresh in background
+        final _LeadDetailScreenState? parent = context
+            .findAncestorStateOfType<_LeadDetailScreenState>();
+        if (parent != null) {
+          parent.setState(() {
+            parent._leadFuture = Future<Lead>.value(updatedLead);
+          });
+          parent.refreshLead();
+        }
+
+        // Close dialog
+        Navigator.of(context).pop();
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Customer information updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update customer: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   @override
@@ -1440,177 +1536,154 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
     return AlertDialog(
       backgroundColor: Theme.of(context).colorScheme.surface,
       surfaceTintColor: Colors.transparent,
-      title: const Text('Edit Customer Info'),
+      title: const Text('Edit Customer Information'),
       content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520, minWidth: 320),
+        constraints: const BoxConstraints(
+          maxWidth: 500,
+          minWidth: 350,
+          maxHeight: 600,
+        ),
         child: Form(
-          key: _form,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: TextFormField(
-                      controller: _first,
-                      decoration: const InputDecoration(
-                        labelText: 'First Name',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (String? v) =>
-                          v == null || v.trim().isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _middle,
-                      decoration: const InputDecoration(
-                        labelText: 'Middle Name',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: TextFormField(
-                      controller: _last,
-                      decoration: const InputDecoration(
-                        labelText: 'Last Name',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _email,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
+          key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Name fields
+                const Text(
+                  'Name',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: TextFormField(
-                      controller: _phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Phone',
-                        border: OutlineInputBorder(),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        controller: _firstNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'First Name *',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.person),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'First name is required';
+                          }
+                          return null;
+                        },
                       ),
-                      keyboardType: TextInputType.phone,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _altPhone,
-                      decoration: const InputDecoration(
-                        labelText: 'Alternate Phone',
-                        border: OutlineInputBorder(),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        controller: _middleNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Middle Name',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
-                      keyboardType: TextInputType.phone,
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _lastNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Last Name',
+                    border: OutlineInputBorder(),
                   ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 24),
+
+                // Contact fields
+                const Text(
+                  'Contact Information',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email Address',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.email),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value != null && value.isNotEmpty) {
+                      final emailRegex = RegExp(
+                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                      );
+                      if (!emailRegex.hasMatch(value)) {
+                        return 'Please enter a valid email address';
+                      }
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _phoneController,
+                        decoration: const InputDecoration(
+                          labelText: 'Phone Number *',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.phone),
+                        ),
+                        keyboardType: TextInputType.phone,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Phone number is required';
+                          }
+                          if (value.trim().length < 10) {
+                            return 'Please enter a valid phone number';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _alternatePhoneController,
+                        decoration: const InputDecoration(
+                          labelText: 'Alternate Phone',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.phone_android),
+                        ),
+                        keyboardType: TextInputType.phone,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      actions: <Widget>[
+      actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: _saving
-              ? null
-              : () async {
-                  if (!_form.currentState!.validate()) return;
-                  final _LeadDetailScreenState? parent = context
-                      .findAncestorStateOfType<_LeadDetailScreenState>();
-                  if (parent != null) {
-                    // Require authentication to proceed; RLS will block otherwise
-                    if (!SupabaseConfig.isLoggedIn) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please sign in to update this lead'),
-                        ),
-                      );
-                      return;
-                    }
-                    if (mounted) {
-                      setState(() {
-                        _saving = true;
-                      });
-                    }
-                    final Lead lead = await parent._leadFuture;
-                    // Capture parent before popping to ensure we can refresh after close
-                    final _LeadDetailScreenState? parentState = context
-                        .findAncestorStateOfType<_LeadDetailScreenState>();
-                    try {
-                      final String combinedName = <String>[
-                        _first.text.trim(),
-                        _middle.text.trim(),
-                        _last.text.trim(),
-                      ].where((String s) => s.isNotEmpty).join(' ');
-                      final String updatedName =
-                          await DatabaseService.patchLead(
-                            lead.id,
-                            <String, dynamic>{
-                              'customer_name': combinedName,
-                              'email': _email.text.trim(),
-                              'phone': _phone.text.trim(),
-                              'alternate_phone': _altPhone.text.trim().isEmpty
-                                  ? null
-                                  : _altPhone.text.trim(),
-                            },
-                          );
-                      if (!mounted) return;
-                      // Trigger immediate refresh of parent without waiting for realtime
-                      parentState?.refreshLead();
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            updatedName.isEmpty
-                                ? 'Customer updated'
-                                : 'Customer updated: $updatedName',
-                          ),
-                        ),
-                      );
-                    } catch (e) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to update: $e')),
-                      );
-                      if (mounted) {
-                        setState(() {
-                          _saving = false;
-                        });
-                      }
-                    }
-                  }
-                },
-          child: _saving
-              ? SizedBox(
-                  width: 18,
-                  height: 18,
+          onPressed: _isSaving ? null : _saveCustomerData,
+          child: _isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Theme.of(context).colorScheme.onPrimary,
+                    color: Colors.white,
                   ),
                 )
-              : const Text('Update'),
+              : const Text('Save Changes'),
         ),
       ],
     );
