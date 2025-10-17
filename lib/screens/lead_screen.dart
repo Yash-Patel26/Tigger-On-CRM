@@ -6,6 +6,8 @@ import '../models/lead_model.dart';
 import 'create_lead_screen.dart';
 import 'lead_detail_screen.dart';
 import 'add_site_visit_screen.dart';
+import '../models/site_visit_model.dart';
+import '../services/database_service.dart';
 // assign dialog implemented locally in this file for lead list
 
 // Lead data model for pagination - extends Lead model
@@ -912,7 +914,7 @@ class _LeadCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 2),
-                    // Calendar with checkmark
+                    // Calendar with real site visit indicator
                     Row(
                       children: <Widget>[
                         Icon(
@@ -921,10 +923,7 @@ class _LeadCard extends StatelessWidget {
                           color: Theme.of(context).colorScheme.primary,
                         ),
                         const SizedBox(width: 6),
-                        const Text(
-                          '-',
-                          style: TextStyle(fontSize: 14, color: Colors.black),
-                        ),
+                        _LeadVisitInline(leadId: leadData.leadId),
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -1004,7 +1003,7 @@ class _LeadCard extends StatelessWidget {
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 2),
-                    // Building icon with dash
+                    // Building icon with visit marker
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: <Widget>[
@@ -1014,10 +1013,7 @@ class _LeadCard extends StatelessWidget {
                           color: Theme.of(context).colorScheme.primary,
                         ),
                         const SizedBox(width: 4),
-                        const Text(
-                          '-',
-                          style: TextStyle(fontSize: 14, color: Colors.black),
-                        ),
+                        _LeadVisitInline(leadId: leadData.leadId),
                       ],
                     ),
                   ],
@@ -1140,6 +1136,35 @@ class _LeadCard extends StatelessWidget {
     final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
 
     return '$day $month $year $displayHour:$minute $period';
+  }
+}
+
+class _LeadVisitInline extends StatelessWidget {
+  const _LeadVisitInline({required this.leadId});
+  final String leadId;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<SiteVisit>>(
+      future: DatabaseService.getSiteVisits(leadId: leadId, limit: 1),
+      builder: (BuildContext context, AsyncSnapshot<List<SiteVisit>> snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 12,
+            width: 12,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          );
+        }
+        if (snapshot.hasError) {
+          return const Text('-', style: TextStyle(fontSize: 14));
+        }
+        final List<SiteVisit> visits = snapshot.data ?? <SiteVisit>[];
+        if (visits.isEmpty) {
+          return const Text('No visits', style: TextStyle(fontSize: 14));
+        }
+        return const Text('Has visit', style: TextStyle(fontSize: 14));
+      },
+    );
   }
 }
 
