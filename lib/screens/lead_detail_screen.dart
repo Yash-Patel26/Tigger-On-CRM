@@ -3574,7 +3574,11 @@ class _ReferenceTabState extends State<_ReferenceTab> {
     );
   }
 
-  Widget _refCard(BuildContext context, Map<String, String> r) {
+  Widget _refCard(
+    BuildContext context,
+    Map<String, String> r,
+    String nameLabel,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -3597,13 +3601,17 @@ class _ReferenceTabState extends State<_ReferenceTab> {
               children: <Widget>[
                 _kvSmall(
                   context,
-                  'Referred To Name',
-                  '${r['firstName'] ?? ''} ${r['middleName'] ?? ''} ${r['lastName'] ?? ''}'
+                  nameLabel,
+                  // Accept both snake_case (DB) and camelCase (UI) keys
+                  '${r['first_name'] ?? r['firstName'] ?? ''} '
+                          '${r['middle_name'] ?? r['middleName'] ?? ''} '
+                          '${r['last_name'] ?? r['lastName'] ?? ''}'
                       .replaceAll(RegExp(r'\s+'), ' ')
                       .trim(),
                   isLink: true,
                   onTap: () {
-                    final String? leadId = r['leadId'];
+                    // Linked lead id can be snake_case
+                    final String? leadId = r['linked_lead_id'] ?? r['leadId'];
                     if (leadId == null || leadId.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -3678,6 +3686,7 @@ class _ReferenceTabState extends State<_ReferenceTab> {
             return _refCard(
               context,
               r.map((k, v) => MapEntry(k, v?.toString() ?? '')),
+              'Referred To Name',
             );
           },
     );
@@ -3742,6 +3751,7 @@ class _ReferenceTabState extends State<_ReferenceTab> {
             return _refCard(
               context,
               r.map((k, v) => MapEntry(k, v?.toString() ?? '')),
+              'Referred By Name',
             );
           },
     );
@@ -4296,10 +4306,50 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: contactCtrl,
+                    keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
                       labelText: 'Customer Contact',
                       border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.phone),
                     ),
+                    onChanged: (String v) async {
+                      // Auto-fetch on 10+ digits
+                      final String digits = v.replaceAll(
+                        RegExp(r'[^0-9+]'),
+                        '',
+                      );
+                      if (digits.length < 10) return;
+                      final Map<String, String>? info =
+                          await DatabaseService.lookupByPhone(digits);
+                      if (info == null) return;
+                      if (!mounted) return;
+                      setModal(() {
+                        nameCtrl.text = info['name'] ?? nameCtrl.text;
+                        // If it's a lead match, set lead ref field with id
+                        if ((info['type'] ?? '') == 'lead') {
+                          leadRefCtrl.text =
+                              info['lead_id'] ?? leadRefCtrl.text;
+                        }
+                      });
+                    },
+                    onEditingComplete: () async {
+                      final String digits = contactCtrl.text.replaceAll(
+                        RegExp(r'[^0-9+]'),
+                        '',
+                      );
+                      if (digits.length < 10) return;
+                      final Map<String, String>? info =
+                          await DatabaseService.lookupByPhone(digits);
+                      if (info == null) return;
+                      if (!mounted) return;
+                      setModal(() {
+                        nameCtrl.text = info['name'] ?? nameCtrl.text;
+                        if ((info['type'] ?? '') == 'lead') {
+                          leadRefCtrl.text =
+                              info['lead_id'] ?? leadRefCtrl.text;
+                        }
+                      });
+                    },
                   ),
                   const SizedBox(height: 12),
                   TextField(
