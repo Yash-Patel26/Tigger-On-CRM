@@ -4854,19 +4854,8 @@ class _TaskTabState extends State<_TaskTab> {
                       return;
                     }
                     try {
-                      final parentState = context
-                          .findAncestorStateOfType<_LeadDetailScreenState>();
-                      final String activeLeadId = parentState == null
-                          ? ''
-                          : (await parentState._leadFuture).id;
-                      if (activeLeadId.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Lead not loaded. Please retry.'),
-                          ),
-                        );
-                        return;
-                      }
+                      // Use the lead id passed into this tab instead of waiting on parent
+                      final String activeLeadId = widget.leadId;
                       await DatabaseService.createTask(
                         leadId: activeLeadId,
                         title: titleCtrl.text.trim(),
