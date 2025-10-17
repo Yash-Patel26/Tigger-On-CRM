@@ -4859,6 +4859,14 @@ class _TaskTabState extends State<_TaskTab> {
                       final String activeLeadId = parentState == null
                           ? ''
                           : (await parentState._leadFuture).id;
+                      if (activeLeadId.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Lead not loaded. Please retry.'),
+                          ),
+                        );
+                        return;
+                      }
                       await DatabaseService.createTask(
                         leadId: activeLeadId,
                         title: titleCtrl.text.trim(),
