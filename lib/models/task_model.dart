@@ -126,10 +126,16 @@ class Task {
     }
 
     String req(String a, String b) => s(a, b) ?? '';
+    String enumName(dynamic e) {
+      final String s = e.toString();
+      final int i = s.indexOf('.');
+      return i == -1 ? s : s.substring(i + 1);
+    }
+
     T enumVal<T>(List<T> values, String a, String b, T fallback) {
       final String v = s(a, b) ?? '';
       return values.firstWhere(
-        (e) => (e as dynamic).name == v,
+        (dynamic e) => enumName(e) == v,
         orElse: () => fallback,
       );
     }
@@ -176,13 +182,19 @@ class Task {
   }
 
   Map<String, dynamic> toJson() {
+    String enumName(Object e) {
+      final String s = e.toString();
+      final int i = s.indexOf('.');
+      return i == -1 ? s : s.substring(i + 1);
+    }
+
     return {
       'id': id,
       'title': title,
       'description': description,
-      'type': type.name,
-      'priority': priority.name,
-      'status': status.name,
+      'type': enumName(type),
+      'priority': enumName(priority),
+      'status': enumName(status),
       'assignedTo': assignedTo,
       'assignedToName': assignedToName,
       'createdBy': createdBy,

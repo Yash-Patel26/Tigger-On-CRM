@@ -7,6 +7,12 @@ class TaskService {
   TaskService({ApiService? apiService})
     : _apiService = apiService ?? ApiService();
 
+  String _enumName(Object e) {
+    final String s = e.toString();
+    final int i = s.indexOf('.');
+    return i == -1 ? s : s.substring(i + 1);
+  }
+
   // Get all tasks with optional filters
   Future<ApiResponse<List<Task>>> getTasks({
     String? search,
@@ -35,13 +41,13 @@ class TaskService {
       queryParams['search'] = search;
     }
     if (status != null) {
-      queryParams['status'] = status.name;
+      queryParams['status'] = _enumName(status);
     }
     if (priority != null) {
-      queryParams['priority'] = priority.name;
+      queryParams['priority'] = _enumName(priority);
     }
     if (type != null) {
-      queryParams['type'] = type.name;
+      queryParams['type'] = _enumName(type);
     }
     if (assignedTo != null) {
       queryParams['assignedTo'] = assignedTo;
@@ -122,7 +128,7 @@ class TaskService {
   ) async {
     return await _apiService.patch<Task>(
       '/tasks/$taskId/status',
-      body: {'status': status.name, if (notes != null) 'notes': notes},
+      body: {'status': _enumName(status), if (notes != null) 'notes': notes},
       fromJson: (json) => Task.fromJson(json['data'] as Map<String, dynamic>),
     );
   }
@@ -329,7 +335,7 @@ class TaskService {
   ) async {
     return await _apiService.get<List<Task>>(
       '/tasks/by-priority',
-      queryParams: {'priority': priority.name},
+      queryParams: {'priority': _enumName(priority)},
       fromJson: (json) => (json['data'] as List)
           .map((e) => Task.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -340,7 +346,7 @@ class TaskService {
   Future<ApiResponse<List<Task>>> getTasksByType(TaskType type) async {
     return await _apiService.get<List<Task>>(
       '/tasks/by-type',
-      queryParams: {'type': type.name},
+      queryParams: {'type': _enumName(type)},
       fromJson: (json) => (json['data'] as List)
           .map((e) => Task.fromJson(e as Map<String, dynamic>))
           .toList(),

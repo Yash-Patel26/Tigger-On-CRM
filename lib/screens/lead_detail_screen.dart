@@ -3636,7 +3636,16 @@ class _ReferenceTabState extends State<_ReferenceTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                _kvSmall(context, 'Referred Date', _formatNowDateTime()),
+                _kvSmall(
+                  context,
+                  'Contact',
+                  (r['contact'] ?? r['phone'] ?? '').trim(),
+                ),
+                const SizedBox(height: 8),
+                _kvSmall(context, 'Email', (r['email'] ?? '').trim()),
+                const SizedBox(height: 8),
+                if ((r['note'] ?? '').trim().isNotEmpty)
+                  _kvSmall(context, 'Note', (r['note'] ?? '').trim()),
               ],
             ),
           ),
@@ -3680,13 +3689,40 @@ class _ReferenceTabState extends State<_ReferenceTab> {
                 child: const Center(child: Text('Failed to load')),
               );
             }
-            final r =
-                (snapshot.data ?? <Map<String, dynamic>>[]).firstOrNull ??
-                <String, dynamic>{};
-            return _refCard(
-              context,
-              r.map((k, v) => MapEntry(k, v?.toString() ?? '')),
-              'Referred To Name',
+            final List<Map<String, dynamic>> items =
+                snapshot.data ?? <Map<String, dynamic>>[];
+            if (items.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Center(child: Text("Didn't Refer To Anyone")),
+              );
+            }
+            return Column(
+              children: items
+                  .map(
+                    (Map<String, dynamic> r) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _refCard(
+                        context,
+                        r.map((k, v) => MapEntry(k, v?.toString() ?? '')),
+                        'Referred To Name',
+                      ),
+                    ),
+                  )
+                  .toList(),
             );
           },
     );
@@ -3747,11 +3783,19 @@ class _ReferenceTabState extends State<_ReferenceTab> {
                 child: const Center(child: Text("Didn't Refer By Anyone")),
               );
             }
-            final r = items.first;
-            return _refCard(
-              context,
-              r.map((k, v) => MapEntry(k, v?.toString() ?? '')),
-              'Referred By Name',
+            return Column(
+              children: items
+                  .map(
+                    (Map<String, dynamic> r) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _refCard(
+                        context,
+                        r.map((k, v) => MapEntry(k, v?.toString() ?? '')),
+                        'Referred By Name',
+                      ),
+                    ),
+                  )
+                  .toList(),
             );
           },
     );
