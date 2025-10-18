@@ -4377,10 +4377,32 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                         '',
                       );
                       if (digits.length < 10) return;
+
+                      // Show loading indicator
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Looking up customer details...'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+
                       final Map<String, String>? info =
                           await DatabaseService.lookupByPhone(digits);
-                      if (info == null) return;
+                      if (info == null) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'No customer found with this phone number',
+                              ),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                        }
+                        return;
+                      }
                       if (!mounted) return;
+
                       setModal(() {
                         nameCtrl.text = info['name'] ?? nameCtrl.text;
                         // If it's a lead match, set lead ref field with id
@@ -4389,16 +4411,29 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                               info['lead_id'] ?? leadRefCtrl.text;
                         }
                         // Auto-fill additional details
-                        if (info['assigned_to_name'] != null && info['assigned_to_name']!.isNotEmpty) {
+                        if (info['assigned_to_name'] != null &&
+                            info['assigned_to_name']!.isNotEmpty) {
                           attenderCtrl.text = info['assigned_to_name']!;
                         }
-                        if (info['address'] != null && info['address']!.isNotEmpty) {
+                        if (info['address'] != null &&
+                            info['address']!.isNotEmpty) {
                           addressCtrl.text = info['address']!;
                         }
-                        if (info['project_name'] != null && info['project_name']!.isNotEmpty) {
+                        if (info['project_name'] != null &&
+                            info['project_name']!.isNotEmpty) {
                           locationCtrl.text = info['project_name']!;
                         }
                       });
+
+                      // Show success message
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Customer details loaded: ${info['name']}',
+                          ),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
                     },
                     onEditingComplete: () async {
                       final String digits = contactCtrl.text.replaceAll(
@@ -4417,13 +4452,16 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                               info['lead_id'] ?? leadRefCtrl.text;
                         }
                         // Auto-fill additional details
-                        if (info['assigned_to_name'] != null && info['assigned_to_name']!.isNotEmpty) {
+                        if (info['assigned_to_name'] != null &&
+                            info['assigned_to_name']!.isNotEmpty) {
                           attenderCtrl.text = info['assigned_to_name']!;
                         }
-                        if (info['address'] != null && info['address']!.isNotEmpty) {
+                        if (info['address'] != null &&
+                            info['address']!.isNotEmpty) {
                           addressCtrl.text = info['address']!;
                         }
-                        if (info['project_name'] != null && info['project_name']!.isNotEmpty) {
+                        if (info['project_name'] != null &&
+                            info['project_name']!.isNotEmpty) {
                           locationCtrl.text = info['project_name']!;
                         }
                       });
