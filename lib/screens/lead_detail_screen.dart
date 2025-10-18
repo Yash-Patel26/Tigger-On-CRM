@@ -4388,6 +4388,16 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                           leadRefCtrl.text =
                               info['lead_id'] ?? leadRefCtrl.text;
                         }
+                        // Auto-fill additional details
+                        if (info['assigned_to_name'] != null && info['assigned_to_name']!.isNotEmpty) {
+                          attenderCtrl.text = info['assigned_to_name']!;
+                        }
+                        if (info['address'] != null && info['address']!.isNotEmpty) {
+                          addressCtrl.text = info['address']!;
+                        }
+                        if (info['project_name'] != null && info['project_name']!.isNotEmpty) {
+                          locationCtrl.text = info['project_name']!;
+                        }
                       });
                     },
                     onEditingComplete: () async {
@@ -4405,6 +4415,16 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                         if ((info['type'] ?? '') == 'lead') {
                           leadRefCtrl.text =
                               info['lead_id'] ?? leadRefCtrl.text;
+                        }
+                        // Auto-fill additional details
+                        if (info['assigned_to_name'] != null && info['assigned_to_name']!.isNotEmpty) {
+                          attenderCtrl.text = info['assigned_to_name']!;
+                        }
+                        if (info['address'] != null && info['address']!.isNotEmpty) {
+                          addressCtrl.text = info['address']!;
+                        }
+                        if (info['project_name'] != null && info['project_name']!.isNotEmpty) {
+                          locationCtrl.text = info['project_name']!;
                         }
                       });
                     },

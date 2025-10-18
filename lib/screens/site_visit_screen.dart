@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'site_visit_detail_screen.dart';
+import '../services/database_service.dart';
+import '../models/site_visit_model.dart';
 
 class SiteVisitScreen extends StatefulWidget {
   const SiteVisitScreen({super.key});
@@ -9,15 +11,74 @@ class SiteVisitScreen extends StatefulWidget {
 }
 
 class _SiteVisitScreenState extends State<SiteVisitScreen> {
-  // Demo counts; replace with real data
-  int todaysSiteVisits = 5;
-  int totalSiteVisits = 89;
-  int totalUpcomingVisits = 12;
-  int totalLapseVisits = 3;
-  int completedVisits = 74;
-  int officeVisits = 15;
-
   String _search = '';
+  Future<List<SiteVisit>>? _siteVisitsFuture;
+  Map<String, int> _metrics = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSiteVisits();
+  }
+
+  Future<void> _loadSiteVisits() async {
+    setState(() {
+      _siteVisitsFuture = DatabaseService.getSiteVisits(limit: 1000);
+    });
+
+    // Load metrics
+    await _loadMetrics();
+  }
+
+  Future<void> _loadMetrics() async {
+    try {
+      final List<SiteVisit> visits = await DatabaseService.getSiteVisits(
+        limit: 1000,
+      );
+      final DateTime now = DateTime.now();
+      final DateTime todayStart = DateTime(now.year, now.month, now.day);
+      final DateTime todayEnd = todayStart.add(const Duration(days: 1));
+
+      final int todaysVisits = visits
+          .where(
+            (v) =>
+                v.createdAt.isAfter(todayStart) &&
+                v.createdAt.isBefore(todayEnd),
+          )
+          .length;
+
+      final int completedVisits = visits
+          .where((v) => v.status == SiteVisitStatus.completed)
+          .length;
+
+      final int officeVisits = visits
+          .where((v) => v.visitMode == VisitMode.office)
+          .length;
+
+      final int upcomingVisits = visits
+          .where(
+            (v) =>
+                v.status == SiteVisitStatus.scheduled &&
+                v.meetingFrom != null &&
+                v.meetingFrom!.isAfter(now),
+          )
+          .length;
+
+      setState(() {
+        _metrics = {
+          'todaysSiteVisits': todaysVisits,
+          'totalSiteVisits': visits.length,
+          'totalUpcomingVisits': upcomingVisits,
+          'totalLapseVisits': 0, // You can implement this logic
+          'completedVisits': completedVisits,
+          'officeVisits': officeVisits,
+        };
+      });
+    } catch (e) {
+      // Handle error
+      print('Error loading metrics: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,41 +100,92 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
             items: <_MetricItem>[
               _MetricItem(
                 'Today\'s Site Visits',
-                todaysSiteVisits,
+                _metrics['todaysSiteVisits'] ?? 0,
                 Icons.today,
               ),
               _MetricItem(
                 'Total Site Visits',
-                totalSiteVisits,
+                _metrics['totalSiteVisits'] ?? 0,
                 Icons.place_outlined,
               ),
               _MetricItem(
                 'Upcoming Visits',
-                totalUpcomingVisits,
+                _metrics['totalUpcomingVisits'] ?? 0,
                 Icons.schedule,
               ),
               _MetricItem(
                 'Lapse Visits',
-                totalLapseVisits,
+                _metrics['totalLapseVisits'] ?? 0,
                 Icons.warning_amber,
               ),
               _MetricItem(
                 'Completed Visits',
-                completedVisits,
+                _metrics['completedVisits'] ?? 0,
                 Icons.check_circle,
               ),
-              _MetricItem('Office Visits', officeVisits, Icons.business),
+              _MetricItem(
+                'Office Visits',
+                _metrics['officeVisits'] ?? 0,
+                Icons.business,
+              ),
             ],
           ),
           const SizedBox(height: 16),
           _SearchBar(onChanged: (String v) => setState(() => _search = v)),
           const SizedBox(height: 12),
-          for (int index = 0; index < 10; index++)
-            if (_search.isEmpty ||
-                'SV-${1000 + index}'.toLowerCase().contains(
-                  _search.toLowerCase(),
-                ))
-              _SiteVisitCard(index: index),
+          FutureBuilder<List<SiteVisit>>(
+            future: _siteVisitsFuture,
+            builder:
+                (
+                  BuildContext context,
+                  AsyncSnapshot<List<SiteVisit>> snapshot,
+                ) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        'Failed to load site visits: ${snapshot.error}',
+                      ),
+                    );
+                  }
+                  final List<SiteVisit> visits = snapshot.data ?? <SiteVisit>[];
+
+                  // Filter visits based on search
+                  final List<SiteVisit> filteredVisits = _search.isEmpty
+                      ? visits
+                      : visits
+                            .where(
+                              (visit) =>
+                                  visit.customerName.toLowerCase().contains(
+                                    _search.toLowerCase(),
+                                  ) ||
+                                  visit.projectName.toLowerCase().contains(
+                                    _search.toLowerCase(),
+                                  ) ||
+                                  visit.srNo.toLowerCase().contains(
+                                    _search.toLowerCase(),
+                                  ),
+                            )
+                            .toList();
+
+                  if (filteredVisits.isEmpty) {
+                    return const Center(child: Text('No site visits found'));
+                  }
+
+                  return Column(
+                    children: [
+                      for (
+                        int index = 0;
+                        index < filteredVisits.length;
+                        index++
+                      )
+                        _SiteVisitCard(siteVisit: filteredVisits[index]),
+                    ],
+                  );
+                },
+          ),
         ],
       ),
     );
@@ -222,17 +334,11 @@ class _MetricCard extends StatelessWidget {
 }
 
 class _SiteVisitCard extends StatelessWidget {
-  const _SiteVisitCard({required this.index});
-  final int index;
+  const _SiteVisitCard({required this.siteVisit});
+  final SiteVisit siteVisit;
   @override
   Widget build(BuildContext context) {
-    final List<String> statuses = <String>[
-      'Scheduled',
-      'Completed',
-      'Cancelled',
-      'Rescheduled',
-    ];
-    final String status = statuses[index % statuses.length];
+    final String status = siteVisit.status.toString().split('.').last;
     final Color statusColor = _getStatusColor(status);
 
     return Container(
@@ -262,7 +368,7 @@ class _SiteVisitCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  'SV-${1000 + index}',
+                  siteVisit.srNo,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: Theme.of(context).colorScheme.primary,
@@ -277,31 +383,33 @@ class _SiteVisitCard extends StatelessWidget {
           _InfoRow(
             icon: Icons.person_outline,
             label: 'Customer',
-            value: 'Alex Johnson',
+            value: siteVisit.customerName,
           ),
           const SizedBox(height: 6),
           _InfoRow(
             icon: Icons.location_city,
             label: 'Project',
-            value: 'Project Alpha',
+            value: siteVisit.projectName,
           ),
           const SizedBox(height: 6),
           _InfoRow(
             icon: Icons.access_time,
             label: 'Meeting Hour',
-            value: '2:30 PM - 3:30 PM',
+            value: siteVisit.meetingFrom != null && siteVisit.meetingTo != null
+                ? '${_formatTime(siteVisit.meetingFrom!)} - ${_formatTime(siteVisit.meetingTo!)}'
+                : 'Not scheduled',
           ),
           const SizedBox(height: 6),
           _InfoRow(
             icon: Icons.flag_outlined,
             label: 'Purpose',
-            value: 'Property Inspection',
+            value: siteVisit.purpose ?? 'Property Inspection',
           ),
           const SizedBox(height: 6),
           _InfoRow(
             icon: Icons.calendar_today,
             label: 'Created At',
-            value: '15 Dec 2024',
+            value: _formatDate(siteVisit.createdAt),
           ),
           const SizedBox(height: 12),
           Row(
@@ -750,4 +858,30 @@ Color _panelColor(BuildContext context) {
 Color _panelBorderColor(BuildContext context) {
   final bool isDark = Theme.of(context).brightness == Brightness.dark;
   return isDark ? Colors.white.withOpacity(0.12) : const Color(0x22000000);
+}
+
+String _formatTime(DateTime dateTime) {
+  final int hour = dateTime.hour;
+  final int minute = dateTime.minute;
+  final String period = hour >= 12 ? 'PM' : 'AM';
+  final int displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+  return '${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
+}
+
+String _formatDate(DateTime dateTime) {
+  const List<String> months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${dateTime.day} ${months[dateTime.month - 1]} ${dateTime.year}';
 }
