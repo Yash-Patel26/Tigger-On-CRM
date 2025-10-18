@@ -1930,7 +1930,7 @@ class _LeadInfoKeyValues extends StatelessWidget {
           ),
         ),
         const Divider(height: 1),
-        kv('Status', vText(lead.status.name)),
+        kv('Status', vText(lead.status.toString().split('.').last)),
         const Divider(height: 1),
         kv(
           'Follow-Up At',
@@ -1947,9 +1947,15 @@ class _LeadInfoKeyValues extends StatelessWidget {
         const Divider(height: 1),
         kv('City', vText(lead.city ?? '-')),
         const Divider(height: 1),
-        kv('Category', vText(lead.categoryType.name, link: true)),
+        kv(
+          'Category',
+          vText(lead.categoryType.toString().split('.').last, link: true),
+        ),
         const Divider(height: 1),
-        kv('Property Type', vText(lead.propertyType.name, link: true)),
+        kv(
+          'Property Type',
+          vText(lead.propertyType.toString().split('.').last, link: true),
+        ),
         const Divider(height: 1),
         kv('Occupation', vText('-')),
         const Divider(height: 1),
@@ -4189,7 +4195,11 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                 const SizedBox(height: 10),
                 _kvSmall(context, 'Location', v.address ?? '-'),
                 const SizedBox(height: 10),
-                _kvSmall(context, 'Status', v.status.name),
+                _kvSmall(
+                  context,
+                  'Status',
+                  v.status.toString().split('.').last,
+                ),
               ],
             ),
           ),
@@ -4200,7 +4210,11 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
               children: <Widget>[
                 _kvSmall(context, 'Appointed To', v.attenderName ?? '-'),
                 const SizedBox(height: 10),
-                _kvSmall(context, 'Mode', v.visitMode.name),
+                _kvSmall(
+                  context,
+                  'Mode',
+                  v.visitMode.toString().split('.').last,
+                ),
                 const SizedBox(height: 10),
                 _kvSmall(context, 'Address', v.address ?? '-'),
                 const SizedBox(height: 10),
@@ -5323,7 +5337,8 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
         itemBuilder: (BuildContext context, int i) {
           final Project p = items[i];
           final String typeText =
-              p.type.name[0].toUpperCase() + p.type.name.substring(1);
+              p.type.toString().split('.').last[0].toUpperCase() +
+              p.type.toString().split('.').last.substring(1);
           final String startText =
               p.startingPrice != null && p.startingPrice! > 0
               ? '₹ ${p.startingPrice!.toStringAsFixed(0)} / ${p.priceUnit ?? ''}'
@@ -5869,7 +5884,8 @@ class _CreatePropertyOptionScreenState
           final Project p = items[i];
           final bool checked = _selectedProjectIds.contains(p.id);
           final String typeText =
-              p.type.name[0].toUpperCase() + p.type.name.substring(1);
+              p.type.toString().split('.').last[0].toUpperCase() +
+              p.type.toString().split('.').last.substring(1);
           final String startText =
               p.startingPrice != null && p.startingPrice! > 0
               ? '₹ ${p.startingPrice!.toStringAsFixed(0)} / ${p.priceUnit ?? ''}'

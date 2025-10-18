@@ -87,7 +87,7 @@ class SiteVisit {
       final String? v = s(a, b);
       if (v == null) return fallback;
       return values.firstWhere(
-        (e) => (e as dynamic).name == v,
+        (e) => e.toString().split('.').last == v,
         orElse: () => fallback,
       );
     }
@@ -162,9 +162,9 @@ class SiteVisit {
       'projectId': projectId,
       'projectName': projectName,
       'unitNo': unitNo,
-      'visitMode': visitMode.name,
-      'visitType': visitType.name,
-      'status': status.name,
+      'visitMode': visitMode.toString().split('.').last,
+      'visitType': visitType.toString().split('.').last,
+      'status': status.toString().split('.').last,
       'telecallerId': telecallerId,
       'telecallerName': telecallerName,
       'allocatedAt': allocatedAt?.toIso8601String(),

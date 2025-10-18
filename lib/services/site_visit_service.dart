@@ -31,13 +31,13 @@ class SiteVisitService {
       queryParams['search'] = search;
     }
     if (status != null) {
-      queryParams['status'] = status.name;
+      queryParams['status'] = status.toString().split('.').last;
     }
     if (visitMode != null) {
-      queryParams['visitMode'] = visitMode.name;
+      queryParams['visitMode'] = visitMode.toString().split('.').last;
     }
     if (visitType != null) {
-      queryParams['visitType'] = visitType.name;
+      queryParams['visitType'] = visitType.toString().split('.').last;
     }
     if (customerId != null) {
       queryParams['customerId'] = customerId;
@@ -112,7 +112,10 @@ class SiteVisitService {
   ) async {
     return await _apiService.patch<SiteVisit>(
       '/site-visits/$siteVisitId/status',
-      body: {'status': status.name, if (notes != null) 'notes': notes},
+      body: {
+        'status': status.toString().split('.').last,
+        if (notes != null) 'notes': notes,
+      },
       fromJson: (json) =>
           SiteVisit.fromJson(json['data'] as Map<String, dynamic>),
     );

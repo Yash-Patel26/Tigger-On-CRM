@@ -78,64 +78,82 @@ class Project {
   });
 
   factory Project.fromJson(Map<String, dynamic> json) {
+    String? s(String a, String b) =>
+        (json[a] as String?) ?? (json[b] as String?);
+    T enumVal<T>(List<T> values, String a, String b, T fallback) {
+      final String? v = s(a, b);
+      if (v == null) return fallback;
+      return values.firstWhere((e) {
+        final String enumName = e.toString().split('.').last;
+        return enumName == v;
+      }, orElse: () => fallback);
+    }
+
+    num? n(String a, String b) => (json[a] as num?) ?? (json[b] as num?);
+    bool b(String a, String b, bool d) =>
+        (json[a] as bool?) ?? (json[b] as bool?) ?? d;
+
     return Project(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String?,
-      developerId: json['developerId'] as String,
-      developerName: json['developerName'] as String,
-      type: ProjectType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => ProjectType.residential,
+      id: s('id', 'id') ?? '',
+      name: s('name', 'name') ?? '',
+      description: s('description', 'description'),
+      developerId: s('developerId', 'developer_id') ?? '',
+      developerName: s('developerName', 'developer_name') ?? '',
+      type: enumVal<ProjectType>(
+        ProjectType.values,
+        'type',
+        'type',
+        ProjectType.residential,
       ),
-      status: ProjectStatus.values.firstWhere(
-        (e) => e.name == json['status'],
-        orElse: () => ProjectStatus.planning,
+      status: enumVal<ProjectStatus>(
+        ProjectStatus.values,
+        'status',
+        'status',
+        ProjectStatus.planning,
       ),
-      address: json['address'] as String?,
-      city: json['city'] as String?,
-      state: json['state'] as String?,
-      pincode: json['pincode'] as String?,
-      country: json['country'] as String? ?? 'India',
-      totalArea: json['totalArea'] != null
-          ? (json['totalArea'] as num).toDouble()
+      address: s('address', 'address'),
+      city: s('city', 'city'),
+      state: s('state', 'state'),
+      pincode: s('pincode', 'pincode'),
+      country: s('country', 'country') ?? 'India',
+      totalArea: n('totalArea', 'total_area')?.toDouble(),
+      totalUnits: (json['totalUnits'] as int?) ?? (json['total_units'] as int?),
+      availableUnits:
+          (json['availableUnits'] as int?) ?? (json['available_units'] as int?),
+      startingPrice: n('startingPrice', 'starting_price')?.toDouble(),
+      maxPrice: n('maxPrice', 'max_price')?.toDouble(),
+      priceUnit: s('priceUnit', 'price_unit'),
+      amenities: (json['amenities'] as List?)
+          ?.map((e) => e.toString())
+          .toList(),
+      propertyTypes: (json['propertyTypes'] as List?)
+          ?.map((e) => e.toString())
+          .toList(),
+      reraNumber: s('reraNumber', 'rera_number'),
+      launchDate: s('launchDate', 'launch_date') != null
+          ? DateTime.parse(s('launchDate', 'launch_date')!)
           : null,
-      totalUnits: json['totalUnits'] as int?,
-      availableUnits: json['availableUnits'] as int?,
-      startingPrice: json['startingPrice'] != null
-          ? (json['startingPrice'] as num).toDouble()
+      possessionDate: s('possessionDate', 'possession_date') != null
+          ? DateTime.parse(s('possessionDate', 'possession_date')!)
           : null,
-      maxPrice: json['maxPrice'] != null
-          ? (json['maxPrice'] as num).toDouble()
-          : null,
-      priceUnit: json['priceUnit'] as String?,
-      amenities: json['amenities'] != null
-          ? List<String>.from(json['amenities'] as List)
-          : null,
-      propertyTypes: json['propertyTypes'] != null
-          ? List<String>.from(json['propertyTypes'] as List)
-          : null,
-      reraNumber: json['reraNumber'] as String?,
-      launchDate: json['launchDate'] != null
-          ? DateTime.parse(json['launchDate'] as String)
-          : null,
-      possessionDate: json['possessionDate'] != null
-          ? DateTime.parse(json['possessionDate'] as String)
-          : null,
-      projectManager: json['projectManager'] as String?,
-      projectManagerId: json['projectManagerId'] as String?,
-      images: json['images'] != null
-          ? List<String>.from(json['images'] as List)
-          : null,
-      brochureUrl: json['brochureUrl'] as String?,
-      floorPlanUrl: json['floorPlanUrl'] as String?,
-      locationMapUrl: json['locationMapUrl'] as String?,
-      isActive: json['isActive'] as bool,
-      createdBy: json['createdBy'] as String,
-      createdByName: json['createdByName'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      customFields: json['customFields'] as Map<String, dynamic>?,
+      projectManager: s('projectManager', 'project_manager'),
+      projectManagerId: s('projectManagerId', 'project_manager_id'),
+      images: (json['images'] as List?)?.map((e) => e.toString()).toList(),
+      brochureUrl: s('brochureUrl', 'brochure_url'),
+      floorPlanUrl: s('floorPlanUrl', 'floor_plan_url'),
+      locationMapUrl: s('locationMapUrl', 'location_map_url'),
+      isActive: b('isActive', 'is_active', true),
+      createdBy: s('createdBy', 'created_by') ?? '',
+      createdByName: s('createdByName', 'created_by_name') ?? '',
+      createdAt: DateTime.parse(
+        s('createdAt', 'created_at') ?? DateTime.now().toIso8601String(),
+      ),
+      updatedAt: DateTime.parse(
+        s('updatedAt', 'updated_at') ?? DateTime.now().toIso8601String(),
+      ),
+      customFields:
+          (json['customFields'] as Map<String, dynamic>?) ??
+          json['custom_fields'] as Map<String, dynamic>?,
     );
   }
 

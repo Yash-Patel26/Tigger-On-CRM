@@ -520,13 +520,14 @@ class _ProjectPickerState extends State<_ProjectPicker> {
   String _search = '';
   Future<List<Project>>? _future;
 
-  @override
-  void initState() {
-    super.initState();
-    _future = DatabaseService.getProjects(search: _search, page: 1, limit: 20);
-  }
-
   void _openPicker() {
+    setState(() {
+      _future = DatabaseService.getProjects(
+        search: _search.isEmpty ? null : _search,
+        page: 1,
+        limit: 20,
+      );
+    });
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -595,11 +596,31 @@ class _ProjectPickerState extends State<_ProjectPicker> {
                           );
                         }
                         if (snapshot.hasError) {
-                          return Center(
-                            child: Text(
-                              'Failed to load projects',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                child: Text(
+                                  'Failed to load projects',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _future = DatabaseService.getProjects(
+                                      search: _search.isEmpty ? null : _search,
+                                      page: 1,
+                                      limit: 20,
+                                    );
+                                  });
+                                },
+                                child: const Text('Retry'),
+                              ),
+                            ],
                           );
                         }
                         final List<Project> items =
