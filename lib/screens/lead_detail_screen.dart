@@ -292,7 +292,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                       const SizedBox(height: 12),
                       _CollapsibleCard(
                         title: 'Activity & Assignment History',
-                        child: _ActivityCompact(),
+                        child: _ActivityCompact(leadId: lead.id),
                       ),
                       const SizedBox(height: 72),
                     ],
@@ -775,11 +775,24 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
     if (parent != null && _selectedUserId != null) {
       parent._leadFuture.then((Lead lead) async {
         try {
+          // Get current lead data to log old assignee
+          final Lead currentLead = await parent._leadFuture;
           await DatabaseService.updateLeadAssignment(
             leadId: lead.id,
             assignedToId: _selectedUserId!,
             assignedToName: _selectedUserName,
           );
+
+          // Log the assignment change
+          await DatabaseServiceMasters.logLeadAssignment(
+            leadId: lead.id,
+            oldAssignee: currentLead.assignedToName,
+            newAssignee: _selectedUserName,
+            performedBy: 'current_user_id', // TODO: Get actual current user ID
+            performedByName:
+                'Current User', // TODO: Get actual current user name
+          );
+
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Assigned to $_selectedUserName')),
@@ -3384,18 +3397,39 @@ class _TimelineCompact extends StatelessWidget {
   }
 }
 
-class _ActivityCompact extends StatelessWidget {
+class _ActivityCompact extends StatefulWidget {
+  const _ActivityCompact({required this.leadId});
+  final String leadId;
+
+  @override
+  State<_ActivityCompact> createState() => _ActivityCompactState();
+}
+
+class _ActivityCompactState extends State<_ActivityCompact> {
+  late Future<List<LeadActivity>> _activitiesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _activitiesFuture = DatabaseServiceMasters.getLeadActivities(
+      leadId: widget.leadId,
+      limit: 5, // Show only recent 5 activities
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        _ActivityLogCard(),
+        _ActivityLogCard(activitiesFuture: _activitiesFuture),
         const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton(
-            onPressed: () {},
+            onPressed: () {
+              // TODO: Navigate to full activity history screen
+            },
             child: const Text('View full history'),
           ),
         ),
@@ -4235,7 +4269,7 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                             builder: (BuildContext ctx) =>
                                 SiteVisitDetailScreen(
                                   siteVisitId: v.id,
-                                  siteVisitData: <String, dynamic>{},
+                                  siteVisitData: v.toJson(),
                                 ),
                           ),
                         );
@@ -4391,11 +4425,12 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                       if (info == null) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'No customer found with this phone number',
+                                'No customer found with phone: $digits\nCheck console for debug info',
                               ),
                               backgroundColor: Colors.orange,
+                              duration: const Duration(seconds: 3),
                             ),
                           );
                         }
@@ -4588,40 +4623,72 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                               : await parentState._leadFuture;
                           final String? projectId = lead.projectId;
                           final String? projectName = lead.projectName;
-                          // Resolve customer by phone (must exist due to DB constraint)
+                          // Get phone number for site visit creation
                           final String phone = contactCtrl.text.trim();
                           final Map<String, String>? info =
                               await DatabaseService.lookupByPhone(phone);
-                          final String? customerId =
-                              info != null && (info['type'] ?? '') == 'customer'
-                              ? info['customer_id']
-                              : null;
-                          if (customerId == null ||
-                              (projectId == null || projectId.isEmpty)) {
+
+                          // Check if lead has project information (required for site visit)
+                          if (projectId == null || projectId.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                  'Missing linked customer or project. Ensure phone matches an existing customer and lead has a project.',
+                                  'Project information is required. Please ensure the lead has a project assigned.',
                                 ),
+                                backgroundColor: Colors.orange,
                               ),
                             );
                             return;
                           }
-                          await DatabaseService.createSiteVisit(
+
+                          // Show info about customer lookup
+                          if (info != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Found existing ${info['type']}: ${info['name']}',
+                                ),
+                                backgroundColor: Colors.green,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'No existing customer found. A new customer will be created.',
+                                ),
+                                backgroundColor: Colors.blue,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                          final SiteVisit siteVisit =
+                              await DatabaseService.createSiteVisit(
+                                leadId: activeLeadId,
+                                customerName: nameCtrl.text.trim(),
+                                customerPhone: phone,
+                                projectId: projectId,
+                                projectName: projectName,
+                                attenderName: attenderCtrl.text.trim(),
+                                purpose: purposeCtrl.text.trim(),
+                                address: addressCtrl.text.trim(),
+                                visitMode: mode.toLowerCase() == 'office'
+                                    ? VisitMode.office
+                                    : VisitMode.physical,
+                                status: SiteVisitStatus.scheduled,
+                                meetingFrom: from,
+                                meetingTo: to,
+                              );
+
+                          // Log the site visit creation activity
+                          await DatabaseServiceMasters.logSiteVisitScheduled(
                             leadId: activeLeadId,
-                            customerName: nameCtrl.text.trim(),
-                            customerPhone: phone,
-                            projectId: projectId,
-                            projectName: projectName,
-                            attenderName: attenderCtrl.text.trim(),
-                            purpose: purposeCtrl.text.trim(),
-                            address: addressCtrl.text.trim(),
-                            visitMode: mode.toLowerCase() == 'office'
-                                ? VisitMode.office
-                                : VisitMode.physical,
-                            status: SiteVisitStatus.scheduled,
-                            meetingFrom: from,
-                            meetingTo: to,
+                            siteVisitId: siteVisit.id,
+                            performedBy:
+                                'current_user_id', // TODO: Get actual current user ID
+                            performedByName:
+                                'Current User', // TODO: Get actual current user name
                           );
                           if (!mounted) return;
                           setState(() {
@@ -8082,32 +8149,115 @@ class _TimelineCard extends StatelessWidget {
 // _TimelineItem model removed; using API result instead
 
 class _ActivityLogCard extends StatelessWidget {
+  const _ActivityLogCard({required this.activitiesFuture});
+  final Future<List<LeadActivity>> activitiesFuture;
+
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, String>> logs = <Map<String, String>>[
-      <String, String>{
-        'by': 'Anita',
-        'action': 'Updated status to Warm',
-        'at': '2025-09-20 10:15',
-      },
-      <String, String>{
-        'by': 'Chetan',
-        'action': 'Assigned to Team 2',
-        'at': '2025-09-18 15:42',
-      },
-    ];
     return _SectionCard(
       title: 'Activity & Assignment History',
       children: <Widget>[
-        ...logs.map(
-          (Map<String, String> l) => ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.history),
-            title: Text(l['action'] ?? '-'),
-            subtitle: Text('${l['by']} • ${l['at']}'),
-          ),
+        FutureBuilder<List<LeadActivity>>(
+          future: activitiesFuture,
+          builder:
+              (
+                BuildContext context,
+                AsyncSnapshot<List<LeadActivity>> snapshot,
+              ) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text('Failed to load activities: ${snapshot.error}'),
+                  );
+                }
+                final List<LeadActivity> activities =
+                    snapshot.data ?? <LeadActivity>[];
+                if (activities.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text('No activities yet'),
+                  );
+                }
+                return Column(
+                  children: activities
+                      .map(
+                        (LeadActivity activity) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: _getActivityIcon(activity.type),
+                          title: Text(activity.action),
+                          subtitle: Text(
+                            '${activity.performedByName} • ${_formatActivityDate(activity.createdAt)}',
+                          ),
+                          trailing: _getActivityStatusIcon(activity.type),
+                        ),
+                      )
+                      .toList(),
+                );
+              },
         ),
       ],
     );
+  }
+
+  Widget _getActivityIcon(ActivityType type) {
+    switch (type) {
+      case ActivityType.created:
+        return const Icon(Icons.add_circle, color: Colors.green);
+      case ActivityType.updated:
+        return const Icon(Icons.edit, color: Colors.blue);
+      case ActivityType.assigned:
+        return const Icon(Icons.person_add, color: Colors.orange);
+      case ActivityType.statusChanged:
+        return const Icon(Icons.swap_horiz, color: Colors.purple);
+      case ActivityType.siteVisitScheduled:
+        return const Icon(Icons.calendar_today, color: Colors.teal);
+      case ActivityType.siteVisitCompleted:
+        return const Icon(Icons.check_circle, color: Colors.green);
+      case ActivityType.taskCreated:
+        return const Icon(Icons.task, color: Colors.indigo);
+      case ActivityType.taskCompleted:
+        return const Icon(Icons.task_alt, color: Colors.green);
+      case ActivityType.noteAdded:
+        return const Icon(Icons.note_add, color: Colors.amber);
+      case ActivityType.followUpScheduled:
+        return const Icon(Icons.schedule, color: Colors.cyan);
+      case ActivityType.converted:
+        return const Icon(Icons.trending_up, color: Colors.green);
+      case ActivityType.closed:
+        return const Icon(Icons.close, color: Colors.red);
+    }
+  }
+
+  Widget _getActivityStatusIcon(ActivityType type) {
+    switch (type) {
+      case ActivityType.created:
+      case ActivityType.converted:
+        return const Icon(Icons.check_circle, color: Colors.green, size: 16);
+      case ActivityType.closed:
+        return const Icon(Icons.cancel, color: Colors.red, size: 16);
+      default:
+        return const Icon(Icons.info, color: Colors.grey, size: 16);
+    }
+  }
+
+  String _formatActivityDate(DateTime date) {
+    final DateTime now = DateTime.now();
+    final Duration difference = now.difference(date);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
   }
 }

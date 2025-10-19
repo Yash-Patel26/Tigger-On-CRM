@@ -15,6 +15,8 @@ import 'site_visit_screen.dart';
 import 'booking_screen.dart';
 import 'property_finder_screen.dart';
 import '../utils/helpers.dart';
+import '../services/database_service.dart';
+import '../models/models.dart';
 
 Color panelColor(BuildContext context) {
   final bool isDark = Theme.of(context).brightness == Brightness.dark;
@@ -47,11 +49,62 @@ class _HomeScreenState extends State<HomeScreen> {
   final int _leadsCount = 12;
   final int _meetingsToday = 3;
 
+  // Real data from database
+  int _activeProjectsCount = 0;
+  int _activeTasksCount = 0;
+  int _teamMembersCount = 0;
+  bool _isLoadingStats = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      // Load active projects
+      final List<Project> projects = await DatabaseService.getProjects();
+      final int activeProjects = projects
+          .where((p) => p.status == ProjectStatus.underConstruction)
+          .length;
+
+      // Load active tasks
+      final List<Task> tasks = await DatabaseService.getTasks();
+      final int activeTasks = tasks
+          .where(
+            (t) =>
+                t.status == TaskStatus.pending ||
+                t.status == TaskStatus.inProgress,
+          )
+          .length;
+
+      // For team members, you might need to implement getUserProfiles or similar
+      // For now, using a placeholder
+      const int teamMembers = 8; // TODO: Load real team members count
+
+      setState(() {
+        _activeProjectsCount = activeProjects;
+        _activeTasksCount = activeTasks;
+        _teamMembersCount = teamMembers;
+        _isLoadingStats = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingStats = false;
+      });
+    }
+  }
+
   late final List<Widget> _screens = <Widget>[
     DashboardTab(
       loginTime: _loginTime,
       leadsCount: _leadsCount,
       meetingsToday: _meetingsToday,
+      activeProjectsCount: _activeProjectsCount,
+      activeTasksCount: _activeTasksCount,
+      teamMembersCount: _teamMembersCount,
+      isLoadingStats: _isLoadingStats,
     ),
     const CustomersTab(),
     const VendorScreen(),
@@ -299,11 +352,19 @@ class DashboardTab extends StatelessWidget {
     required this.loginTime,
     required this.leadsCount,
     required this.meetingsToday,
+    required this.activeProjectsCount,
+    required this.activeTasksCount,
+    required this.teamMembersCount,
+    required this.isLoadingStats,
   });
 
   final DateTime loginTime;
   final int leadsCount;
   final int meetingsToday;
+  final int activeProjectsCount;
+  final int activeTasksCount;
+  final int teamMembersCount;
+  final bool isLoadingStats;
 
   @override
   Widget build(BuildContext context) {
@@ -345,49 +406,69 @@ class DashboardTab extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: panelBorderColor(context)),
       ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: InkWell(
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ActiveProjectsScreen(),
-                  ),
-                );
-              },
-              child: _buildStatItem(
-                context,
-                'Active Projects',
-                '12',
-                Icons.folder,
+      child: isLoadingStats
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: CircularProgressIndicator(),
               ),
-            ),
-          ),
-          Container(width: 1, height: 40, color: panelBorderColor(context)),
-          Expanded(
-            child: InkWell(
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ActiveTasksScreen(),
+            )
+          : Row(
+              children: <Widget>[
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ActiveProjectsScreen(),
+                        ),
+                      );
+                    },
+                    child: _buildStatItem(
+                      context,
+                      'Active Projects',
+                      activeProjectsCount.toString(),
+                      Icons.folder,
+                    ),
                   ),
-                );
-              },
-              child: _buildStatItem(
-                context,
-                'Active Tasks',
-                '48',
-                Icons.check_circle,
-              ),
+                ),
+                Container(
+                  width: 1,
+                  height: 40,
+                  color: panelBorderColor(context),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ActiveTasksScreen(),
+                        ),
+                      );
+                    },
+                    child: _buildStatItem(
+                      context,
+                      'Active Tasks',
+                      activeTasksCount.toString(),
+                      Icons.check_circle,
+                    ),
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  height: 40,
+                  color: panelBorderColor(context),
+                ),
+                Expanded(
+                  child: _buildStatItem(
+                    context,
+                    'Team Members',
+                    teamMembersCount.toString(),
+                    Icons.people,
+                  ),
+                ),
+              ],
             ),
-          ),
-          Container(width: 1, height: 40, color: panelBorderColor(context)),
-          Expanded(
-            child: _buildStatItem(context, 'Team Members', '8', Icons.people),
-          ),
-        ],
-      ),
     );
   }
 
@@ -520,26 +601,14 @@ class DashboardTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+        // TODO: Load real recent activities from database
+        // For now, showing placeholder
         _buildActivityItem(
           context,
-          'Project Alpha completed',
-          '2 hours ago',
-          Icons.check_circle,
-          Colors.green,
-        ),
-        _buildActivityItem(
-          context,
-          'New task assigned',
-          '4 hours ago',
-          Icons.assignment,
-          Colors.blue,
-        ),
-        _buildActivityItem(
-          context,
-          'Team meeting scheduled',
-          '1 day ago',
-          Icons.event,
-          Colors.orange,
+          'No recent activity',
+          'Check back later',
+          Icons.info,
+          Colors.grey,
         ),
       ],
     );
@@ -732,66 +801,57 @@ class _CustomersTabState extends State<CustomersTab> {
   String _filterAging = 'Any';
   DateTime? _filterLastUpdate;
 
-  // Mock data. Replace with real data source.
-  final List<Map<String, dynamic>> _allCustomers = <Map<String, dynamic>>[
-    <String, dynamic>{
-      'id': 1,
-      'name': 'Aarav Sharma',
-      'email': 'aarav@example.com',
-      'phone': '+91-9876543210',
-      'assignTo': 'Riya',
-      'createdBy': 'Admin',
-      'projectType': 'Residential',
-      'project': 'Skyline Heights',
-      'lastUpdate': DateTime.now(),
-    },
-    <String, dynamic>{
-      'id': 2,
-      'name': 'Neha Verma',
-      'email': 'neha.verma@example.com',
-      'phone': '+91-9123456780',
-      'assignTo': 'Aman',
-      'createdBy': 'Vishal',
-      'projectType': 'Commercial',
-      'project': 'Tech Park',
-      'lastUpdate': DateTime.now().subtract(const Duration(days: 2)),
-    },
-    <String, dynamic>{
-      'id': 3,
-      'name': 'Rohan Gupta',
-      'email': 'rohan.g@example.com',
-      'phone': '+91-9988776655',
-      'assignTo': 'Priya',
-      'createdBy': 'Admin',
-      'projectType': 'Residential',
-      'project': 'Green Meadows',
-      'lastUpdate': DateTime.now().subtract(const Duration(days: 10)),
-    },
-  ];
+  // Real data from database
+  List<Customer> _allCustomers = <Customer>[];
+  bool _isLoadingCustomers = true;
+  String? _customersError;
 
-  List<Map<String, dynamic>> get _filteredCustomers {
-    return _allCustomers.where((Map<String, dynamic> c) {
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomers();
+  }
+
+  Future<void> _loadCustomers() async {
+    try {
+      setState(() {
+        _isLoadingCustomers = true;
+        _customersError = null;
+      });
+
+      final List<Customer> customers = await DatabaseService.getCustomers();
+      setState(() {
+        _allCustomers = customers;
+        _isLoadingCustomers = false;
+      });
+    } catch (e) {
+      setState(() {
+        _customersError = e.toString();
+        _isLoadingCustomers = false;
+      });
+    }
+  }
+
+  List<Customer> get _filteredCustomers {
+    return _allCustomers.where((Customer c) {
       final String nameQ = _filterNameCtrl.text.trim().toLowerCase();
       final String emailQ = _filterEmailCtrl.text.trim().toLowerCase();
 
-      if (nameQ.isNotEmpty &&
-          !c['name'].toString().toLowerCase().contains(nameQ)) {
+      if (nameQ.isNotEmpty && !c.name.toLowerCase().contains(nameQ)) {
         return false;
       }
-      if (emailQ.isNotEmpty &&
-          !c['email'].toString().toLowerCase().contains(emailQ)) {
+      if (emailQ.isNotEmpty && !c.email.toLowerCase().contains(emailQ)) {
         return false;
       }
-      if (_filterProjectType != 'Any' &&
-          c['projectType'] != _filterProjectType) {
+      if (_filterProjectType != 'Any' && c.projectType != _filterProjectType) {
         return false;
       }
-      if (_filterProject != 'Any' && c['project'] != _filterProject) {
+      if (_filterProject != 'Any' && c.projectName != _filterProject) {
         return false;
       }
 
       // Aging filter based on days since lastUpdate
-      final DateTime lu = c['lastUpdate'] as DateTime;
+      final DateTime lu = c.updatedAt;
       final int days = DateTime.now().difference(lu).inDays;
       switch (_filterAging) {
         case 'Today':
@@ -825,10 +885,10 @@ class _CustomersTabState extends State<CustomersTab> {
     final DateTime today = DateTime.now();
     return _allCustomers
         .where(
-          (Map<String, dynamic> c) =>
-              c['lastUpdate'].year == today.year &&
-              c['lastUpdate'].month == today.month &&
-              c['lastUpdate'].day == today.day,
+          (Customer c) =>
+              c.updatedAt.year == today.year &&
+              c.updatedAt.month == today.month &&
+              c.updatedAt.day == today.day,
         )
         .length;
   }
@@ -921,7 +981,7 @@ class _CustomersTabState extends State<CustomersTab> {
                   color: Theme.of(context).dividerColor.withOpacity(0.3),
                 ),
               ),
-              child: _buildCards(context, _filteredCustomers),
+              child: _buildCustomersContent(context),
             ),
           ),
         ],
@@ -975,7 +1035,50 @@ class _CustomersTabState extends State<CustomersTab> {
     );
   }
 
-  Widget _buildCards(BuildContext context, List<Map<String, dynamic>> rows) {
+  Widget _buildCustomersContent(BuildContext context) {
+    if (_isLoadingCustomers) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_customersError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+              const SizedBox(height: 16),
+              Text('Error loading customers: $_customersError'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadCustomers,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_filteredCustomers.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Text('No customers found'),
+        ),
+      );
+    }
+
+    return _buildCards(context, _filteredCustomers);
+  }
+
+  Widget _buildCards(BuildContext context, List<Customer> customers) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final double width = constraints.maxWidth;
@@ -1002,22 +1105,18 @@ class _CustomersTabState extends State<CustomersTab> {
             crossAxisSpacing: 12,
             childAspectRatio: aspectRatio,
           ),
-          itemCount: rows.length,
+          itemCount: customers.length,
           itemBuilder: (BuildContext context, int index) {
-            final Map<String, dynamic> c = rows[index];
-            return _customerCard(context, index, c);
+            final Customer customer = customers[index];
+            return _customerCard(context, index, customer);
           },
         );
       },
     );
   }
 
-  Widget _customerCard(
-    BuildContext context,
-    int index,
-    Map<String, dynamic> c,
-  ) {
-    final DateTime lastUpdate = c['lastUpdate'] as DateTime;
+  Widget _customerCard(BuildContext context, int index, Customer customer) {
+    final DateTime lastUpdate = customer.updatedAt;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
@@ -1041,7 +1140,7 @@ class _CustomersTabState extends State<CustomersTab> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              _avatarCircle(context, c['name'].toString()),
+              _avatarCircle(context, customer.name),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -1051,7 +1150,7 @@ class _CustomersTabState extends State<CustomersTab> {
                       children: <Widget>[
                         Expanded(
                           child: Text(
-                            c['name'].toString(),
+                            customer.name,
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(fontWeight: FontWeight.w800),
                             maxLines: 1,
@@ -1063,7 +1162,7 @@ class _CustomersTabState extends State<CustomersTab> {
                           _pill(context, 'Today'),
                         ],
                         const SizedBox(width: 6),
-                        _rowActions(context, c),
+                        _rowActions(context, customer),
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -1077,7 +1176,7 @@ class _CustomersTabState extends State<CustomersTab> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            c['email'].toString(),
+                            customer.email,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1095,13 +1194,13 @@ class _CustomersTabState extends State<CustomersTab> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            c['phone'].toString(),
+                            customer.phone,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: 6),
-                        _quickActions(context, c),
+                        _quickActions(context, customer),
                       ],
                     ),
                   ],
@@ -1122,7 +1221,7 @@ class _CustomersTabState extends State<CustomersTab> {
 
   // Removed unused _chip helper after simplifying card content
 
-  Widget _rowActions(BuildContext context, Map<String, dynamic> row) {
+  Widget _rowActions(BuildContext context, Customer customer) {
     return PopupMenuButton<String>(
       itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
         const PopupMenuItem<String>(value: 'view', child: Text('View')),
@@ -1131,17 +1230,17 @@ class _CustomersTabState extends State<CustomersTab> {
       ],
       onSelected: (String value) {
         if (value == 'view') {
-          _showCustomerDetails(context, row);
+          _showCustomerDetails(context, customer);
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action "$value" on ${row['name']}')),
+          SnackBar(content: Text('Action "$value" on ${customer.name}')),
         );
       },
     );
   }
 
-  void _showCustomerDetails(BuildContext context, Map<String, dynamic> c) {
+  void _showCustomerDetails(BuildContext context, Customer customer) {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Theme.of(context).dialogTheme.backgroundColor,
@@ -1172,23 +1271,19 @@ class _CustomersTabState extends State<CustomersTab> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                _detailRow(context, 'Name', c['name'].toString()),
-                _detailRow(context, 'Email', c['email'].toString()),
-                _detailRow(context, 'Contact', c['phone'].toString()),
-                _detailRow(context, 'Assign To', c['assignTo'].toString()),
-                _detailRow(context, 'Created By', c['createdBy'].toString()),
-                if (c['projectType'] != null)
-                  _detailRow(
-                    context,
-                    'Project Type',
-                    c['projectType'].toString(),
-                  ),
-                if (c['project'] != null)
-                  _detailRow(context, 'Project', c['project'].toString()),
+                _detailRow(context, 'Name', customer.name),
+                _detailRow(context, 'Email', customer.email),
+                _detailRow(context, 'Contact', customer.phone),
+                _detailRow(context, 'Assign To', customer.assignedToName),
+                _detailRow(context, 'Created By', customer.createdByName),
+                if (customer.projectType != null)
+                  _detailRow(context, 'Project Type', customer.projectType!),
+                if (customer.projectName != null)
+                  _detailRow(context, 'Project', customer.projectName!),
                 _detailRow(
                   context,
                   'Last Update',
-                  _formatDate(c['lastUpdate'] as DateTime),
+                  _formatDate(customer.updatedAt),
                 ),
               ],
             ),
@@ -1255,7 +1350,7 @@ class _CustomersTabState extends State<CustomersTab> {
     );
   }
 
-  Widget _quickActions(BuildContext context, Map<String, dynamic> c) {
+  Widget _quickActions(BuildContext context, Customer customer) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -1266,7 +1361,7 @@ class _CustomersTabState extends State<CustomersTab> {
           onPressed: () {
             ScaffoldMessenger.of(
               context,
-            ).showSnackBar(SnackBar(content: Text('Email ${c['email']}')));
+            ).showSnackBar(SnackBar(content: Text('Email ${customer.email}')));
           },
           icon: const Icon(Icons.email_outlined, size: 16),
         ),
@@ -1275,7 +1370,7 @@ class _CustomersTabState extends State<CustomersTab> {
           constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
           tooltip: 'Call',
           onPressed: () {
-            Helpers.placeCall(Helpers.safeString(c['phone']));
+            Helpers.placeCall(Helpers.safeString(customer.phone));
           },
           icon: const Icon(Icons.call_outlined, size: 16),
         ),

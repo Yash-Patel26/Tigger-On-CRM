@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'site_visit_detail_screen.dart';
 import '../services/database_service.dart';
 import '../models/site_visit_model.dart';
+import '../models/models.dart';
 
 class SiteVisitScreen extends StatefulWidget {
   const SiteVisitScreen({super.key});
@@ -419,39 +420,8 @@ class _SiteVisitCard extends StatelessWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => SiteVisitDetailScreen(
-                        siteVisitId: 'SV001',
-                        siteVisitData: {
-                          'srNo': 'SV001',
-                          'leadId': 'LID001',
-                          'contactNumber': '+91 98765 43210',
-                          'project': 'Project Alpha',
-                          'visitMode': 'Physical Visit',
-                          'status': 'Scheduled',
-                          'telecaller': 'John Doe',
-                          'allocatedAt': DateTime.now().subtract(
-                            const Duration(days: 1),
-                          ),
-                          'allocatedBy': 'Manager Name',
-                          'source': 'Website',
-                          'meetingFrom': DateTime.now().add(
-                            const Duration(days: 1, hours: 2),
-                          ),
-                          'meetingTo': DateTime.now().add(
-                            const Duration(days: 1, hours: 3),
-                          ),
-                          'purpose':
-                              'Property inspection and site visit for 2 BHK apartment',
-                          'address':
-                              '221B Baker Street, Andheri West, Mumbai - 400053',
-                          'minutes':
-                              'Customer showed interest in 2BHK apartment. Discussed pricing and payment plans. Follow-up scheduled for next week.',
-                          'attenderName': 'Sarah Wilson',
-                          'officeMeetingDateTime': DateTime.now().add(
-                            const Duration(days: 1, hours: 2),
-                          ),
-                          'feedback':
-                              'Customer was very interested and asked detailed questions about amenities and construction timeline.',
-                        },
+                        siteVisitId: siteVisit.id,
+                        siteVisitData: siteVisit.toJson(),
                       ),
                     ),
                   );
@@ -569,6 +539,41 @@ class _SiteVisitFiltersSheetState extends State<_SiteVisitFiltersSheet> {
   String siteVisitType = 'Any';
   String meetingStatus = 'Any';
 
+  // Real data from database
+  List<String> _projectOptions = <String>['Any'];
+  List<String> _userOptions = <String>['Any'];
+  bool _isLoadingOptions = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFilterOptions();
+  }
+
+  Future<void> _loadFilterOptions() async {
+    try {
+      // Load projects
+      final List<Project> projects = await DatabaseService.getProjects();
+      final List<String> projectNames = projects.map((p) => p.name).toList();
+
+      // Load users (you might need to implement getUserProfiles or similar)
+      // For now, using a placeholder - you can implement this based on your user management
+      final List<String> userNames = <String>[
+        'Current User',
+      ]; // TODO: Load real users
+
+      setState(() {
+        _projectOptions = ['Any', ...projectNames];
+        _userOptions = ['Any', ...userNames];
+        _isLoadingOptions = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingOptions = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
@@ -583,136 +588,130 @@ class _SiteVisitFiltersSheetState extends State<_SiteVisitFiltersSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Text(
-                    'Filters',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+              if (_isLoadingOptions)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else ...[
+                Row(
+                  children: <Widget>[
+                    Text(
+                      'Filters',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _TextField(
-                label: 'Customer name',
-                value: customerName,
-                onChanged: (String v) => setState(() => customerName = v),
-              ),
-              _TextField(
-                label: 'Contact number',
-                value: contactNumber,
-                onChanged: (String v) => setState(() => contactNumber = v),
-              ),
-              _DatePicker(
-                label: 'Site visit date',
-                value: siteVisitDate,
-                onChanged: (DateTime? d) => setState(() => siteVisitDate = d),
-              ),
-              _Dropdown(
-                label: 'Project list',
-                value: projectList,
-                items: const <String>[
-                  'Any',
-                  'Project Alpha',
-                  'Project Beta',
-                  'Project Gamma',
-                ],
-                onChanged: (String v) => setState(() => projectList = v),
-              ),
-              _Dropdown(
-                label: 'Meeting mode',
-                value: meetingMode,
-                items: const <String>[
-                  'Any',
-                  'In-person',
-                  'Video Call',
-                  'Phone Call',
-                ],
-                onChanged: (String v) => setState(() => meetingMode = v),
-              ),
-              _Dropdown(
-                label: 'Scheduled by',
-                value: scheduledBy,
-                items: const <String>[
-                  'Any',
-                  'Riya Sen',
-                  'Alex Johnson',
-                  'Sarah Wilson',
-                ],
-                onChanged: (String v) => setState(() => scheduledBy = v),
-              ),
-              _Dropdown(
-                label: 'Attended by',
-                value: attendedBy,
-                items: const <String>[
-                  'Any',
-                  'Riya Sen',
-                  'Alex Johnson',
-                  'Sarah Wilson',
-                ],
-                onChanged: (String v) => setState(() => attendedBy = v),
-              ),
-              _Dropdown(
-                label: 'Site visit type',
-                value: siteVisitType,
-                items: const <String>[
-                  'Any',
-                  'Property Inspection',
-                  'Site Survey',
-                  'Client Meeting',
-                ],
-                onChanged: (String v) => setState(() => siteVisitType = v),
-              ),
-              _Dropdown(
-                label: 'Meeting status',
-                value: meetingStatus,
-                items: const <String>[
-                  'Any',
-                  'Scheduled',
-                  'Completed',
-                  'Cancelled',
-                  'Rescheduled',
-                ],
-                onChanged: (String v) => setState(() => meetingStatus = v),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        setState(() {
-                          customerName = '';
-                          contactNumber = '';
-                          siteVisitDate = null;
-                          projectList = 'Any';
-                          meetingMode = 'Any';
-                          scheduledBy = 'Any';
-                          attendedBy = 'Any';
-                          siteVisitType = 'Any';
-                          meetingStatus = 'Any';
-                        });
-                      },
-                      child: const Text('Clear'),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Apply'),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _TextField(
+                  label: 'Customer name',
+                  value: customerName,
+                  onChanged: (String v) => setState(() => customerName = v),
+                ),
+                _TextField(
+                  label: 'Contact number',
+                  value: contactNumber,
+                  onChanged: (String v) => setState(() => contactNumber = v),
+                ),
+                _DatePicker(
+                  label: 'Site visit date',
+                  value: siteVisitDate,
+                  onChanged: (DateTime? d) => setState(() => siteVisitDate = d),
+                ),
+                _Dropdown(
+                  label: 'Project list',
+                  value: projectList,
+                  items: _projectOptions,
+                  onChanged: (String v) => setState(() => projectList = v),
+                ),
+                _Dropdown(
+                  label: 'Meeting mode',
+                  value: meetingMode,
+                  items: const <String>[
+                    'Any',
+                    'In-person',
+                    'Video Call',
+                    'Phone Call',
+                  ],
+                  onChanged: (String v) => setState(() => meetingMode = v),
+                ),
+                _Dropdown(
+                  label: 'Scheduled by',
+                  value: scheduledBy,
+                  items: _userOptions,
+                  onChanged: (String v) => setState(() => scheduledBy = v),
+                ),
+                _Dropdown(
+                  label: 'Attended by',
+                  value: attendedBy,
+                  items: _userOptions,
+                  onChanged: (String v) => setState(() => attendedBy = v),
+                ),
+                _Dropdown(
+                  label: 'Site visit type',
+                  value: siteVisitType,
+                  items: const <String>[
+                    'Any',
+                    'Property Inspection',
+                    'Site Survey',
+                    'Client Meeting',
+                  ],
+                  onChanged: (String v) => setState(() => siteVisitType = v),
+                ),
+                _Dropdown(
+                  label: 'Meeting status',
+                  value: meetingStatus,
+                  items: const <String>[
+                    'Any',
+                    'Scheduled',
+                    'Completed',
+                    'Cancelled',
+                    'Rescheduled',
+                  ],
+                  onChanged: (String v) => setState(() => meetingStatus = v),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            customerName = '';
+                            contactNumber = '';
+                            siteVisitDate = null;
+                            projectList = 'Any';
+                            meetingMode = 'Any';
+                            scheduledBy = 'Any';
+                            attendedBy = 'Any';
+                            siteVisitType = 'Any';
+                            meetingStatus = 'Any';
+                          });
+                        },
+                        child: const Text('Clear'),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('Apply'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         );

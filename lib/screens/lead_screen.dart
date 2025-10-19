@@ -8,6 +8,7 @@ import 'lead_detail_screen.dart';
 import 'add_site_visit_screen.dart';
 import '../models/site_visit_model.dart';
 import '../services/database_service.dart';
+import '../models/models.dart';
 // assign dialog implemented locally in this file for lead list
 
 // Lead data model for pagination - extends Lead model
@@ -725,15 +726,21 @@ class _LeadScreenState extends State<LeadScreen> {
             children: <Widget>[
               ListTile(
                 title: const Text('Hot Leads'),
-                trailing: Text('${(_pageItems.length * 0.3).round()}'),
+                trailing: Text(
+                  '${_pageItems.where((lead) => lead.status == LeadStatus.hot).length}',
+                ),
               ),
               ListTile(
                 title: const Text('Warm Leads'),
-                trailing: Text('${(_pageItems.length * 0.4).round()}'),
+                trailing: Text(
+                  '${_pageItems.where((lead) => lead.status == LeadStatus.warm).length}',
+                ),
               ),
               ListTile(
                 title: const Text('Cold Leads'),
-                trailing: Text('${(_pageItems.length * 0.3).round()}'),
+                trailing: Text(
+                  '${_pageItems.where((lead) => lead.status == LeadStatus.cold).length}',
+                ),
               ),
               const Divider(),
               ListTile(
@@ -1187,8 +1194,33 @@ class _LeadFiltersSheetState extends State<_LeadFiltersSheet> {
   String project = 'Any';
   String assigningAging = 'Any';
   DateTime? lastUpdate;
+
+  // Real data from database
+  List<String> _projectOptions = <String>['Any'];
+  bool _isLoadingProjects = true;
   String budgetType = 'Any';
   bool withVisits = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProjects();
+  }
+
+  Future<void> _loadProjects() async {
+    try {
+      final List<Project> projects = await DatabaseService.getProjects();
+      final List<String> projectNames = projects.map((p) => p.name).toList();
+      setState(() {
+        _projectOptions = ['Any', ...projectNames];
+        _isLoadingProjects = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingProjects = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1262,12 +1294,17 @@ class _LeadFiltersSheetState extends State<_LeadFiltersSheet> {
                 items: const <String>['Any', 'Me', 'Team 1', 'Team 2'],
                 onChanged: (String v) => setState(() => assignTo = v),
               ),
-              _Dropdown(
-                label: 'Project',
-                value: project,
-                items: const <String>['Any', 'Project Alpha', 'Project Beta'],
-                onChanged: (String v) => setState(() => project = v),
-              ),
+              _isLoadingProjects
+                  ? const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : _Dropdown(
+                      label: 'Project',
+                      value: project,
+                      items: _projectOptions,
+                      onChanged: (String v) => setState(() => project = v),
+                    ),
               _Dropdown(
                 label: 'Assigning aging',
                 value: assigningAging,

@@ -137,7 +137,8 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Mayank11',
+                        widget.siteVisitData['customerName'] ??
+                            'Unknown Customer',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -146,11 +147,11 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Lead Id : RELRC-01530',
+                        'Lead Id : ${widget.siteVisitData['leadId'] ?? 'N/A'}',
                         style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                       Text(
-                        'Contact : 9955011004',
+                        'Contact : ${widget.siteVisitData['customerPhone'] ?? 'N/A'}',
                         style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
@@ -171,13 +172,34 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
             ),
             const SizedBox(height: 20),
             // Key details in clean format
-            _buildCleanDetailRow('Project:', '4s The Aurrum'),
-            _buildCleanDetailRow('Visit Mode:', 'on-site'),
-            _buildCleanDetailRow('Status:', 'Scheduled'),
-            _buildCleanDetailRow('Telecaller:', 'Chetan'),
-            _buildCleanDetailRow('Allocated At:', '30-Sep-2025 | 09:53 AM'),
-            _buildCleanDetailRow('Allocated By:', 'Anita'),
-            _buildCleanDetailRow('Source:', 'Google'),
+            _buildCleanDetailRow(
+              'Project:',
+              widget.siteVisitData['projectName'] ?? 'N/A',
+            ),
+            _buildCleanDetailRow(
+              'Visit Mode:',
+              widget.siteVisitData['visitMode'] ?? 'N/A',
+            ),
+            _buildCleanDetailRow(
+              'Status:',
+              widget.siteVisitData['status'] ?? 'N/A',
+            ),
+            _buildCleanDetailRow(
+              'Telecaller:',
+              widget.siteVisitData['telecallerName'] ?? 'N/A',
+            ),
+            _buildCleanDetailRow(
+              'Allocated At:',
+              _formatDateTime(widget.siteVisitData['allocatedAt']),
+            ),
+            _buildCleanDetailRow(
+              'Allocated By:',
+              widget.siteVisitData['allocatedBy'] ?? 'N/A',
+            ),
+            _buildCleanDetailRow(
+              'Source:',
+              widget.siteVisitData['source'] ?? 'N/A',
+            ),
           ],
         ),
       ),
@@ -214,6 +236,64 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
         ],
       ),
     );
+  }
+
+  String _formatDateTime(String? dateTimeString) {
+    if (dateTimeString == null || dateTimeString.isEmpty) return 'N/A';
+    try {
+      final DateTime dateTime = DateTime.parse(dateTimeString);
+      final String day = dateTime.day.toString().padLeft(2, '0');
+      final String month = _getMonthName(dateTime.month);
+      final String year = dateTime.year.toString();
+      final String minute = dateTime.minute.toString().padLeft(2, '0');
+      final String ampm = dateTime.hour >= 12 ? 'PM' : 'AM';
+      final int displayHour = dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12;
+      return '$day-$month-$year | $displayHour:$minute $ampm';
+    } catch (e) {
+      return 'N/A';
+    }
+  }
+
+  String _getMonthName(int month) {
+    const List<String> months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return months[month - 1];
+  }
+
+  String _calculateMeetingDuration() {
+    final String? fromString = widget.siteVisitData['meetingFrom'];
+    final String? toString = widget.siteVisitData['meetingTo'];
+
+    if (fromString == null || toString == null) return 'N/A';
+
+    try {
+      final DateTime from = DateTime.parse(fromString);
+      final DateTime to = DateTime.parse(toString);
+      final Duration duration = to.difference(from);
+
+      final int hours = duration.inHours;
+      final int minutes = duration.inMinutes % 60;
+
+      if (hours > 0) {
+        return '${hours.toString().padLeft(2, '0')} Hours ${minutes.toString().padLeft(2, '0')} Minutes';
+      } else {
+        return '${minutes.toString().padLeft(2, '0')} Minutes';
+      }
+    } catch (e) {
+      return 'N/A';
+    }
   }
 
   Widget _buildToggleButtons() {
@@ -330,11 +410,17 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildCleanDetailRow('From:', '30 Sep 2025 10:00 Am'),
-                _buildCleanDetailRow('To:', '30 Sep 2025 11:00 Am'),
+                _buildCleanDetailRow(
+                  'From:',
+                  _formatDateTime(widget.siteVisitData['meetingFrom']),
+                ),
+                _buildCleanDetailRow(
+                  'To:',
+                  _formatDateTime(widget.siteVisitData['meetingTo']),
+                ),
                 _buildCleanDetailRow(
                   'Total Meeting Time:',
-                  '01 Hours 00 Minutes',
+                  _calculateMeetingDuration(),
                 ),
               ],
             ),
@@ -368,10 +454,13 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildCleanDetailRow('Purpose Of Meeting:', 'Site-Visit'),
+                _buildCleanDetailRow(
+                  'Purpose Of Meeting:',
+                  widget.siteVisitData['purpose'] ?? 'N/A',
+                ),
                 _buildCleanDetailRow(
                   'Address:',
-                  'Sector 59, Golf Course Road Extension, Gurgaon Gurgaon Haryana',
+                  widget.siteVisitData['address'] ?? 'N/A',
                 ),
               ],
             ),

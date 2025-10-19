@@ -2,58 +2,76 @@ enum CompanyType { pvtLtd, llp, partnership, proprietorship }
 
 class DeveloperContact {
   final String id;
+  final String developerId;
   final String name;
   final String mobile;
   final String designation;
   final String email;
   final bool isPrimary;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   const DeveloperContact({
     required this.id,
+    required this.developerId,
     required this.name,
     required this.mobile,
     required this.designation,
     required this.email,
-    this.isPrimary = false,
+    required this.isPrimary,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
   factory DeveloperContact.fromJson(Map<String, dynamic> json) {
     return DeveloperContact(
       id: json['id'] as String,
+      developerId: json['developer_id'] as String,
       name: json['name'] as String,
       mobile: json['mobile'] as String,
       designation: json['designation'] as String,
       email: json['email'] as String,
-      isPrimary: json['isPrimary'] as bool? ?? false,
+      isPrimary: json['is_primary'] as bool? ?? false,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: DateTime.parse(json['updated_at'] as String),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'developer_id': developerId,
       'name': name,
       'mobile': mobile,
       'designation': designation,
       'email': email,
-      'isPrimary': isPrimary,
+      'is_primary': isPrimary,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
 
   DeveloperContact copyWith({
     String? id,
+    String? developerId,
     String? name,
     String? mobile,
     String? designation,
     String? email,
     bool? isPrimary,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return DeveloperContact(
       id: id ?? this.id,
+      developerId: developerId ?? this.developerId,
       name: name ?? this.name,
       mobile: mobile ?? this.mobile,
       designation: designation ?? this.designation,
       email: email ?? this.email,
       isPrimary: isPrimary ?? this.isPrimary,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -83,7 +101,6 @@ class Developer {
   final String city;
   final String pincode;
   final String country;
-  final List<DeveloperContact> contacts;
   final CompanyType companyType;
   final bool isReraRegistered;
   final String? reraNumber;
@@ -111,7 +128,6 @@ class Developer {
     required this.city,
     required this.pincode,
     this.country = 'India',
-    required this.contacts,
     required this.companyType,
     required this.isReraRegistered,
     this.reraNumber,
@@ -134,34 +150,31 @@ class Developer {
       id: json['id'] as String,
       name: json['name'] as String,
       website: json['website'] as String?,
-      logoUrl: json['logoUrl'] as String?,
+      logoUrl: json['logo_url'] as String?,
       address: json['address'] as String,
       state: json['state'] as String,
       district: json['district'] as String,
       city: json['city'] as String,
       pincode: json['pincode'] as String,
       country: json['country'] as String? ?? 'India',
-      contacts: (json['contacts'] as List)
-          .map((e) => DeveloperContact.fromJson(e as Map<String, dynamic>))
-          .toList(),
       companyType: CompanyType.values.firstWhere(
-        (e) => e.name == json['companyType'],
+        (e) => e.name == json['company_type'],
         orElse: () => CompanyType.pvtLtd,
       ),
-      isReraRegistered: json['isReraRegistered'] as bool,
-      reraNumber: json['reraNumber'] as String?,
+      isReraRegistered: json['is_rera_registered'] as bool,
+      reraNumber: json['rera_number'] as String?,
       gstin: json['gstin'] as String,
-      gstinFilePath: json['gstinFilePath'] as String?,
+      gstinFilePath: json['gstin_file_path'] as String?,
       pan: json['pan'] as String,
-      panFilePath: json['panFilePath'] as String?,
+      panFilePath: json['pan_file_path'] as String?,
       aadhar: json['aadhar'] as String?,
-      aadharFilePath: json['aadharFilePath'] as String?,
-      isActive: json['isActive'] as bool,
-      createdBy: json['createdBy'] as String,
-      createdByName: json['createdByName'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      customFields: json['customFields'] as Map<String, dynamic>?,
+      aadharFilePath: json['aadhar_file_path'] as String?,
+      isActive: json['is_active'] as bool,
+      createdBy: json['created_by'] as String,
+      createdByName: json['created_by_name'] as String,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: DateTime.parse(json['updated_at'] as String),
+      customFields: json['custom_fields'] as Map<String, dynamic>?,
     );
   }
 
@@ -170,29 +183,28 @@ class Developer {
       'id': id,
       'name': name,
       'website': website,
-      'logoUrl': logoUrl,
+      'logo_url': logoUrl,
       'address': address,
       'state': state,
       'district': district,
       'city': city,
       'pincode': pincode,
       'country': country,
-      'contacts': contacts.map((e) => e.toJson()).toList(),
-      'companyType': companyType.name,
-      'isReraRegistered': isReraRegistered,
-      'reraNumber': reraNumber,
+      'company_type': companyType.name,
+      'is_rera_registered': isReraRegistered,
+      'rera_number': reraNumber,
       'gstin': gstin,
-      'gstinFilePath': gstinFilePath,
+      'gstin_file_path': gstinFilePath,
       'pan': pan,
-      'panFilePath': panFilePath,
+      'pan_file_path': panFilePath,
       'aadhar': aadhar,
-      'aadharFilePath': aadharFilePath,
-      'isActive': isActive,
-      'createdBy': createdBy,
-      'createdByName': createdByName,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-      'customFields': customFields,
+      'aadhar_file_path': aadharFilePath,
+      'is_active': isActive,
+      'created_by': createdBy,
+      'created_by_name': createdByName,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+      'custom_fields': customFields,
     };
   }
 
@@ -207,7 +219,6 @@ class Developer {
     String? city,
     String? pincode,
     String? country,
-    List<DeveloperContact>? contacts,
     CompanyType? companyType,
     bool? isReraRegistered,
     String? reraNumber,
@@ -235,7 +246,6 @@ class Developer {
       city: city ?? this.city,
       pincode: pincode ?? this.pincode,
       country: country ?? this.country,
-      contacts: contacts ?? this.contacts,
       companyType: companyType ?? this.companyType,
       isReraRegistered: isReraRegistered ?? this.isReraRegistered,
       reraNumber: reraNumber ?? this.reraNumber,
