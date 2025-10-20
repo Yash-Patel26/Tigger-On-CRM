@@ -54,34 +54,74 @@ class Customer {
   });
 
   factory Customer.fromJson(Map<String, dynamic> json) {
+    String s(String camel, String snake, [String fallback = '']) {
+      final dynamic v = json[camel] ?? json[snake] ?? fallback;
+      return (v is String) ? v : fallback;
+    }
+
+    String? sOpt(String camel, String snake) {
+      final dynamic v = json[camel] ?? json[snake];
+      return (v is String) ? v : null;
+    }
+
+    DateTime d(String camel, String snake, {DateTime? def}) {
+      final dynamic v = json[camel] ?? json[snake];
+      if (v is String && v.isNotEmpty) {
+        return DateTime.tryParse(v) ?? (def ?? DateTime.now());
+      }
+      return def ?? DateTime.now();
+    }
+
+    DateTime? dOpt(String camel, String snake) {
+      final dynamic v = json[camel] ?? json[snake];
+      if (v is String && v.isNotEmpty) {
+        return DateTime.tryParse(v);
+      }
+      return null;
+    }
+
+    int i(String camel, String snake, [int fallback = 0]) {
+      final dynamic v = json[camel] ?? json[snake];
+      if (v is int) return v;
+      if (v is String) return int.tryParse(v) ?? fallback;
+      return fallback;
+    }
+
+    bool b(String camel, String snake, [bool fallback = true]) {
+      final dynamic v = json[camel] ?? json[snake];
+      if (v is bool) return v;
+      if (v is String) return v.toLowerCase() == 'true';
+      return fallback;
+    }
+
     return Customer(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      email: json['email'] as String,
-      phone: json['phone'] as String,
-      alternatePhone: json['alternatePhone'] as String?,
-      address: json['address'] as String?,
-      city: json['city'] as String?,
-      state: json['state'] as String?,
-      pincode: json['pincode'] as String?,
-      country: json['country'] as String?,
-      assignedTo: json['assignedTo'] as String,
-      assignedToName: json['assignedToName'] as String,
-      createdBy: json['createdBy'] as String,
-      createdByName: json['createdByName'] as String,
-      projectType: json['projectType'] as String?,
-      projectId: json['projectId'] as String?,
-      projectName: json['projectName'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      lastContactDate: json['lastContactDate'] != null
-          ? DateTime.parse(json['lastContactDate'] as String)
-          : null,
-      leadCount: json['leadCount'] as int? ?? 0,
-      bookingCount: json['bookingCount'] as int? ?? 0,
-      siteVisitCount: json['siteVisitCount'] as int? ?? 0,
-      isActive: json['isActive'] as bool? ?? true,
-      customFields: json['customFields'] as Map<String, dynamic>?,
+      id: s('id', 'id'),
+      name: s('name', 'name'),
+      email: s('email', 'email'),
+      phone: s('phone', 'phone'),
+      alternatePhone: sOpt('alternatePhone', 'alternate_phone'),
+      address: sOpt('address', 'address'),
+      city: sOpt('city', 'city'),
+      state: sOpt('state', 'state'),
+      pincode: sOpt('pincode', 'pincode'),
+      country: sOpt('country', 'country'),
+      assignedTo: s('assignedTo', 'assigned_to'),
+      assignedToName: s('assignedToName', 'assigned_to_name'),
+      createdBy: s('createdBy', 'created_by'),
+      createdByName: s('createdByName', 'created_by_name'),
+      projectType: sOpt('projectType', 'project_type'),
+      projectId: sOpt('projectId', 'project_id'),
+      projectName: sOpt('projectName', 'project_name'),
+      createdAt: d('createdAt', 'created_at'),
+      updatedAt: d('updatedAt', 'updated_at', def: DateTime.now()),
+      lastContactDate: dOpt('lastContactDate', 'last_contact_date'),
+      leadCount: i('leadCount', 'lead_count', 0),
+      bookingCount: i('bookingCount', 'booking_count', 0),
+      siteVisitCount: i('siteVisitCount', 'site_visit_count', 0),
+      isActive: b('isActive', 'is_active', true),
+      customFields:
+          (json['customFields'] as Map<String, dynamic>?) ??
+          (json['custom_fields'] as Map<String, dynamic>?),
     );
   }
 

@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'widgets/splash_background.dart';
 import 'widgets/animated_glowing_logo.dart';
 import '../utils/page_transitions.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import '../screens/home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key, required this.nextPageBuilder});
-  
+
   final WidgetBuilder nextPageBuilder;
 
   @override
@@ -23,10 +25,13 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _navigateToHomeAfterDelay() async {
     await Future<void>.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;
+    final supabase.SupabaseClient client = supabase.Supabase.instance.client;
+    final bool hasSession = client.auth.currentSession != null;
+    final Widget target = hasSession
+        ? const HomeScreen()
+        : widget.nextPageBuilder(context);
     Navigator.of(context).pushReplacement(
-      SmoothPageTransitions.fadeTransition<void>(
-        child: widget.nextPageBuilder(context),
-      ),
+      SmoothPageTransitions.fadeTransition<void>(child: target),
     );
   }
 

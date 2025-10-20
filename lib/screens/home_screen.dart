@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:provider/provider.dart';
+import '../state/notification_store.dart';
+import '../models/app_notification.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../splash/widgets/animated_glowing_logo.dart';
 import 'ticket_hub_screen.dart';
 import 'vendor_screen.dart';
@@ -59,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadStats();
+    _subscribeNotifications();
   }
 
   Future<void> _loadStats() async {
@@ -96,6 +101,160 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // Realtime notifications (listen to updates on public.leads)
+  supabase.RealtimeChannel? _notifChannel;
+  void _subscribeNotifications() {
+    final supabase.SupabaseClient client = supabase.Supabase.instance.client;
+    final supabase.RealtimeChannel ch = client.channel('public:events');
+
+    void push(AppNotificationType type, String title, String message) {
+      final store = context.read<NotificationStore>();
+      final String id = DateTime.now().microsecondsSinceEpoch.toString();
+      store.add(
+        AppNotification(
+          id: id,
+          title: title,
+          message: message,
+          time: 'Just now',
+          type: type,
+          unread: true,
+          createdAt: DateTime.now(),
+        ),
+      );
+      setState(() {});
+    }
+
+    // Leads
+    ch.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'leads',
+      callback: (supabase.PostgresChangePayload payload) {
+        push(AppNotificationType.lead, 'New Lead', 'A new lead was created');
+      },
+    );
+    ch.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.update,
+      schema: 'public',
+      table: 'leads',
+      callback: (supabase.PostgresChangePayload payload) {
+        push(AppNotificationType.lead, 'Lead Updated', 'A lead was updated');
+      },
+    );
+
+    // Tasks
+    ch.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'tasks',
+      callback: (supabase.PostgresChangePayload payload) {
+        push(
+          AppNotificationType.followUp,
+          'Task Created',
+          'A task was created',
+        );
+      },
+    );
+    ch.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.update,
+      schema: 'public',
+      table: 'tasks',
+      callback: (supabase.PostgresChangePayload payload) {
+        push(
+          AppNotificationType.followUp,
+          'Task Updated',
+          'A task was updated',
+        );
+      },
+    );
+
+    // Tickets
+    ch.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'tickets',
+      callback: (supabase.PostgresChangePayload payload) {
+        push(
+          AppNotificationType.booking,
+          'Ticket Created',
+          'A ticket was created',
+        );
+      },
+    );
+    ch.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.update,
+      schema: 'public',
+      table: 'tickets',
+      callback: (supabase.PostgresChangePayload payload) {
+        push(
+          AppNotificationType.booking,
+          'Ticket Updated',
+          'A ticket was updated',
+        );
+      },
+    );
+
+    // Site visits
+    ch.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'site_visits',
+      callback: (supabase.PostgresChangePayload payload) {
+        push(
+          AppNotificationType.calendar,
+          'Site Visit Scheduled',
+          'A new site visit was scheduled',
+        );
+      },
+    );
+    ch.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.update,
+      schema: 'public',
+      table: 'site_visits',
+      callback: (supabase.PostgresChangePayload payload) {
+        push(
+          AppNotificationType.calendar,
+          'Site Visit Updated',
+          'A site visit was updated',
+        );
+      },
+    );
+
+    // Bookings
+    ch.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'bookings',
+      callback: (supabase.PostgresChangePayload payload) {
+        push(
+          AppNotificationType.booking,
+          'Booking Created',
+          'A new booking was created',
+        );
+      },
+    );
+    ch.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.update,
+      schema: 'public',
+      table: 'bookings',
+      callback: (supabase.PostgresChangePayload payload) {
+        push(
+          AppNotificationType.booking,
+          'Booking Updated',
+          'A booking was updated',
+        );
+      },
+    );
+
+    _notifChannel = ch.subscribe();
+  }
+
+  @override
+  void dispose() {
+    _notifChannel?.unsubscribe();
+    super.dispose();
+  }
+
   late final List<Widget> _screens = <Widget>[
     DashboardTab(
       loginTime: _loginTime,
@@ -119,6 +278,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         elevation: 0,
         titleSpacing: 12,
         title: Row(
@@ -192,15 +352,46 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: <Widget>[
-          IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                SmoothPageTransitions.slideFromRight<void>(
-                  child: const NotificationScreen(),
+          Stack(
+            children: <Widget>[
+              IconButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    SmoothPageTransitions.slideFromRight<void>(
+                      child: const NotificationScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.notifications_outlined),
+              ),
+              Positioned(
+                right: 8,
+                top: 10,
+                child: Consumer<NotificationStore>(
+                  builder: (BuildContext context, NotificationStore store, _) {
+                    if (store.unreadCount == 0) return const SizedBox.shrink();
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        store.unreadCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-            icon: const Icon(Icons.notifications_outlined),
+              ),
+            ],
           ),
           const SizedBox(width: 4),
           Padding(

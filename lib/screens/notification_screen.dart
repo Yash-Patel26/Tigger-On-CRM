@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/notification_store.dart';
+import '../models/app_notification.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -19,7 +22,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       title: 'New Lead Assigned',
       message: 'You have been assigned a new hot opportunity.',
       time: '2m ago',
-      type: NotificationType.lead,
+      type: AppNotificationType.lead,
       unread: true,
       createdAt: DateTime.now().subtract(const Duration(minutes: 2)),
     ),
@@ -28,7 +31,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       title: 'Site Visit Today',
       message: 'Reminder: Site visit with Raj at 4:30 PM.',
       time: '1h ago',
-      type: NotificationType.calendar,
+      type: AppNotificationType.calendar,
       unread: true,
       createdAt: DateTime.now().subtract(const Duration(hours: 1)),
     ),
@@ -37,7 +40,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       title: 'Booking Confirmed',
       message: 'Booking #BK-1043 has been confirmed.',
       time: 'Yesterday',
-      type: NotificationType.booking,
+      type: AppNotificationType.booking,
       unread: false,
       createdAt: DateTime.now().subtract(const Duration(days: 1, hours: 2)),
     ),
@@ -46,7 +49,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       title: 'Follow-up Due',
       message: 'Call Priya regarding proposal feedback.',
       time: 'Tue',
-      type: NotificationType.followUp,
+      type: AppNotificationType.followUp,
       unread: false,
       createdAt: DateTime.now().subtract(const Duration(days: 3)),
     ),
@@ -56,6 +59,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Merge in any notifications from store
+    final store = context.read<NotificationStore>();
+    if (store.items.isNotEmpty) {
+      _items = <AppNotification>[...store.items, ..._items];
+    }
   }
 
   @override
@@ -124,7 +132,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
           title: 'Auto message #$idx',
           message: 'This is a generated notification item.',
           time: '${2 + i}d ago',
-          type: NotificationType.values[idx % NotificationType.values.length],
+          type: AppNotificationType
+              .values[idx % AppNotificationType.values.length],
           unread: i % 3 == 0,
           createdAt: DateTime.now().subtract(Duration(days: 2 + i)),
         );
@@ -215,6 +224,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         _items[i] = _items[i].copyWith(unread: false);
       }
     });
+    context.read<NotificationStore>().markAllRead();
   }
 
   void _toggleRead(AppNotification n) {
@@ -223,6 +233,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     setState(() {
       _items[idx] = _items[idx].copyWith(unread: !n.unread);
     });
+    context.read<NotificationStore>().toggleRead(n.id);
   }
 
   void _openNotification(AppNotification n) {
@@ -394,67 +405,35 @@ class _NotificationTile extends StatelessWidget {
     );
   }
 
-  IconData _iconFor(NotificationType t) {
+  IconData _iconFor(AppNotificationType t) {
     switch (t) {
-      case NotificationType.lead:
+      case AppNotificationType.lead:
         return Icons.person_add_alt_1_rounded;
-      case NotificationType.calendar:
+      case AppNotificationType.calendar:
         return Icons.event_rounded;
-      case NotificationType.booking:
+      case AppNotificationType.booking:
         return Icons.receipt_long_rounded;
-      case NotificationType.followUp:
+      case AppNotificationType.followUp:
         return Icons.assignment_turned_in_rounded;
     }
   }
 
-  Color _colorFor(BuildContext context, NotificationType t) {
+  Color _colorFor(BuildContext context, AppNotificationType t) {
     final Color primary = Theme.of(context).colorScheme.primary;
     switch (t) {
-      case NotificationType.lead:
+      case AppNotificationType.lead:
         return Colors.blueAccent;
-      case NotificationType.calendar:
+      case AppNotificationType.calendar:
         return Colors.orangeAccent;
-      case NotificationType.booking:
+      case AppNotificationType.booking:
         return Colors.green;
-      case NotificationType.followUp:
+      case AppNotificationType.followUp:
         return primary;
     }
   }
 }
 
-class AppNotification {
-  const AppNotification({
-    required this.id,
-    required this.title,
-    required this.message,
-    required this.time,
-    required this.type,
-    required this.unread,
-    required this.createdAt,
-  });
-
-  final String id;
-  final String title;
-  final String message;
-  final String time;
-  final NotificationType type;
-  final bool unread;
-  final DateTime createdAt;
-
-  AppNotification copyWith({bool? unread}) {
-    return AppNotification(
-      id: id,
-      title: title,
-      message: message,
-      time: time,
-      type: type,
-      unread: unread ?? this.unread,
-      createdAt: createdAt,
-    );
-  }
-}
-
-enum NotificationType { lead, calendar, booking, followUp }
+// Types moved to models/app_notification.dart
 
 // Grouping and pagination helpers
 class _Row {

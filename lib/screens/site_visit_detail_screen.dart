@@ -189,11 +189,11 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
               widget.siteVisitData['telecallerName'] ?? 'N/A',
             ),
             _buildCleanDetailRow(
-              'Allocated At:',
+              'Assigned At:',
               _formatDateTime(widget.siteVisitData['allocatedAt']),
             ),
             _buildCleanDetailRow(
-              'Allocated By:',
+              'Assigned By:',
               widget.siteVisitData['allocatedBy'] ?? 'N/A',
             ),
             _buildCleanDetailRow(

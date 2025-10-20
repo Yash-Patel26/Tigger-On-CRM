@@ -5,6 +5,7 @@ import 'services/auth_service.dart';
 import 'utils/constants.dart';
 import 'splash/splash_screen.dart';
 import 'onboarding/email_login_screen.dart';
+import 'state/notification_store.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,8 +23,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => AuthService(),
+    return MultiProvider(
+      providers: <ChangeNotifierProvider<dynamic>>[
+        ChangeNotifierProvider<AuthService>(create: (_) => AuthService()),
+        ChangeNotifierProvider<NotificationStore>(
+          create: (_) => NotificationStore(),
+        ),
+      ],
       child: _buildApp(),
     );
   }

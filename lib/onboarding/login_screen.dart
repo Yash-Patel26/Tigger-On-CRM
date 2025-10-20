@@ -38,6 +38,8 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success && mounted) {
+      // Supabase Flutter persists the session securely; this enables auto-login on restart
+      // No extra storage needed; we just navigate to Home
       Navigator.of(context).pushReplacement(
         SmoothPageTransitions.slideFromRight<void>(child: const HomeScreen()),
       );

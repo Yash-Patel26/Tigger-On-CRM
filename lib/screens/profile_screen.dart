@@ -1,19 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/supabase_service.dart';
+import '../models/profile_model.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  Future<Profile?>? _profileFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final userId = SupabaseService.currentUser?.id;
+    if (userId != null) {
+      _profileFuture = _loadProfile(userId);
+    }
+  }
+
+  Future<Profile?> _loadProfile(String userId) async {
+    final Map<String, dynamic>? row = await SupabaseService.getProfile(userId);
+    if (row == null) return null;
+    // Map common demo columns as fallbacks if present
+    final Map<String, dynamic> mapped = <String, dynamic>{
+      ...row,
+      // tolerate snake/camel
+      'id': row['id'] ?? row['ID'],
+      'user_id': row['user_id'] ?? row['userId'] ?? userId,
+      'full_name': row['full_name'] ?? row['username'] ?? row['name'] ?? '-',
+      'avatar_url': row['avatar_url'] ?? row['avatarUrl'],
+      'phone': row['phone'],
+      'designation': row['designation'],
+      'department': row['department'],
+      'role': row['role'],
+      'is_active': row['is_active'] ?? row['isActive'] ?? true,
+      'created_at': row['created_at'] ?? row['createdAt'] ?? DateTime.now().toIso8601String(),
+      'updated_at': row['updated_at'] ?? row['updatedAt'] ?? DateTime.now().toIso8601String(),
+    };
+    return Profile.fromJson(mapped);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _buildHeader(context),
+      body: FutureBuilder<Profile?>(
+        future: _profileFuture,
+        builder: (BuildContext context, AsyncSnapshot<Profile?> snap) {
+          if (SupabaseService.currentUser == null) {
+            return const Center(child: Text('Not signed in'));
+          }
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final Profile? profile = snap.data;
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _buildHeader(context, profile: profile),
             const SizedBox(height: 16),
             // Removed Stats section per request
             const SizedBox(height: 0),
@@ -24,58 +74,58 @@ class ProfileScreen extends StatelessWidget {
                 children: <Widget>[
                   const _SectionTitle('Basic Details'),
                   const SizedBox(height: 12),
-                  const _IconKeyValueRow(
+                  _IconKeyValueRow(
                     icon: Icons.alternate_email,
                     label: 'Mail ID',
-                    value: 'alex.johnson@example.com',
+                    value: SupabaseService.currentUser?.email ?? '-',
                   ),
                   const _DividerSpacer(),
-                  const _IconKeyValueRow(
+                  _IconKeyValueRow(
                     icon: Icons.cake_outlined,
                     label: 'DOB',
-                    value: '14 Mar 1994',
+                    value: profile?.metadata?['dob'] as String? ?? '-',
                   ),
                   const _DividerSpacer(),
-                  const _IconKeyValueRow(
+                  _IconKeyValueRow(
                     icon: Icons.badge_outlined,
                     label: 'PAN Card',
-                    value: 'ABCDE1234F',
+                    value: profile?.metadata?['pan'] as String? ?? '-',
                   ),
                   const _DividerSpacer(),
-                  const _IconKeyValueRow(
+                  _IconKeyValueRow(
                     icon: Icons.credit_card,
                     label: 'Aadhar Card',
-                    value: '1234 5678 9012',
+                    value: profile?.metadata?['aadhar'] as String? ?? '-',
                   ),
                   const _DividerSpacer(),
-                  const _IconKeyValueRow(
+                  _IconKeyValueRow(
                     icon: Icons.flag_outlined,
                     label: 'Country',
-                    value: 'India',
+                    value: profile?.metadata?['country'] as String? ?? '-',
                   ),
                   const _DividerSpacer(),
-                  const _IconKeyValueRow(
+                  _IconKeyValueRow(
                     icon: Icons.map_outlined,
                     label: 'State',
-                    value: 'Maharashtra',
+                    value: profile?.metadata?['state'] as String? ?? '-',
                   ),
                   const _DividerSpacer(),
-                  const _IconKeyValueRow(
+                  _IconKeyValueRow(
                     icon: Icons.location_city,
                     label: 'City',
-                    value: 'Mumbai',
+                    value: profile?.metadata?['city'] as String? ?? '-',
                   ),
                   const _DividerSpacer(),
-                  const _IconKeyValueRow(
+                  _IconKeyValueRow(
                     icon: Icons.home_outlined,
                     label: 'Address',
-                    value: '221B Baker Street, Andheri West',
+                    value: profile?.metadata?['address'] as String? ?? '-',
                   ),
                   const _DividerSpacer(),
-                  const _IconKeyValueRow(
+                  _IconKeyValueRow(
                     icon: Icons.local_post_office_outlined,
                     label: 'Pincode',
-                    value: '400053',
+                    value: profile?.metadata?['pincode'] as String? ?? '-',
                   ),
                 ],
               ),
@@ -97,9 +147,8 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   _TableSection(
                     columns: const <String>['Sr. No', 'IVR Name', 'IVR Number'],
-                    rows: const <List<String>>[
-                      <String>['1', 'Sales Line', '+91 22 4000 1111'],
-                      <String>['2', 'Support Line', '+91 22 4000 2222'],
+                    rows: <List<String>>[
+                      <String>['1', profile?.metadata?['ivr_name'] as String? ?? '-', profile?.metadata?['ivr_number'] as String? ?? '-'],
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -112,9 +161,8 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   _TableSection(
                     columns: const <String>['Sr. No', 'Team Name'],
-                    rows: const <List<String>>[
-                      <String>['1', 'North Sales'],
-                      <String>['2', 'Key Accounts'],
+                    rows: <List<String>>[
+                      <String>['1', profile?.metadata?['team'] as String? ?? '-'],
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -127,9 +175,8 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   _TableSection(
                     columns: const <String>['Sr. No', 'Group Name'],
-                    rows: const <List<String>>[
-                      <String>['1', 'Lead Managers'],
-                      <String>['2', 'Field Agents'],
+                    rows: <List<String>>[
+                      <String>['1', profile?.metadata?['group'] as String? ?? '-'],
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -146,9 +193,8 @@ class ProfileScreen extends StatelessWidget {
                       'Project Name',
                       'User Type',
                     ],
-                    rows: const <List<String>>[
-                      <String>['1', 'Project Alpha', 'Admin'],
-                      <String>['2', 'Project Beta', 'Viewer'],
+                    rows: <List<String>>[
+                      <String>['1', profile?.metadata?['project_name'] as String? ?? '-', profile?.metadata?['user_type'] as String? ?? '-'],
                     ],
                   ),
                 ],
@@ -184,8 +230,8 @@ class ProfileScreen extends StatelessWidget {
                   const _SectionTitle('About'),
                   const SizedBox(height: 8),
                   _AboutRow(label: 'App', value: 'TiggerOn'),
-                  _AboutRow(label: 'Version', value: '1.0.0'),
-                  _AboutRow(label: 'Build', value: '2025.09'),
+                  _AboutRow(label: 'Version', value: profile?.metadata?['app_version'] as String? ?? '1.0.0'),
+                  _AboutRow(label: 'Build', value: profile?.metadata?['build'] as String? ?? '2025.09'),
                 ],
               ),
             ),
@@ -202,11 +248,12 @@ class ProfileScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
+      );
+      }),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, {Profile? profile}) {
     return _SectionCard(
       child: Row(
         children: <Widget>[
@@ -215,9 +262,11 @@ class ProfileScreen extends StatelessWidget {
             backgroundColor: Theme.of(
               context,
             ).colorScheme.primary.withOpacity(0.12),
-            child: const CircleAvatar(
+            child: CircleAvatar(
               radius: 30,
-              backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=3'),
+              backgroundImage: NetworkImage(
+                profile?.avatarUrl ?? 'https://i.pravatar.cc/150?img=3',
+              ),
             ),
           ),
           const SizedBox(width: 14),
@@ -226,7 +275,9 @@ class ProfileScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Alex Johnson',
+                  profile?.fullName.isNotEmpty == true
+                      ? profile!.fullName
+                      : (SupabaseService.currentUser?.email?.split('@').first ?? 'User'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(
@@ -235,7 +286,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'alex.johnson@example.com',
+                  SupabaseService.currentUser?.email ?? '-',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium,

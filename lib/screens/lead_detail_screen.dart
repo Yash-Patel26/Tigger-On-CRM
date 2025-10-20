@@ -1219,7 +1219,7 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                               allocatedTo = (user?['name'] ?? '-') as String;
                             }),
                             decoration: const InputDecoration(
-                              labelText: 'Allocated To',
+                              labelText: 'Assigned To',
                               border: OutlineInputBorder(),
                             ),
                           );
@@ -1262,8 +1262,8 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                             propertyType: propertyType,
                             projectId: projectId,
                             projectName: project,
-                            allocatedToName: allocatedTo,
-                            allocatedToId: allocatedToId,
+                            assignedToName: allocatedTo,
+                            assignedToId: allocatedToId,
                             description: descCtrl.text.trim(),
                             linkedLeadId: linkedLead.id,
                           );
@@ -1786,7 +1786,7 @@ class _LeadMetaCompactState extends State<_LeadMetaCompact> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         const SizedBox(height: 6),
-        Text('Allocated To:$allocatedTo'),
+        Text('Assigned To:$allocatedTo'),
         const SizedBox(height: 8),
         Row(
           children: <Widget>[
@@ -1936,7 +1936,7 @@ class _LeadInfoKeyValues extends StatelessWidget {
         ),
         const Divider(height: 1),
         kv(
-          'Allocated To',
+          'Assigned To',
           vText(
             lead.assignedToName.isEmpty ? '-' : lead.assignedToName,
             link: true,
