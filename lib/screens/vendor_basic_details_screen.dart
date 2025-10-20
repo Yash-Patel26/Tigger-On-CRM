@@ -211,7 +211,7 @@ class _VendorBasicDetailsScreenState extends State<VendorBasicDetailsScreen> {
       ),
     );
 
-    if (result != null) {
+    if (result != null && mounted) {
       Navigator.pop(context, result);
     }
   }
@@ -287,7 +287,7 @@ class _VendorBasicDetailsScreenState extends State<VendorBasicDetailsScreen> {
                 ),
                 decoration: BoxDecoration(
                   color: selected
-                      ? primary.withOpacity(0.10)
+                      ? primary.withValues(alpha: 0.10)
                       : _panelColor(context),
                   border: Border.all(color: _panelBorderColor(context)),
                   borderRadius: BorderRadius.circular(8),
@@ -319,11 +319,13 @@ class _VendorBasicDetailsScreenState extends State<VendorBasicDetailsScreen> {
 Color _panelColor(BuildContext context) {
   final bool isDark = Theme.of(context).brightness == Brightness.dark;
   return isDark
-      ? Colors.white.withOpacity(0.06)
-      : Colors.black.withOpacity(0.04);
+      ? Colors.white.withValues(alpha: 0.06)
+      : Colors.black.withValues(alpha: 0.04);
 }
 
 Color _panelBorderColor(BuildContext context) {
   final bool isDark = Theme.of(context).brightness == Brightness.dark;
-  return isDark ? Colors.white.withOpacity(0.12) : const Color(0x22000000);
+  return isDark
+      ? Colors.white.withValues(alpha: 0.12)
+      : const Color(0x22000000);
 }

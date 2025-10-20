@@ -34,8 +34,8 @@ class LeadCrossSellService {
     String? propertyType,
     String? projectId,
     String? projectName,
-    String? allocatedToName,
-    String? allocatedTo,
+    String? assignedToName,
+    String? assignedTo,
     String? description,
     String? linkedLeadId,
   }) async {
@@ -48,10 +48,10 @@ class LeadCrossSellService {
         if (projectId != null && projectId.isNotEmpty) 'project_id': projectId,
         if (projectName != null && projectName.isNotEmpty)
           'project_name': projectName,
-        if (allocatedToName != null && allocatedToName.isNotEmpty)
-          'allocated_to_name': allocatedToName,
-        if (allocatedTo != null && allocatedTo.isNotEmpty)
-          'allocated_to': allocatedTo,
+        if (assignedToName != null && assignedToName.isNotEmpty)
+          'assigned_to_name': assignedToName,
+        if (assignedTo != null && assignedTo.isNotEmpty)
+          'assigned_to': assignedTo,
         if (description != null && description.isNotEmpty)
           'description': description,
         if (linkedLeadId != null && linkedLeadId.isNotEmpty)

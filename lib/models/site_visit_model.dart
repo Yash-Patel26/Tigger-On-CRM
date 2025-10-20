@@ -20,7 +20,7 @@ class SiteVisit {
   final String? telecallerId;
   final String? telecallerName;
   final DateTime? allocatedAt;
-  final String? allocatedBy;
+  final String? assignedBy;
   final String? source;
   final DateTime? meetingFrom;
   final DateTime? meetingTo;
@@ -55,7 +55,7 @@ class SiteVisit {
     this.telecallerId,
     this.telecallerName,
     this.allocatedAt,
-    this.allocatedBy,
+    this.assignedBy,
     this.source,
     this.meetingFrom,
     this.meetingTo,
@@ -123,7 +123,7 @@ class SiteVisit {
       telecallerId: s('telecallerId', 'telecaller_id'),
       telecallerName: s('telecallerName', 'telecaller_name'),
       allocatedAt: d('allocatedAt', 'allocated_at'),
-      allocatedBy: s('allocatedBy', 'allocated_by'),
+      assignedBy: s('assignedBy', 'assigned_by'),
       source: s('source', 'source'),
       meetingFrom: d('meetingFrom', 'meeting_from'),
       meetingTo: d('meetingTo', 'meeting_to'),
@@ -168,7 +168,7 @@ class SiteVisit {
       'telecallerId': telecallerId,
       'telecallerName': telecallerName,
       'allocatedAt': allocatedAt?.toIso8601String(),
-      'allocatedBy': allocatedBy,
+      'assignedBy': assignedBy,
       'source': source,
       'meetingFrom': meetingFrom?.toIso8601String(),
       'meetingTo': meetingTo?.toIso8601String(),
@@ -205,7 +205,7 @@ class SiteVisit {
     String? telecallerId,
     String? telecallerName,
     DateTime? allocatedAt,
-    String? allocatedBy,
+    String? assignedBy,
     String? source,
     DateTime? meetingFrom,
     DateTime? meetingTo,
@@ -240,7 +240,7 @@ class SiteVisit {
       telecallerId: telecallerId ?? this.telecallerId,
       telecallerName: telecallerName ?? this.telecallerName,
       allocatedAt: allocatedAt ?? this.allocatedAt,
-      allocatedBy: allocatedBy ?? this.allocatedBy,
+      assignedBy: assignedBy ?? this.assignedBy,
       source: source ?? this.source,
       meetingFrom: meetingFrom ?? this.meetingFrom,
       meetingTo: meetingTo ?? this.meetingTo,

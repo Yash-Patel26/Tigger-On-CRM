@@ -999,7 +999,7 @@ class _CrossSellTabState extends State<_CrossSellTab> {
               const Icon(Icons.person_outline, size: 14),
               const SizedBox(width: 6),
               Text(
-                'Allocated: ${(it['allocated_to_name'] ?? it['allocatedTo'] ?? '-') as String}',
+                'Assigned: ${(it['assigned_to_name'] ?? it['assignedTo'] ?? '-') as String}',
               ),
             ],
           ),

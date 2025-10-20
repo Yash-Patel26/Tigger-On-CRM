@@ -5,8 +5,8 @@ class LeadCrossSell {
   final String? propertyType;
   final String? projectId;
   final String? projectName;
-  final String? allocatedToName;
-  final String? allocatedTo;
+  final String? assignedToName;
+  final String? assignedTo;
   final String? description;
   final String? linkedLeadId;
   final DateTime createdAt;
@@ -18,8 +18,8 @@ class LeadCrossSell {
     this.propertyType,
     this.projectId,
     this.projectName,
-    this.allocatedToName,
-    this.allocatedTo,
+    this.assignedToName,
+    this.assignedTo,
     this.description,
     this.linkedLeadId,
     required this.createdAt,
@@ -33,8 +33,8 @@ class LeadCrossSell {
       propertyType: json['property_type'] as String?,
       projectId: json['project_id'] as String?,
       projectName: json['project_name'] as String?,
-      allocatedToName: json['allocated_to_name'] as String?,
-      allocatedTo: json['allocated_to'] as String?,
+      assignedToName: json['assigned_to_name'] as String?,
+      assignedTo: json['assigned_to'] as String?,
       description: json['description'] as String?,
       linkedLeadId: json['linked_lead_id'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -49,8 +49,8 @@ class LeadCrossSell {
       'property_type': propertyType,
       'project_id': projectId,
       'project_name': projectName,
-      'allocated_to_name': allocatedToName,
-      'allocated_to': allocatedTo,
+      'assigned_to_name': assignedToName,
+      'assigned_to': assignedTo,
       'description': description,
       'linked_lead_id': linkedLeadId,
       'created_at': createdAt.toIso8601String(),
@@ -64,8 +64,8 @@ class LeadCrossSell {
     String? propertyType,
     String? projectId,
     String? projectName,
-    String? allocatedToName,
-    String? allocatedTo,
+    String? assignedToName,
+    String? assignedTo,
     String? description,
     String? linkedLeadId,
     DateTime? createdAt,
@@ -77,8 +77,8 @@ class LeadCrossSell {
       propertyType: propertyType ?? this.propertyType,
       projectId: projectId ?? this.projectId,
       projectName: projectName ?? this.projectName,
-      allocatedToName: allocatedToName ?? this.allocatedToName,
-      allocatedTo: allocatedTo ?? this.allocatedTo,
+      assignedToName: assignedToName ?? this.assignedToName,
+      assignedTo: assignedTo ?? this.assignedTo,
       description: description ?? this.description,
       linkedLeadId: linkedLeadId ?? this.linkedLeadId,
       createdAt: createdAt ?? this.createdAt,
