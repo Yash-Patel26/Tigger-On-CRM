@@ -126,7 +126,7 @@ class _VendorBankDetailsScreenState extends State<VendorBankDetailsScreen> {
         child: VendorServiceInfoScreen(initial: bank),
       ),
     );
-    if (result != null) {
+    if (result != null && mounted) {
       Navigator.pop(context, result);
     }
   }

@@ -1,11 +1,12 @@
 import 'dart:io';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 class SupabaseService {
-  static SupabaseClient get client => Supabase.instance.client;
+  static supabase.SupabaseClient get client =>
+      supabase.Supabase.instance.client;
 
   // Authentication methods
-  static Future<AuthResponse> signInWithEmail({
+  static Future<supabase.AuthResponse> signInWithEmail({
     required String email,
     required String password,
   }) async {
@@ -19,9 +20,9 @@ class SupabaseService {
     await client.auth.signOut();
   }
 
-  static User? get currentUser => client.auth.currentUser;
+  static supabase.User? get currentUser => client.auth.currentUser;
 
-  static Session? get currentSession => client.auth.currentSession;
+  static supabase.Session? get currentSession => client.auth.currentSession;
 
   // Profile methods
   static Future<Map<String, dynamic>?> getProfile(String userId) async {
@@ -52,7 +53,7 @@ class SupabaseService {
   }
 
   // Auth state stream
-  static Stream<AuthState> get authStateChanges =>
+  static Stream<supabase.AuthState> get authStateChanges =>
       client.auth.onAuthStateChange;
 
   // Upload recording to Supabase Storage

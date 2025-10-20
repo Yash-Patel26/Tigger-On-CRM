@@ -1,116 +1,260 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class LocationService {
-  static bool _isLocationServiceEnabled = false;
-  static LocationPermission? _permission;
+  static const String _ipApiUrl = 'http://ip-api.com/json';
+  static const String _ipifyApiUrl = 'https://api.ipify.org?format=json';
 
-  /// Check if location services are enabled and permissions are granted
-  static Future<bool> isLocationAvailable() async {
+  /// Get device location using GPS
+  static Future<Map<String, dynamic>?> getCurrentLocation() async {
     try {
       // Check if location services are enabled
-      _isLocationServiceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!_isLocationServiceEnabled) {
-        return false;
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        debugPrint('Location services are disabled.');
+        return null;
       }
 
       // Check location permissions
-      _permission = await Geolocator.checkPermission();
-      if (_permission == LocationPermission.denied) {
-        _permission = await Geolocator.requestPermission();
-        if (_permission == LocationPermission.denied) {
-          return false;
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          debugPrint('Location permissions are denied');
+          return null;
         }
       }
 
-      if (_permission == LocationPermission.deniedForever) {
-        return false;
+      if (permission == LocationPermission.deniedForever) {
+        debugPrint('Location permissions are permanently denied');
+        return null;
       }
 
-      return true;
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      return {
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'accuracy': position.accuracy,
+        'altitude': position.altitude,
+        'heading': position.heading,
+        'speed': position.speed,
+        'timestamp': position.timestamp.toIso8601String(),
+      };
     } catch (e) {
-      print('[LocationService] Error checking location availability: $e');
+      debugPrint('Error getting location: $e');
+      return null;
+    }
+  }
+
+  /// Returns a short human-readable location string, e.g. "City, Country"
+  static Future<String?> getLocationString() async {
+    try {
+      final gps = await getCurrentLocation();
+      final ipLoc = await getLocationFromIP();
+
+      final String? city = ipLoc != null ? ipLoc['city'] as String? : null;
+      final String? country = ipLoc != null
+          ? ipLoc['country'] as String?
+          : null;
+
+      if (city != null && country != null) {
+        return '$city, $country';
+      }
+
+      if (gps != null) {
+        final lat = gps['latitude'];
+        final lon = gps['longitude'];
+        if (lat != null && lon != null) {
+          return '${lat.toStringAsFixed(4)}, ${lon.toStringAsFixed(4)}';
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Whether any location source is available (GPS service or IP-based)
+  static Future<bool> isLocationAvailable() async {
+    try {
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (serviceEnabled) return true;
+
+      final ipLoc = await getLocationFromIP();
+      return ipLoc != null;
+    } catch (_) {
       return false;
     }
   }
 
-  /// Get current position
-  static Future<Position?> getCurrentPosition() async {
+  /// Get location information from IP address
+  static Future<Map<String, dynamic>?> getLocationFromIP() async {
     try {
-      final bool isAvailable = await isLocationAvailable();
-      if (!isAvailable) {
-        print('[LocationService] Location not available');
-        return null;
+      final response = await http
+          .get(Uri.parse(_ipApiUrl))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'ip': data['query'],
+          'country': data['country'],
+          'countryCode': data['countryCode'],
+          'region': data['region'],
+          'regionName': data['regionName'],
+          'city': data['city'],
+          'zip': data['zip'],
+          'latitude': data['lat'],
+          'longitude': data['lon'],
+          'timezone': data['timezone'],
+          'isp': data['isp'],
+          'org': data['org'],
+          'as': data['as'],
+        };
       }
-
-      final Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
-      );
-
-      print(
-        '[LocationService] Current position: ${position.latitude}, ${position.longitude}',
-      );
-      return position;
     } catch (e) {
-      print('[LocationService] Error getting current position: $e');
-      return null;
+      debugPrint('Error getting IP location: $e');
     }
+    return null;
   }
 
-  /// Get location coordinates as a formatted string
-  static Future<String?> getLocationString() async {
+  /// Get public IP address
+  static Future<String?> getPublicIP() async {
     try {
-      final Position? position = await getCurrentPosition();
-      if (position != null) {
-        return '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+      final response = await http
+          .get(Uri.parse(_ipifyApiUrl))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['ip'];
       }
-      return null;
     } catch (e) {
-      print('[LocationService] Error getting location string: $e');
-      return null;
+      debugPrint('Error getting public IP: $e');
     }
+    return null;
+  }
+
+  /// Get device information
+  static Map<String, String> getDeviceInfo() {
+    return {
+      'deviceType': _getDeviceType(),
+      'deviceOs': _getDeviceOS(),
+      'browser': _getBrowser(),
+      'userAgent': _getUserAgent(),
+    };
+  }
+
+  static String _getDeviceType() {
+    if (kIsWeb) {
+      return 'web';
+    } else if (Platform.isAndroid || Platform.isIOS) {
+      return 'mobile';
+    } else if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      return 'desktop';
+    }
+    return 'unknown';
+  }
+
+  static String _getDeviceOS() {
+    if (kIsWeb) {
+      return 'Web';
+    } else if (Platform.isAndroid) {
+      return 'Android';
+    } else if (Platform.isIOS) {
+      return 'iOS';
+    } else if (Platform.isWindows) {
+      return 'Windows';
+    } else if (Platform.isMacOS) {
+      return 'macOS';
+    } else if (Platform.isLinux) {
+      return 'Linux';
+    }
+    return 'Unknown';
+  }
+
+  static String _getBrowser() {
+    if (kIsWeb) {
+      // This would need to be implemented with a web-specific package
+      return 'Web Browser';
+    }
+    return 'Unknown';
+  }
+
+  static String _getUserAgent() {
+    if (kIsWeb) {
+      // This would need to be implemented with a web-specific package
+      return 'Web User Agent';
+    }
+    return 'Unknown';
+  }
+
+  /// Get comprehensive location data for login tracking
+  static Future<Map<String, dynamic>> getLoginLocationData() async {
+    final Map<String, dynamic> locationData = {};
+
+    // Get device info
+    locationData.addAll(getDeviceInfo());
+
+    // Try to get GPS location first
+    final gpsLocation = await getCurrentLocation();
+    if (gpsLocation != null) {
+      locationData['latitude'] = gpsLocation['latitude'];
+      locationData['longitude'] = gpsLocation['longitude'];
+      locationData['locationSource'] = 'gps';
+    }
+
+    // Get IP-based location as fallback or additional info
+    final ipLocation = await getLocationFromIP();
+    if (ipLocation != null) {
+      locationData['ipAddress'] = ipLocation['ip'];
+      locationData['country'] = ipLocation['country'];
+      locationData['countryCode'] = ipLocation['countryCode'];
+      locationData['state'] = ipLocation['regionName'];
+      locationData['city'] = ipLocation['city'];
+      locationData['timezone'] = ipLocation['timezone'];
+
+      // Use IP location if GPS is not available
+      if (gpsLocation == null) {
+        locationData['latitude'] = ipLocation['latitude'];
+        locationData['longitude'] = ipLocation['longitude'];
+        locationData['locationSource'] = 'ip';
+      }
+    }
+
+    // Get public IP if not already available
+    if (locationData['ipAddress'] == null) {
+      locationData['ipAddress'] = await getPublicIP();
+    }
+
+    return locationData;
+  }
+
+  /// Check if location permissions are granted
+  static Future<bool> hasLocationPermission() async {
+    if (kIsWeb) {
+      return true; // Web doesn't need explicit permission for IP-based location
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    return permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always;
   }
 
   /// Request location permissions
   static Future<bool> requestLocationPermission() async {
-    try {
-      final Map<Permission, PermissionStatus> statuses = await [
-        Permission.location,
-        Permission.locationWhenInUse,
-      ].request();
-
-      final bool locationGranted =
-          statuses[Permission.location]?.isGranted ?? false;
-      final bool locationWhenInUseGranted =
-          statuses[Permission.locationWhenInUse]?.isGranted ?? false;
-
-      return locationGranted || locationWhenInUseGranted;
-    } catch (e) {
-      print('[LocationService] Error requesting location permission: $e');
-      return false;
+    if (kIsWeb) {
+      return true; // Web doesn't need explicit permission
     }
+
+    LocationPermission permission = await Geolocator.requestPermission();
+    return permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always;
   }
-
-  /// Get distance between two coordinates in kilometers
-  static double calculateDistance(
-    double startLatitude,
-    double startLongitude,
-    double endLatitude,
-    double endLongitude,
-  ) {
-    return Geolocator.distanceBetween(
-          startLatitude,
-          startLongitude,
-          endLatitude,
-          endLongitude,
-        ) /
-        1000; // Convert to kilometers
-  }
-
-  /// Check if location services are enabled
-  static bool get isLocationServiceEnabled => _isLocationServiceEnabled;
-
-  /// Get current permission status
-  static LocationPermission? get permission => _permission;
 }

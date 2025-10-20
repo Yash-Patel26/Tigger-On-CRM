@@ -12,6 +12,7 @@ export 'ticket_model.dart';
 export 'notification_model.dart';
 export 'bank_details_model.dart';
 export 'lead_activity_model.dart';
+export 'user_login_location_model.dart';
 
 // Additional Models
 export 'lead_question_model.dart';
