@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:realtime_client/realtime_client.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import '../utils/helpers.dart';
@@ -14,7 +14,6 @@ import '../models/project_model.dart';
 // import '../repositories/project_repository.dart';
 // import '../services/api_service.dart';
 import '../services/database_service.dart';
-import '../config/supabase_config.dart';
 import '../models/models.dart';
 // import 'project_detail_screen.dart';
 
@@ -57,11 +56,11 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 
   void _subscribeToLeadUpdates() {
     // Listen for updates to this lead and refresh UI in realtime
-    final SupabaseClient client = SupabaseConfig.client;
+    final client = supabase.Supabase.instance.client;
     _leadRealtimeChannel = client.channel('public:leads:${widget.leadId}');
     _leadRealtimeChannel!
         .onPostgresChanges(
-          event: PostgresChangeEvent.update,
+          event: supabase.PostgresChangeEvent.update,
           schema: 'public',
           table: 'leads',
           filter: PostgresChangeFilter(
@@ -280,7 +279,13 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 
                       _CollapsibleCard(
                         title: 'Personal Information',
-                        child: _PersonalInfoCard(),
+                        child: _PersonalInfoCard(lead: lead),
+                        action: IconButton(
+                          onPressed: () =>
+                              _showEditPersonalInfoDialog(context, lead),
+                          icon: const Icon(Icons.edit, size: 20),
+                          tooltip: 'Edit Personal Information',
+                        ),
                       ),
                       const SizedBox(height: 12),
 
@@ -416,9 +421,14 @@ class _SectionCard extends StatelessWidget {
 }
 
 class _CollapsibleCard extends StatefulWidget {
-  const _CollapsibleCard({required this.title, required this.child});
+  const _CollapsibleCard({
+    required this.title,
+    required this.child,
+    this.action,
+  });
   final String title;
   final Widget child;
+  final Widget? action;
   @override
   State<_CollapsibleCard> createState() => _CollapsibleCardState();
 }
@@ -844,6 +854,10 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
+                    if (widget.action != null) ...[
+                      widget.action!,
+                      const SizedBox(width: 8),
+                    ],
                     Icon(
                       expanded
                           ? Icons.keyboard_arrow_up_rounded
@@ -2015,26 +2029,53 @@ class _ProjectLocationCompact extends StatelessWidget {
 }
 
 class _PersonalInfoCard extends StatefulWidget {
+  final Lead lead;
+
+  const _PersonalInfoCard({required this.lead});
+
   @override
   State<_PersonalInfoCard> createState() => _PersonalInfoCardState();
 }
 
 class _PersonalInfoCardState extends State<_PersonalInfoCard> {
-  DateTime? dob;
-  int? age;
-  String gender = 'Male';
-  String maritalStatus = 'Single';
+  late DateTime? dob;
+  late int? age;
+  late String gender;
+  late String maritalStatus;
   // Employment & Professional
-  String employmentType = 'Salaried';
-  String itrFilingStatus = 'Filed';
-  String occupation = 'Software Engineer';
+  late String employmentType;
+  late String itrFilingStatus;
+  late String occupation;
   // Address
-  String address = '';
-  String country = 'India';
-  String stateName = '';
-  String city = '';
-  String location = '';
-  String pincode = '';
+  late String address;
+  late String country;
+  late String stateName;
+  late String city;
+  late String location;
+  late String pincode;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeFromLead();
+  }
+
+  void _initializeFromLead() {
+    // Initialize from lead data or use defaults
+    dob = widget.lead.dob;
+    age = widget.lead.age;
+    gender = widget.lead.gender ?? 'Male';
+    maritalStatus = widget.lead.maritalStatus ?? 'Single';
+    employmentType = widget.lead.employmentType ?? 'Salaried';
+    itrFilingStatus = widget.lead.itrFilingStatus ?? 'Filed';
+    occupation = widget.lead.occupation ?? 'Software Engineer';
+    address = widget.lead.address ?? '';
+    country = widget.lead.country ?? 'India';
+    stateName = widget.lead.stateName ?? '';
+    city = widget.lead.city ?? '';
+    location = widget.lead.location ?? '';
+    pincode = widget.lead.pincode ?? '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2765,6 +2806,456 @@ class _PersonalInfoCardState extends State<_PersonalInfoCard> {
   }
 }
 
+// Edit Personal Information Dialog
+void _showEditPersonalInfoDialog(BuildContext context, Lead lead) {
+  showDialog<void>(
+    context: context,
+    builder: (BuildContext context) => _EditPersonalInfoDialog(lead: lead),
+  );
+}
+
+class _EditPersonalInfoDialog extends StatefulWidget {
+  final Lead lead;
+
+  const _EditPersonalInfoDialog({required this.lead});
+
+  @override
+  State<_EditPersonalInfoDialog> createState() =>
+      _EditPersonalInfoDialogState();
+}
+
+class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameController;
+  late TextEditingController _emailController;
+  late TextEditingController _phoneController;
+  late TextEditingController _alternatePhoneController;
+  late TextEditingController _addressController;
+  late TextEditingController _cityController;
+  late TextEditingController _stateController;
+  late TextEditingController _pincodeController;
+  late TextEditingController _occupationController;
+
+  DateTime? _selectedDob;
+  String _selectedGender = 'Male';
+  String _selectedMaritalStatus = 'Single';
+  String _selectedEmploymentType = 'Salaried';
+  String _selectedItrStatus = 'Filed';
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeControllers();
+  }
+
+  void _initializeControllers() {
+    _nameController = TextEditingController(text: widget.lead.name);
+    _emailController = TextEditingController(text: widget.lead.email);
+    _phoneController = TextEditingController(text: widget.lead.phone);
+    _alternatePhoneController = TextEditingController(
+      text: widget.lead.alternatePhone ?? '',
+    );
+    _addressController = TextEditingController(text: widget.lead.address ?? '');
+    _cityController = TextEditingController(text: widget.lead.city ?? '');
+    _stateController = TextEditingController(text: widget.lead.stateName ?? '');
+    _pincodeController = TextEditingController(text: widget.lead.pincode ?? '');
+    _occupationController = TextEditingController(
+      text: widget.lead.occupation ?? '',
+    );
+
+    _selectedDob = widget.lead.dob;
+    _selectedGender = widget.lead.gender ?? 'Male';
+    _selectedMaritalStatus = widget.lead.maritalStatus ?? 'Single';
+    _selectedEmploymentType = widget.lead.employmentType ?? 'Salaried';
+    _selectedItrStatus = widget.lead.itrFilingStatus ?? 'Filed';
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _alternatePhoneController.dispose();
+    _addressController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _pincodeController.dispose();
+    _occupationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        height: MediaQuery.of(context).size.height * 0.8,
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'Edit Personal Information',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Basic Information
+                      const Text(
+                        'Basic Information',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _nameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Full Name',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) => value?.isEmpty == true
+                                  ? 'Name is required'
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _emailController,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) => value?.isEmpty == true
+                                  ? 'Email is required'
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _phoneController,
+                              decoration: const InputDecoration(
+                                labelText: 'Phone',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) => value?.isEmpty == true
+                                  ? 'Phone is required'
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _alternatePhoneController,
+                              decoration: const InputDecoration(
+                                labelText: 'Alternate Phone',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: _selectDateOfBirth,
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: 'Date of Birth',
+                                  border: OutlineInputBorder(),
+                                ),
+                                child: Text(
+                                  _selectedDob == null
+                                      ? 'Select Date'
+                                      : '${_selectedDob!.day}/${_selectedDob!.month}/${_selectedDob!.year}',
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedGender,
+                              decoration: const InputDecoration(
+                                labelText: 'Gender',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: ['Male', 'Female', 'Other'].map((
+                                String value,
+                              ) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value),
+                                );
+                              }).toList(),
+                              onChanged: (String? newValue) {
+                                setState(() {
+                                  _selectedGender = newValue!;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: _selectedMaritalStatus,
+                        decoration: const InputDecoration(
+                          labelText: 'Marital Status',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: ['Single', 'Married', 'Divorced', 'Widowed'].map(
+                          (String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          },
+                        ).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedMaritalStatus = newValue!;
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Professional Information
+                      const Text(
+                        'Professional Information',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedEmploymentType,
+                              decoration: const InputDecoration(
+                                labelText: 'Employment Type',
+                                border: OutlineInputBorder(),
+                              ),
+                              items:
+                                  [
+                                    'Salaried',
+                                    'Self-Employed',
+                                    'Business',
+                                    'Retired',
+                                    'Student',
+                                    'Unemployed',
+                                  ].map((String value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList(),
+                              onChanged: (String? newValue) {
+                                setState(() {
+                                  _selectedEmploymentType = newValue!;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedItrStatus,
+                              decoration: const InputDecoration(
+                                labelText: 'ITR Filing Status',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: ['Filed', 'Not Filed', 'Not Applicable']
+                                  .map((String value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  })
+                                  .toList(),
+                              onChanged: (String? newValue) {
+                                setState(() {
+                                  _selectedItrStatus = newValue!;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _occupationController,
+                        decoration: const InputDecoration(
+                          labelText: 'Occupation',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Address Information
+                      const Text(
+                        'Address Information',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _addressController,
+                        decoration: const InputDecoration(
+                          labelText: 'Address',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _cityController,
+                              decoration: const InputDecoration(
+                                labelText: 'City',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _stateController,
+                              decoration: const InputDecoration(
+                                labelText: 'State',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _pincodeController,
+                        decoration: const InputDecoration(
+                          labelText: 'Pincode',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton(
+                    onPressed: _savePersonalInfo,
+                    child: const Text('Save Changes'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectDateOfBirth() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate:
+          _selectedDob ??
+          DateTime.now().subtract(const Duration(days: 25 * 365)),
+      firstDate: DateTime.now().subtract(const Duration(days: 100 * 365)),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDob = picked;
+      });
+    }
+  }
+
+  Future<void> _savePersonalInfo() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      // Update lead information in database
+      await DatabaseService.updateLeadPersonalInfo(
+        leadId: widget.lead.id,
+        name: _nameController.text,
+        email: _emailController.text,
+        phone: _phoneController.text,
+        alternatePhone: _alternatePhoneController.text,
+        dob: _selectedDob,
+        gender: _selectedGender,
+        maritalStatus: _selectedMaritalStatus,
+        employmentType: _selectedEmploymentType,
+        itrFilingStatus: _selectedItrStatus,
+        occupation: _occupationController.text,
+        address: _addressController.text,
+        city: _cityController.text,
+        stateName: _stateController.text,
+        pincode: _pincodeController.text,
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Personal information updated successfully'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating information: $e')),
+        );
+      }
+    }
+  }
+}
+
 class _ProfessionalInfoCard extends StatefulWidget {
   @override
   State<_ProfessionalInfoCard> createState() => _ProfessionalInfoCardState();
@@ -3355,45 +3846,102 @@ class _FollowUpInlineState extends State<_FollowUpInline> {
 
 // Removed _PreferencesCompact per request
 
-class _TimelineCompact extends StatelessWidget {
+class _TimelineCompact extends StatefulWidget {
   const _TimelineCompact({required this.leadId});
   final String leadId;
+
+  @override
+  State<_TimelineCompact> createState() => _TimelineCompactState();
+}
+
+class _TimelineCompactState extends State<_TimelineCompact> {
+  List<Map<String, dynamic>> _timelineItems = [];
+  bool _isLoading = true;
+  supabase.RealtimeChannel? _timelineChannel;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTimeline();
+    _subscribeToTimelineUpdates();
+  }
+
+  @override
+  void dispose() {
+    _timelineChannel?.unsubscribe();
+    super.dispose();
+  }
+
+  Future<void> _loadTimeline() async {
+    try {
+      final response = await LeadRepository().getLeadTimeline(widget.leadId);
+      if (mounted) {
+        setState(() {
+          _timelineItems = response.data ?? <Map<String, dynamic>>[];
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _subscribeToTimelineUpdates() {
+    final client = supabase.Supabase.instance.client;
+    _timelineChannel = client
+        .channel('timeline_${widget.leadId}')
+        .onPostgresChanges(
+          event: supabase.PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'lead_activities',
+          filter: supabase.PostgresChangeFilter(
+            type: supabase.PostgresChangeFilterType.eq,
+            column: 'lead_id',
+            value: widget.leadId,
+          ),
+          callback: (supabase.PostgresChangePayload payload) {
+            _loadTimeline(); // Reload timeline when activities change
+          },
+        )
+        .onPostgresChanges(
+          event: supabase.PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'leads',
+          filter: supabase.PostgresChangeFilter(
+            type: supabase.PostgresChangeFilterType.eq,
+            column: 'id',
+            value: widget.leadId,
+          ),
+          callback: (supabase.PostgresChangePayload payload) {
+            _loadTimeline(); // Reload timeline when lead is updated
+          },
+        )
+        .subscribe();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: LeadRepository()
-          .getLeadTimeline(leadId)
-          .then((r) => r.data ?? <Map<String, dynamic>>[]),
-      builder:
-          (
-            BuildContext context,
-            AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
-          ) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            }
-            if (snapshot.hasError) {
-              return Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text('Failed to load timeline: ${snapshot.error}'),
-              );
-            }
-            final List<Map<String, dynamic>> items =
-                snapshot.data ?? <Map<String, dynamic>>[];
-            if (items.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No timeline events'),
-              );
-            }
-            return _TimelineCard(items: items);
-          },
-    );
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_timelineItems.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('No timeline events'),
+      );
+    }
+
+    return _TimelineCard(items: _timelineItems);
   }
 }
 
@@ -3879,34 +4427,6 @@ class _ReferenceTabState extends State<_ReferenceTab> {
               ),
       ],
     );
-  }
-
-  String _formatNowDateTime() {
-    final DateTime now = DateTime.now();
-    final String day = now.day.toString().padLeft(2, '0');
-    const List<String> months = <String>[
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final String mon = months[now.month - 1];
-    final String year = now.year.toString();
-    int h = now.hour;
-    final bool pm = h >= 12;
-    h = h % 12;
-    if (h == 0) h = 12;
-    final String hh = h.toString().padLeft(2, '0');
-    final String mm = now.minute.toString().padLeft(2, '0');
-    return '$day $mon $year $hh:$mm ${pm ? 'Pm' : 'Am'}';
   }
 
   void _openAddRefSheet() {
@@ -8089,60 +8609,320 @@ class _TimelineCard extends StatelessWidget {
       title: 'Timeline',
       children: <Widget>[
         for (final Map<String, dynamic> it in items) ...<Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(
-                _iconForType(it['type'] as String?),
-                size: 18,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      (it['type'] as String?)?.replaceAll('_', ' ') ?? '-',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      it['notes'] as String? ?? it['title'] as String? ?? '-',
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      it['timestamp'] as String? ?? '-',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.color?.withOpacity(0.7),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          _TimelineItem(
+            type: it['type'] as String?,
+            title: it['title'] as String?,
+            description: it['notes'] as String? ?? it['description'] as String?,
+            timestamp:
+                it['timestamp'] as String? ?? it['created_at'] as String?,
+            performedBy: it['performed_by_name'] as String?,
+            metadata: it['metadata'] as Map<String, dynamic>?,
           ),
           const Divider(height: 16),
         ],
       ],
     );
   }
+}
 
-  IconData _iconForType(String? type) {
-    switch (type) {
+class _TimelineItem extends StatelessWidget {
+  final String? type;
+  final String? title;
+  final String? description;
+  final String? timestamp;
+  final String? performedBy;
+  final Map<String, dynamic>? metadata;
+
+  const _TimelineItem({
+    this.type,
+    this.title,
+    this.description,
+    this.timestamp,
+    this.performedBy,
+    this.metadata,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: _getIconColor(type).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(
+            _getIconForType(type),
+            size: 18,
+            color: _getIconColor(type),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      _getDisplayTitle(type, title),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    _formatTimestamp(timestamp),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.color?.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ),
+              if (description != null && description!.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 4),
+                Text(
+                  description!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+              if (performedBy != null && performedBy!.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 4),
+                Row(
+                  children: <Widget>[
+                    Icon(
+                      Icons.person_outline,
+                      size: 14,
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.color?.withOpacity(0.6),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'by $performedBy',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.color?.withOpacity(0.6),
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (metadata != null && metadata!.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 4),
+                _buildMetadata(context, metadata!),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  IconData _getIconForType(String? type) {
+    switch (type?.toLowerCase()) {
+      case 'call':
+      case 'phone_call':
+        return Icons.phone;
+      case 'email':
+      case 'email_sent':
+        return Icons.email;
+      case 'message':
+      case 'sms':
+      case 'whatsapp':
+        return Icons.message;
       case 'site_visit':
-        return Icons.location_on_outlined;
+      case 'site_visit_scheduled':
+        return Icons.location_on;
       case 'task':
-        return Icons.checklist_rtl_rounded;
-      case 'booking':
-        return Icons.receipt_long_outlined;
+      case 'task_created':
+        return Icons.task;
+      case 'status_change':
+      case 'status_changed':
+        return Icons.swap_horiz;
+      case 'assignment':
+      case 'assigned':
+        return Icons.person_add;
+      case 'disposition_change':
+        return Icons.track_changes;
+      case 'note':
+      case 'note_added':
+        return Icons.note_add;
+      case 'follow_up':
+      case 'follow_up_scheduled':
+        return Icons.schedule;
+      case 'converted':
+        return Icons.trending_up;
+      case 'closed':
+        return Icons.close;
+      case 'created':
+        return Icons.add_circle;
+      case 'updated':
+        return Icons.edit;
       default:
-        return Icons.history;
+        return Icons.info;
     }
+  }
+
+  Color _getIconColor(String? type) {
+    switch (type?.toLowerCase()) {
+      case 'call':
+      case 'phone_call':
+        return Colors.green;
+      case 'email':
+      case 'email_sent':
+        return Colors.blue;
+      case 'message':
+      case 'sms':
+      case 'whatsapp':
+        return Colors.orange;
+      case 'site_visit':
+      case 'site_visit_scheduled':
+        return Colors.teal;
+      case 'task':
+      case 'task_created':
+        return Colors.indigo;
+      case 'status_change':
+      case 'status_changed':
+        return Colors.purple;
+      case 'assignment':
+      case 'assigned':
+        return Colors.amber;
+      case 'disposition_change':
+        return Colors.red;
+      case 'note':
+      case 'note_added':
+        return Colors.brown;
+      case 'follow_up':
+      case 'follow_up_scheduled':
+        return Colors.cyan;
+      case 'converted':
+        return Colors.green;
+      case 'closed':
+        return Colors.red;
+      case 'created':
+        return Colors.green;
+      case 'updated':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getDisplayTitle(String? type, String? title) {
+    if (title != null && title.isNotEmpty) {
+      return title;
+    }
+
+    switch (type?.toLowerCase()) {
+      case 'call':
+      case 'phone_call':
+        return 'Call Made';
+      case 'email':
+      case 'email_sent':
+        return 'Email Sent';
+      case 'message':
+      case 'sms':
+        return 'Message Sent';
+      case 'whatsapp':
+        return 'WhatsApp Message';
+      case 'site_visit':
+      case 'site_visit_scheduled':
+        return 'Site Visit Scheduled';
+      case 'task':
+      case 'task_created':
+        return 'Task Created';
+      case 'status_change':
+      case 'status_changed':
+        return 'Status Changed';
+      case 'assignment':
+      case 'assigned':
+        return 'Assignment Changed';
+      case 'disposition_change':
+        return 'Disposition Changed';
+      case 'note':
+      case 'note_added':
+        return 'Note Added';
+      case 'follow_up':
+      case 'follow_up_scheduled':
+        return 'Follow-up Scheduled';
+      case 'converted':
+        return 'Lead Converted';
+      case 'closed':
+        return 'Lead Closed';
+      case 'created':
+        return 'Lead Created';
+      case 'updated':
+        return 'Lead Updated';
+      default:
+        return type?.replaceAll('_', ' ').toUpperCase() ?? 'Activity';
+    }
+  }
+
+  String _formatTimestamp(String? timestamp) {
+    if (timestamp == null || timestamp.isEmpty) return '';
+
+    try {
+      final DateTime dateTime = DateTime.parse(timestamp);
+      final DateTime now = DateTime.now();
+      final Duration difference = now.difference(dateTime);
+
+      if (difference.inDays == 0) {
+        if (difference.inHours == 0) {
+          if (difference.inMinutes == 0) {
+            return 'Just now';
+          }
+          return '${difference.inMinutes}m ago';
+        }
+        return '${difference.inHours}h ago';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays}d ago';
+      } else {
+        return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+      }
+    } catch (e) {
+      return timestamp;
+    }
+  }
+
+  Widget _buildMetadata(BuildContext context, Map<String, dynamic> metadata) {
+    final List<Widget> metadataWidgets = [];
+
+    metadata.forEach((key, value) {
+      if (value != null && value.toString().isNotEmpty) {
+        metadataWidgets.add(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            margin: const EdgeInsets.only(right: 8, bottom: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '${key.replaceAll('_', ' ').toUpperCase()}: $value',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        );
+      }
+    });
+
+    if (metadataWidgets.isEmpty) return const SizedBox.shrink();
+
+    return Wrap(children: metadataWidgets);
   }
 }
 

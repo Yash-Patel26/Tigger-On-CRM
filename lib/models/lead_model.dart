@@ -19,6 +19,18 @@ class Lead {
   final String? city;
   final String? state;
   final String? pincode;
+  // Personal Information
+  final String? name;
+  final DateTime? dob;
+  final int? age;
+  final String? gender;
+  final String? maritalStatus;
+  final String? employmentType;
+  final String? itrFilingStatus;
+  final String? occupation;
+  final String? country;
+  final String? stateName;
+  final String? location;
   final LeadStatus status;
   final LeadSubStatus subStatus;
   final LeadSource source;
@@ -54,6 +66,18 @@ class Lead {
     this.city,
     this.state,
     this.pincode,
+    // Personal Information
+    this.name,
+    this.dob,
+    this.age,
+    this.gender,
+    this.maritalStatus,
+    this.employmentType,
+    this.itrFilingStatus,
+    this.occupation,
+    this.country,
+    this.stateName,
+    this.location,
     required this.status,
     required this.subStatus,
     required this.source,
@@ -108,6 +132,18 @@ class Lead {
       city: opt(json, 'city', 'city'),
       state: opt(json, 'state', 'state'),
       pincode: opt(json, 'pincode', 'pincode'),
+      // Personal Information
+      name: opt(json, 'name', 'name'),
+      dob: dtOpt(json, 'dob', 'dob'),
+      age: inti(json, 'age', 'age'),
+      gender: opt(json, 'gender', 'gender'),
+      maritalStatus: opt(json, 'maritalStatus', 'marital_status'),
+      employmentType: opt(json, 'employmentType', 'employment_type'),
+      itrFilingStatus: opt(json, 'itrFilingStatus', 'itr_filing_status'),
+      occupation: opt(json, 'occupation', 'occupation'),
+      country: opt(json, 'country', 'country'),
+      stateName: opt(json, 'stateName', 'state_name'),
+      location: opt(json, 'location', 'location'),
       status: LeadStatus.values.firstWhere(
         (e) => e.name == (s(json, 'status', 'status') ?? 'warm'),
         orElse: () => LeadStatus.warm,
@@ -165,6 +201,18 @@ class Lead {
       'city': city,
       'state': state,
       'pincode': pincode,
+      // Personal Information
+      'name': name,
+      'dob': dob?.toIso8601String(),
+      'age': age,
+      'gender': gender,
+      'maritalStatus': maritalStatus,
+      'employmentType': employmentType,
+      'itrFilingStatus': itrFilingStatus,
+      'occupation': occupation,
+      'country': country,
+      'stateName': stateName,
+      'location': location,
       'status': status.toString().split('.').last,
       'subStatus': subStatus.toString().split('.').last,
       'source': source.toString().split('.').last,
@@ -202,6 +250,18 @@ class Lead {
     String? city,
     String? state,
     String? pincode,
+    // Personal Information
+    String? name,
+    DateTime? dob,
+    int? age,
+    String? gender,
+    String? maritalStatus,
+    String? employmentType,
+    String? itrFilingStatus,
+    String? occupation,
+    String? country,
+    String? stateName,
+    String? location,
     LeadStatus? status,
     LeadSubStatus? subStatus,
     LeadSource? source,
@@ -237,6 +297,18 @@ class Lead {
       city: city ?? this.city,
       state: state ?? this.state,
       pincode: pincode ?? this.pincode,
+      // Personal Information
+      name: name ?? this.name,
+      dob: dob ?? this.dob,
+      age: age ?? this.age,
+      gender: gender ?? this.gender,
+      maritalStatus: maritalStatus ?? this.maritalStatus,
+      employmentType: employmentType ?? this.employmentType,
+      itrFilingStatus: itrFilingStatus ?? this.itrFilingStatus,
+      occupation: occupation ?? this.occupation,
+      country: country ?? this.country,
+      stateName: stateName ?? this.stateName,
+      location: location ?? this.location,
       status: status ?? this.status,
       subStatus: subStatus ?? this.subStatus,
       source: source ?? this.source,
