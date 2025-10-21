@@ -1,6 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import '../utils/constants.dart';
+import '../utils/platform_origin_stub.dart'
+    if (dart.library.html) '../utils/platform_origin_web.dart'
+    as platform_origin;
 
 class ApiResponse<T> {
   final bool success;
@@ -41,13 +45,42 @@ class ApiResponse<T> {
 }
 
 class ApiService {
-  static const String baseUrl = 'https://api.tiggeron.com/v1';
+  // Use centrally managed base URL; overridable via --dart-define=API_BASE_URL
+  static final String _envBaseUrl = const String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '',
+  );
+
+  // Optional: when building for web, use current origin + this path (e.g. '/v1')
+  static final String _envFromOriginPath = const String.fromEnvironment(
+    'API_BASE_URL_FROM_ORIGIN',
+    defaultValue: '',
+  );
+
+  static String get _baseUrl {
+    if (_envBaseUrl.isNotEmpty) return _envBaseUrl;
+    if (_envFromOriginPath.isNotEmpty) {
+      final String? origin = platform_origin.getWebOrigin();
+      if (origin != null && origin.isNotEmpty) {
+        return origin + _envFromOriginPath;
+      }
+    }
+    return AppConstants.baseUrl;
+  }
+
   static const Duration timeout = Duration(seconds: 30);
 
   final http.Client _client;
   String? _authToken;
 
-  ApiService({http.Client? client}) : _client = client ?? http.Client();
+  ApiService({http.Client? client, String? overrideBaseUrl})
+    : _client = client ?? http.Client() {
+    _overrideBaseUrl = overrideBaseUrl;
+  }
+
+  static String? _overrideBaseUrl;
+  static String get _resolvedBaseUrl =>
+      _overrideBaseUrl?.isNotEmpty == true ? _overrideBaseUrl! : _baseUrl;
 
   void setAuthToken(String token) {
     _authToken = token;
@@ -77,7 +110,7 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse(
-        '$baseUrl$endpoint',
+        '$_resolvedBaseUrl$endpoint',
       ).replace(queryParameters: queryParams);
 
       final response = await _client
@@ -100,7 +133,7 @@ class ApiService {
     T Function(Map<String, dynamic>)? fromJson,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl$endpoint');
+      final uri = Uri.parse('$_resolvedBaseUrl$endpoint');
       final response = await _client
           .post(
             uri,
@@ -125,7 +158,7 @@ class ApiService {
     T Function(Map<String, dynamic>)? fromJson,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl$endpoint');
+      final uri = Uri.parse('$_resolvedBaseUrl$endpoint');
       final response = await _client
           .put(
             uri,
@@ -149,7 +182,7 @@ class ApiService {
     T Function(Map<String, dynamic>)? fromJson,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl$endpoint');
+      final uri = Uri.parse('$_resolvedBaseUrl$endpoint');
       final response = await _client
           .delete(uri, headers: _headers)
           .timeout(timeout);
@@ -170,7 +203,7 @@ class ApiService {
     T Function(Map<String, dynamic>)? fromJson,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl$endpoint');
+      final uri = Uri.parse('$_resolvedBaseUrl$endpoint');
       final response = await _client
           .patch(
             uri,

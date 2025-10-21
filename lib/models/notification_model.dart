@@ -25,6 +25,44 @@ enum NotificationType {
         return 'Alert';
     }
   }
+
+  String get iconPath {
+    switch (this) {
+      case NotificationType.lead:
+        return 'assets/icons/lead_icon.png';
+      case NotificationType.booking:
+        return 'assets/icons/booking_icon.png';
+      case NotificationType.siteVisit:
+        return 'assets/icons/site_visit_icon.png';
+      case NotificationType.ticket:
+        return 'assets/icons/ticket_icon.png';
+      case NotificationType.system:
+        return 'assets/icons/system_icon.png';
+      case NotificationType.reminder:
+        return 'assets/icons/reminder_icon.png';
+      case NotificationType.alert:
+        return 'assets/icons/alert_icon.png';
+    }
+  }
+
+  String get colorHex {
+    switch (this) {
+      case NotificationType.lead:
+        return '#4CAF50'; // Green
+      case NotificationType.booking:
+        return '#2196F3'; // Blue
+      case NotificationType.siteVisit:
+        return '#FF9800'; // Orange
+      case NotificationType.ticket:
+        return '#F44336'; // Red
+      case NotificationType.system:
+        return '#9C27B0'; // Purple
+      case NotificationType.reminder:
+        return '#607D8B'; // Blue Grey
+      case NotificationType.alert:
+        return '#E91E63'; // Pink
+    }
+  }
 }
 
 enum NotificationPriority {
@@ -45,6 +83,32 @@ enum NotificationPriority {
         return 'Urgent';
     }
   }
+
+  String get colorHex {
+    switch (this) {
+      case NotificationPriority.low:
+        return '#4CAF50'; // Green
+      case NotificationPriority.medium:
+        return '#FF9800'; // Orange
+      case NotificationPriority.high:
+        return '#F44336'; // Red
+      case NotificationPriority.urgent:
+        return '#E91E63'; // Pink
+    }
+  }
+
+  int get sortOrder {
+    switch (this) {
+      case NotificationPriority.urgent:
+        return 1;
+      case NotificationPriority.high:
+        return 2;
+      case NotificationPriority.medium:
+        return 3;
+      case NotificationPriority.low:
+        return 4;
+    }
+  }
 }
 
 enum NotificationStatus {
@@ -60,6 +124,17 @@ enum NotificationStatus {
         return 'Read';
       case NotificationStatus.archived:
         return 'Archived';
+    }
+  }
+
+  String get colorHex {
+    switch (this) {
+      case NotificationStatus.unread:
+        return '#2196F3'; // Blue
+      case NotificationStatus.read:
+        return '#9E9E9E'; // Grey
+      case NotificationStatus.archived:
+        return '#607D8B'; // Blue Grey
     }
   }
 }
@@ -118,20 +193,20 @@ class Notification {
         (e) => e.name == json['status'],
         orElse: () => NotificationStatus.unread,
       ),
-      userId: json['userId'] as String?,
-      relatedId: json['relatedId'] as String?,
-      relatedType: json['relatedType'] as String?,
-      actionUrl: json['actionUrl'] as String?,
+      userId: json['user_id'] as String?,
+      relatedId: json['related_id'] as String?,
+      relatedType: json['related_type'] as String?,
+      actionUrl: json['action_url'] as String?,
       data: json['data'] as Map<String, dynamic>?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      readAt: json['readAt'] != null
-          ? DateTime.parse(json['readAt'] as String)
+      createdAt: DateTime.parse(json['created_at'] as String),
+      readAt: json['read_at'] != null
+          ? DateTime.parse(json['read_at'] as String)
           : null,
-      archivedAt: json['archivedAt'] != null
-          ? DateTime.parse(json['archivedAt'] as String)
+      archivedAt: json['archived_at'] != null
+          ? DateTime.parse(json['archived_at'] as String)
           : null,
-      isRead: json['isRead'] as bool? ?? false,
-      isArchived: json['isArchived'] as bool? ?? false,
+      isRead: json['is_read'] as bool? ?? false,
+      isArchived: json['is_archived'] as bool? ?? false,
     );
   }
 
@@ -143,16 +218,32 @@ class Notification {
       'type': type.name,
       'priority': priority.name,
       'status': status.name,
-      'userId': userId,
-      'relatedId': relatedId,
-      'relatedType': relatedType,
-      'actionUrl': actionUrl,
+      'user_id': userId,
+      'related_id': relatedId,
+      'related_type': relatedType,
+      'action_url': actionUrl,
       'data': data,
-      'createdAt': createdAt.toIso8601String(),
-      'readAt': readAt?.toIso8601String(),
-      'archivedAt': archivedAt?.toIso8601String(),
-      'isRead': isRead,
-      'isArchived': isArchived,
+      'created_at': createdAt.toIso8601String(),
+      'read_at': readAt?.toIso8601String(),
+      'archived_at': archivedAt?.toIso8601String(),
+      'is_read': isRead,
+      'is_archived': isArchived,
+    };
+  }
+
+  // Method to create Supabase-compatible JSON for insertion
+  Map<String, dynamic> toSupabaseJson() {
+    return {
+      'title': title,
+      'message': message,
+      'type': type.name,
+      'priority': priority.name,
+      'status': status.name,
+      'user_id': userId,
+      'related_id': relatedId,
+      'related_type': relatedType,
+      'action_url': actionUrl,
+      'data': data,
     };
   }
 
@@ -192,6 +283,67 @@ class Notification {
       isRead: isRead ?? this.isRead,
       isArchived: isArchived ?? this.isArchived,
     );
+  }
+
+  // Helper methods for common operations
+  Notification markAsRead() {
+    return copyWith(
+      status: NotificationStatus.read,
+      isRead: true,
+      readAt: DateTime.now(),
+    );
+  }
+
+  Notification markAsUnread() {
+    return copyWith(
+      status: NotificationStatus.unread,
+      isRead: false,
+      readAt: null,
+    );
+  }
+
+  Notification archive() {
+    return copyWith(
+      status: NotificationStatus.archived,
+      isArchived: true,
+      archivedAt: DateTime.now(),
+    );
+  }
+
+  Notification unarchive() {
+    return copyWith(
+      status: NotificationStatus.unread,
+      isArchived: false,
+      archivedAt: null,
+    );
+  }
+
+  // Utility methods
+  bool get isUnread => status == NotificationStatus.unread;
+  bool get isReadStatus => status == NotificationStatus.read;
+  bool get isArchivedStatus => status == NotificationStatus.archived;
+
+  String get timeAgo {
+    final now = DateTime.now();
+    final difference = now.difference(createdAt);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
+  String get formattedDate {
+    return '${createdAt.day}/${createdAt.month}/${createdAt.year}';
+  }
+
+  String get formattedTime {
+    return '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}';
   }
 
   @override

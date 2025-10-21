@@ -1,6 +1,16 @@
 import 'package:flutter/material.dart';
 import '../models/notification_model.dart' as notification_model;
 import '../repositories/notification_repository.dart';
+import '../services/supabase_service.dart';
+import 'lead_detail_screen.dart';
+import 'lead_screen.dart';
+import 'booking_screen.dart';
+import 'site_visit_detail_screen.dart';
+import 'site_visit_screen.dart';
+import 'ticket_hub_screen.dart';
+import 'dashboard_screen.dart';
+import 'customer_screen.dart';
+import 'project_detail_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -45,24 +55,29 @@ class _NotificationScreenState extends State<NotificationScreen>
     });
 
     try {
-      final response = await _notificationRepository.getNotifications();
-      if (response.success && response.data != null) {
+      // Get current user ID
+      final currentUser = SupabaseService.currentUser;
+      if (currentUser == null) {
+        throw Exception('User not authenticated. Please log in.');
+      }
+
+      final notifications = await _notificationRepository.getNotifications(
+        userId: currentUser.id,
+      );
+      if (mounted) {
         setState(() {
-          _allNotifications = response.data!;
+          _allNotifications = notifications;
           _filteredNotifications = _allNotifications;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _error = response.message ?? 'Failed to load notifications';
           _isLoading = false;
         });
       }
     } catch (e) {
-      setState(() {
-        _error = 'Error loading notifications: $e';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = 'Error loading notifications: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -93,28 +108,260 @@ class _NotificationScreenState extends State<NotificationScreen>
 
   Future<void> _markAsRead(notification_model.Notification notification) async {
     try {
-      final response = await _notificationRepository.markAsRead(
-        notification.id,
-      );
-      if (response.success) {
-        _loadNotifications(); // Refresh the list
-      } else {
-        _showSnackBar('Failed to mark as read: ${response.message}');
-      }
+      await _notificationRepository.markAsRead(notification.id);
+      _loadNotifications(); // Refresh the list
+      _showSnackBar('Notification marked as read');
     } catch (e) {
       _showSnackBar('Error marking as read: $e');
     }
   }
 
+  void _navigateToRelatedScreen(notification_model.Notification notification) {
+    // Debug: Print notification details
+    print('🔔 Notification tapped:');
+    print('  Type: ${notification.type}');
+    print('  Related ID: ${notification.relatedId}');
+    print('  Related Type: ${notification.relatedType}');
+    print('  Action URL: ${notification.actionUrl}');
+
+    // Mark as read first
+    _markAsRead(notification);
+
+    // Navigate based on notification type and related data
+    switch (notification.type) {
+      case notification_model.NotificationType.lead:
+        print('📍 Navigating to Lead screen');
+        if (notification.relatedId != null) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) =>
+                  LeadDetailScreen(leadId: notification.relatedId!),
+            ),
+          );
+        } else {
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (context) => const LeadScreen()));
+        }
+        break;
+
+      case notification_model.NotificationType.booking:
+        print('📍 Navigating to Booking screen');
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (context) => const BookingScreen()));
+        break;
+
+      case notification_model.NotificationType.siteVisit:
+        print('📍 Navigating to Site Visit screen');
+        if (notification.relatedId != null) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => SiteVisitDetailScreen(
+                siteVisitId: notification.relatedId!,
+                siteVisitData: notification.data ?? {},
+              ),
+            ),
+          );
+        } else {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const SiteVisitScreen()),
+          );
+        }
+        break;
+
+      case notification_model.NotificationType.ticket:
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const TicketHubScreen()),
+        );
+        break;
+
+      case notification_model.NotificationType.system:
+        // For system notifications, check if there's a specific action URL
+        if (notification.actionUrl != null &&
+            notification.actionUrl!.isNotEmpty) {
+          _navigateToActionUrl(notification.actionUrl!);
+        } else {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          );
+        }
+        break;
+
+      case notification_model.NotificationType.reminder:
+        // For reminders, navigate to the related entity or dashboard
+        if (notification.relatedType == 'lead' &&
+            notification.relatedId != null) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) =>
+                  LeadDetailScreen(leadId: notification.relatedId!),
+            ),
+          );
+        } else if (notification.relatedType == 'booking' &&
+            notification.relatedId != null) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const BookingScreen()),
+          );
+        } else {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          );
+        }
+        break;
+
+      case notification_model.NotificationType.alert:
+        // For alerts, navigate to dashboard or specific screen based on data
+        if (notification.data != null && notification.data!['screen'] != null) {
+          // Handle specific screen navigation based on data
+          _navigateToSpecificScreen(notification.data!['screen']);
+        } else {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          );
+        }
+        break;
+    }
+  }
+
+  void _navigateToSpecificScreen(String screenName) {
+    // Handle specific screen navigation based on screen name
+    switch (screenName) {
+      case 'leads':
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (context) => const LeadScreen()));
+        break;
+      case 'bookings':
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (context) => const BookingScreen()));
+        break;
+      case 'site-visits':
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const SiteVisitScreen()),
+        );
+        break;
+      case 'tickets':
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const TicketHubScreen()),
+        );
+        break;
+      default:
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+        );
+        break;
+    }
+  }
+
+  void _navigateToActionUrl(String actionUrl) {
+    print('🔗 Navigating to action URL: $actionUrl');
+    // Handle different action URL patterns
+    if (actionUrl.startsWith('/')) {
+      // Internal navigation - map to specific screens
+      switch (actionUrl) {
+        case '/dashboard':
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          );
+          break;
+        case '/leads':
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (context) => const LeadScreen()));
+          break;
+        case '/bookings':
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const BookingScreen()),
+          );
+          break;
+        case '/site-visits':
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const SiteVisitScreen()),
+          );
+          break;
+        case '/tickets':
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const TicketHubScreen()),
+          );
+          break;
+        default:
+          // Handle specific ID-based URLs
+          if (actionUrl.startsWith('/leads/')) {
+            print('📍 Navigating to Lead Detail for URL: $actionUrl');
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) =>
+                    LeadDetailScreen(leadId: actionUrl.split('/')[2]),
+              ),
+            );
+          } else if (actionUrl.startsWith('/bookings/')) {
+            print('📍 Navigating to Booking Screen for URL: $actionUrl');
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const BookingScreen()),
+            );
+          } else if (actionUrl.startsWith('/site-visits/')) {
+            print('📍 Navigating to Site Visit Detail for URL: $actionUrl');
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => SiteVisitDetailScreen(
+                  siteVisitId: actionUrl.split('/')[2],
+                  siteVisitData: {},
+                ),
+              ),
+            );
+          } else if (actionUrl.startsWith('/customers/')) {
+            print('📍 Navigating to Customer Screen for URL: $actionUrl');
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const CustomerScreen()),
+            );
+          } else if (actionUrl.startsWith('/projects/')) {
+            print('📍 Navigating to Project Detail for URL: $actionUrl');
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => ProjectDetailScreen(
+                  project: {'id': actionUrl.split('/')[2]},
+                ),
+              ),
+            );
+          } else if (actionUrl.startsWith('/maintenance')) {
+            print('📍 Navigating to Dashboard for maintenance URL: $actionUrl');
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const DashboardScreen()),
+            );
+          } else {
+            print('📍 Unknown action URL, defaulting to Dashboard: $actionUrl');
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const DashboardScreen()),
+            );
+          }
+          break;
+      }
+    } else if (actionUrl.startsWith('http')) {
+      // External URL - could open in browser or show webview
+      _showSnackBar('External link: $actionUrl');
+      // TODO: Implement external URL handling
+    } else {
+      // Default to dashboard
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => const DashboardScreen()));
+    }
+  }
+
   Future<void> _markAllAsRead() async {
     try {
-      final response = await _notificationRepository.markAllAsRead();
-      if (response.success) {
-        _loadNotifications(); // Refresh the list
-        _showSnackBar('All notifications marked as read');
-      } else {
-        _showSnackBar('Failed to mark all as read: ${response.message}');
+      // Get current user ID
+      final currentUser = SupabaseService.currentUser;
+      if (currentUser == null) {
+        _showSnackBar('User not authenticated. Please log in.');
+        return;
       }
+
+      await _notificationRepository.markAllAsRead(currentUser.id);
+      _loadNotifications(); // Refresh the list
+      _showSnackBar('All notifications marked as read');
     } catch (e) {
       _showSnackBar('Error marking all as read: $e');
     }
@@ -124,15 +371,9 @@ class _NotificationScreenState extends State<NotificationScreen>
     notification_model.Notification notification,
   ) async {
     try {
-      final response = await _notificationRepository.deleteNotification(
-        notification.id,
-      );
-      if (response.success) {
-        _loadNotifications(); // Refresh the list
-        _showSnackBar('Notification deleted');
-      } else {
-        _showSnackBar('Failed to delete notification: ${response.message}');
-      }
+      await _notificationRepository.deleteNotification(notification.id);
+      _loadNotifications(); // Refresh the list
+      _showSnackBar('Notification deleted');
     } catch (e) {
       _showSnackBar('Error deleting notification: $e');
     }
@@ -414,7 +655,9 @@ class _NotificationScreenState extends State<NotificationScreen>
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => _markAsRead(notification),
+        onTap: () => _navigateToRelatedScreen(notification),
+        splashColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        highlightColor: Theme.of(context).colorScheme.primary.withOpacity(0.05),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -488,6 +731,14 @@ class _NotificationScreenState extends State<NotificationScreen>
                                       context,
                                     ).colorScheme.onSurface.withOpacity(0.5),
                                   ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 12,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.3),
                             ),
                           ],
                         ),

@@ -37,25 +37,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final totalResponse = await _dashboardRepository.getTotalStats();
 
       if (todayResponse.success && totalResponse.success) {
-        setState(() {
-          _today = _parseStatsData(todayResponse.data!);
-          _total = _parseStatsData(totalResponse.data!);
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _today = _parseStatsData(todayResponse.data!);
+            _total = _parseStatsData(totalResponse.data!);
+            _isLoading = false;
+          });
+        }
       } else {
+        if (mounted) {
+          setState(() {
+            _error =
+                todayResponse.message ??
+                totalResponse.message ??
+                'Failed to load data';
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          _error =
-              todayResponse.message ??
-              totalResponse.message ??
-              'Failed to load data';
+          _error = 'Error loading dashboard data: $e';
           _isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        _error = 'Error loading dashboard data: $e';
-        _isLoading = false;
-      });
     }
   }
 

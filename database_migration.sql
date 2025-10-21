@@ -875,6 +875,26 @@ BEGIN
 END $$;
 
 -- =============================================
+-- SAMPLE NOTIFICATIONS
+-- =============================================
+
+-- Insert sample notifications for testing
+DO $$
+BEGIN
+    -- Check if notifications already exist
+    IF NOT EXISTS (SELECT 1 FROM notifications WHERE title = 'Welcome to TiggerOn CRM') THEN
+        INSERT INTO notifications (id, title, message, type, priority, status, user_id, related_id, related_type, action_url, data, created_at, is_read, is_archived) VALUES
+        ('850e8400-e29b-41d4-a716-446655440001', 'Welcome to TiggerOn CRM', 'Welcome to the TiggerOn Real Estate Management System! Start by exploring the dashboard and creating your first lead.', 'system', 'medium', 'unread', '550e8400-e29b-41d4-a716-446655440001', NULL, NULL, '/dashboard', '{"welcome": true}', NOW() - INTERVAL '2 hours', false, false),
+        ('850e8400-e29b-41d4-a716-446655440002', 'New Lead Assignment', 'You have been assigned a new lead: Green Valley Apartments Inquiry', 'lead', 'high', 'unread', '550e8400-e29b-41d4-a716-446655440001', '650e8400-e29b-41d4-a716-446655440001', 'lead', '/leads/650e8400-e29b-41d4-a716-446655440001', '{"lead_id": "650e8400-e29b-41d4-a716-446655440001", "lead_title": "Green Valley Apartments Inquiry"}', NOW() - INTERVAL '1 hour', false, false),
+        ('850e8400-e29b-41d4-a716-446655440003', 'Site Visit Scheduled', 'Site visit scheduled for Green Valley Apartments with customer John Doe', 'siteVisit', 'high', 'unread', '550e8400-e29b-41d4-a716-446655440001', '750e8400-e29b-41d4-a716-446655440001', 'site_visit', '/site-visits/750e8400-e29b-41d4-a716-446655440001', '{"site_visit_id": "750e8400-e29b-41d4-a716-446655440001", "customer_name": "John Doe", "project_name": "Green Valley Apartments"}', NOW() - INTERVAL '30 minutes', false, false),
+        ('850e8400-e29b-41d4-a716-446655440004', 'Booking Confirmed', 'Booking confirmed for Green Valley Apartments - Unit 101', 'booking', 'urgent', 'read', '550e8400-e29b-41d4-a716-446655440001', '850e8400-e29b-41d4-a716-446655440004', 'booking', '/bookings/850e8400-e29b-41d4-a716-446655440004', '{"booking_id": "850e8400-e29b-41d4-a716-446655440004", "unit": "101", "project_name": "Green Valley Apartments"}', NOW() - INTERVAL '15 minutes', true, false),
+        ('850e8400-e29b-41d4-a716-446655440005', 'System Maintenance', 'Scheduled system maintenance will occur tonight from 11 PM to 1 AM', 'system', 'low', 'unread', '550e8400-e29b-41d4-a716-446655440001', NULL, NULL, '/maintenance', '{"maintenance_window": "11 PM - 1 AM"}', NOW() - INTERVAL '5 minutes', false, false);
+        
+        RAISE NOTICE 'Inserted sample notifications';
+    END IF;
+END $$;
+
+-- =============================================
 -- COMMIT TRANSACTION
 -- =============================================
 

@@ -15,6 +15,11 @@ class AppConstants {
   static const int darkOnBackgroundColor = 0xFFEAF7FC;
 
   // API Configuration
+  // Update this per-environment. Examples:
+  //  - Android emulator to local backend: http://10.0.2.2:3000/v1
+  //  - iOS simulator to local backend: http://127.0.0.1:3000/v1
+  //  - Staging: https://staging.your-domain.com/v1
+  //  - Production: https://api.your-domain.com/v1
   static const String baseUrl = 'https://api.tiggeron.com/v1';
   static const Duration apiTimeout = Duration(seconds: 30);
   static const int maxRetryAttempts = 3;
@@ -51,7 +56,8 @@ class AppConstants {
 
   // Supabase Configuration
   static const String supabaseUrl = 'https://tyntmzyinafmuwzirifb.supabase.co';
-  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5bnRtenlpbmFmbXV3emlyaWZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzODgxMTQsImV4cCI6MjA3NTk2NDExNH0.DMSdKcF-d17qS4u2bCUhNrsf7rExAehrug7waRTFlvc';
+  static const String supabaseAnonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5bnRtenlpbmFmbXV3emlyaWZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzODgxMTQsImV4cCI6MjA3NTk2NDExNH0.DMSdKcF-d17qS4u2bCUhNrsf7rExAehrug7waRTFlvc';
   static const String recordingsBucket = 'recordings';
   static const String recordingsFolder = 'calls';
 
