@@ -921,19 +921,6 @@ class _LeadCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 2),
-                    // Calendar with real site visit indicator
-                    Row(
-                      children: <Widget>[
-                        Icon(
-                          Icons.calendar_today,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 6),
-                        _LeadVisitInline(leadId: leadData.leadId),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
                     // Counsellor info
                     Row(
                       children: <Widget>[
@@ -1010,17 +997,19 @@ class _LeadCard extends StatelessWidget {
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 2),
-                    // Building icon with visit marker
+                    // Visit icon with visit marker
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: <Widget>[
                         Icon(
-                          Icons.business_outlined,
+                          Icons.visibility_outlined,
                           size: 16,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                         const SizedBox(width: 4),
-                        _LeadVisitInline(leadId: leadData.leadId),
+                        Flexible(
+                          child: _LeadVisitInline(leadId: leadData.leadId),
+                        ),
                       ],
                     ),
                   ],
@@ -1029,104 +1018,113 @@ class _LeadCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          // Bottom action buttons
-          Row(
+          // Bottom action buttons - Two rows to prevent overflow
+          Column(
             children: <Widget>[
-              // View button
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      SmoothPageTransitions.slideFromRight<void>(
-                        child: LeadDetailScreen(leadId: leadData.leadId),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.visibility_outlined, size: 16),
-                  label: const Text('View'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              // Assign button
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => _showAssignDialog(context, leadData.leadId),
-                  icon: const Icon(Icons.assignment_ind_outlined, size: 16),
-                  label: const Text('Assign'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              // Add Site Visit button
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      SmoothPageTransitions.slideFromBottom<void>(
-                        child: AddSiteVisitScreen(leadId: leadData.leadId),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.add_location_alt_outlined, size: 16),
-                  label: const Text('Site Visit'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              // Call button
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () async {
-                    await Helpers.placeCall(leadData.phone);
-                    await Future<void>.delayed(const Duration(seconds: 2));
-                    final String? url =
-                        await Helpers.uploadLastRecordingToSupabase();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            url == null
-                                ? 'No recording captured or upload failed'
-                                : 'Recording uploaded',
+              // First row - View and Assign
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          SmoothPageTransitions.slideFromRight<void>(
+                            child: LeadDetailScreen(leadId: leadData.leadId),
                           ),
-                          duration: const Duration(seconds: 3),
+                        );
+                      },
+                      icon: const Icon(Icons.visibility_outlined, size: 16),
+                      label: const Text('View'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.phone_outlined, size: 16),
-                  label: const Text('Call'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () =>
+                          _showAssignDialog(context, leadData.leadId),
+                      icon: const Icon(Icons.assignment_ind_outlined, size: 16),
+                      label: const Text('Assign'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              // Second row - Site Visit and Call
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          SmoothPageTransitions.slideFromBottom<void>(
+                            child: AddSiteVisitScreen(leadId: leadData.leadId),
+                          ),
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.add_location_alt_outlined,
+                        size: 16,
+                      ),
+                      label: const Text('Site Visit'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () async {
+                        await Helpers.placeCall(leadData.phone);
+                        await Future<void>.delayed(const Duration(seconds: 2));
+                        final String? url =
+                            await Helpers.uploadLastRecordingToSupabase();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                url != null
+                                    ? 'Call recorded and uploaded'
+                                    : 'Call completed',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.call_outlined, size: 16),
+                      label: const Text('Call'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1190,14 +1188,16 @@ class _LeadVisitInline extends StatelessWidget {
         final visit = visits.first;
         final visitDate = visit.meetingFrom ?? visit.createdAt;
         return Text(
-          _formatDateTime(visitDate),
-          style: const TextStyle(fontSize: 14),
+          _formatShortDateTime(visitDate),
+          style: const TextStyle(fontSize: 12),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
         );
       },
     );
   }
 
-  String _formatDateTime(DateTime dateTime) {
+  String _formatShortDateTime(DateTime dateTime) {
     final months = [
       'Jan',
       'Feb',
@@ -1215,13 +1215,12 @@ class _LeadVisitInline extends StatelessWidget {
 
     final day = dateTime.day.toString().padLeft(2, '0');
     final month = months[dateTime.month - 1];
-    final year = dateTime.year;
     final hour = dateTime.hour;
     final minute = dateTime.minute.toString().padLeft(2, '0');
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
 
-    return '$day $month $year $displayHour:$minute $period';
+    return '$day $month $displayHour:$minute $period';
   }
 }
 
