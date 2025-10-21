@@ -5,17 +5,12 @@ import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import '../utils/helpers.dart';
-// import '../utils/page_transitions.dart';
-// import 'add_site_visit_screen.dart';
 import 'site_visit_detail_screen.dart';
 import '../models/lead_model.dart';
 import '../repositories/lead_repository.dart';
 import '../models/project_model.dart';
-// import '../repositories/project_repository.dart';
-// import '../services/api_service.dart';
 import '../services/database_service.dart';
 import '../models/models.dart';
-// import 'project_detail_screen.dart';
 
 class LeadDetailScreen extends StatefulWidget {
   const LeadDetailScreen({super.key, required this.leadId});
@@ -2083,7 +2078,7 @@ class _PersonalInfoCardState extends State<_PersonalInfoCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         _LabelValueText(
-                label: 'DOB: ',
+          label: 'DOB: ',
           value: dob == null ? '—' : '${dob!.day}/${dob!.month}/${dob!.year}',
         ),
         const SizedBox(height: 8),
@@ -2104,27 +2099,27 @@ class _PersonalInfoCardState extends State<_PersonalInfoCard> {
         const Divider(height: 16),
         // Address details
         _LabelValueText(
-                label: 'Address: ',
-                value: address.isEmpty ? '—' : address,
+          label: 'Address: ',
+          value: address.isEmpty ? '—' : address,
         ),
         const SizedBox(height: 8),
         _LabelValueText(label: 'Country: ', value: country),
         const SizedBox(height: 8),
         _LabelValueText(
-                label: 'State: ',
-                value: stateName.isEmpty ? '—' : stateName,
+          label: 'State: ',
+          value: stateName.isEmpty ? '—' : stateName,
         ),
         const SizedBox(height: 8),
         _LabelValueText(label: 'City: ', value: city.isEmpty ? '—' : city),
         const SizedBox(height: 8),
         _LabelValueText(
-                label: 'Location: ',
-                value: location.isEmpty ? '—' : location,
+          label: 'Location: ',
+          value: location.isEmpty ? '—' : location,
         ),
         const SizedBox(height: 8),
         _LabelValueText(
-                label: 'Pincode: ',
-                value: pincode.isEmpty ? '—' : pincode,
+          label: 'Pincode: ',
+          value: pincode.isEmpty ? '—' : pincode,
         ),
       ],
     );
@@ -2134,7 +2129,7 @@ class _PersonalInfoCardState extends State<_PersonalInfoCard> {
 // Edit Personal Information Dialog
 void _showEditPersonalInfoDialog(BuildContext context, Lead lead) {
   showDialog<void>(
-      context: context,
+    context: context,
     builder: (BuildContext context) => _EditPersonalInfoDialog(lead: lead),
   );
 }
@@ -2284,10 +2279,10 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                         children: [
                           TextFormField(
                             controller: _phoneController,
-            decoration: const InputDecoration(
+                            decoration: const InputDecoration(
                               labelText: 'Phone',
-              border: OutlineInputBorder(),
-            ),
+                              border: OutlineInputBorder(),
+                            ),
                             validator: (value) => value?.isEmpty == true
                                 ? 'Phone is required'
                                 : null,
@@ -2310,10 +2305,10 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           InkWell(
                             onTap: _selectDateOfBirth,
                             child: InputDecorator(
-            decoration: const InputDecoration(
+                              decoration: const InputDecoration(
                                 labelText: 'Date of Birth',
-              border: OutlineInputBorder(),
-            ),
+                                border: OutlineInputBorder(),
+                              ),
                               child: Text(
                                 _selectedDob == null
                                     ? 'Select Date'
@@ -2412,10 +2407,10 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
                             value: _selectedItrStatus,
-            decoration: const InputDecoration(
+                            decoration: const InputDecoration(
                               labelText: 'ITR Filing Status',
-              border: OutlineInputBorder(),
-            ),
+                              border: OutlineInputBorder(),
+                            ),
                             items: ['Filed', 'Not Filed', 'Not Applicable']
                                 .map(
                                   (String value) => DropdownMenuItem<String>(
@@ -2435,11 +2430,11 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _occupationController,
-            decoration: const InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Occupation',
-              border: OutlineInputBorder(),
-            ),
-          ),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
 
                       const SizedBox(height: 24),
 
@@ -2454,10 +2449,10 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _addressController,
-            decoration: const InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Address',
-              border: OutlineInputBorder(),
-            ),
+                          border: OutlineInputBorder(),
+                        ),
                         maxLines: 2,
                       ),
                       const SizedBox(height: 12),
@@ -2484,10 +2479,10 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _pincodeController,
-              decoration: const InputDecoration(
-                labelText: 'Pincode',
-                border: OutlineInputBorder(),
-              ),
+                        decoration: const InputDecoration(
+                          labelText: 'Pincode',
+                          border: OutlineInputBorder(),
+                        ),
                         keyboardType: TextInputType.number,
                       ),
                     ],
@@ -2498,12 +2493,12 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
                   const SizedBox(width: 12),
-            FilledButton(
+                  FilledButton(
                     onPressed: _savePersonalInfo,
                     child: const Text('Save Changes'),
                   ),
@@ -2556,7 +2551,7 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
       );
 
       if (mounted) {
-                Navigator.of(context).pop();
+        Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Personal information updated successfully'),
@@ -3243,20 +3238,20 @@ class _TimelineCompactState extends State<_TimelineCompact> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            }
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     if (_timelineItems.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No timeline events'),
-              );
-            }
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('No timeline events'),
+      );
+    }
 
     return _TimelineCard(items: _timelineItems);
   }
@@ -4859,7 +4854,7 @@ class _TaskTabState extends State<_TaskTab> {
                     try {
                       // Use the lead id passed into this tab instead of waiting on parent
                       final String activeLeadId = widget.leadId;
-                      await DatabaseService.createTask(
+                      final Task createdTask = await DatabaseService.createTask(
                         leadId: activeLeadId,
                         title: titleCtrl.text.trim(),
                         description: descCtrl.text.trim(),
@@ -4878,6 +4873,17 @@ class _TaskTabState extends State<_TaskTab> {
                           endTime.hour,
                           endTime.minute,
                         ),
+                      );
+
+                      // Log the task creation activity
+                      await DatabaseServiceMasters.logTaskCreated(
+                        leadId: activeLeadId,
+                        taskId: createdTask.id,
+                        taskTitle: titleCtrl.text.trim(),
+                        performedBy:
+                            'current_user_id', // TODO: Get actual current user ID
+                        performedByName:
+                            'Current User', // TODO: Get actual current user name
                       );
                       if (!mounted) return;
                       setState(() {
@@ -7962,8 +7968,8 @@ class _TimelineItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
         Container(
           width: 32,
           height: 32,
@@ -7973,15 +7979,15 @@ class _TimelineItem extends StatelessWidget {
           ),
           child: Icon(
             _getIconForType(type),
-                size: 18,
+            size: 18,
             color: _getIconColor(type),
-              ),
+          ),
         ),
         const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
               Row(
                 children: <Widget>[
                   Expanded(
@@ -7991,17 +7997,17 @@ class _TimelineItem extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    ),
-                    Text(
+                  ),
+                  Text(
                     _formatTimestamp(timestamp),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.color?.withOpacity(0.7),
-                      ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.color?.withOpacity(0.7),
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
               if (description != null && description!.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 4),
                 Text(

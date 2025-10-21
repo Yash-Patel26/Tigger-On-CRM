@@ -83,7 +83,7 @@ class Helpers {
         await launchDialer(cleaned);
       }
     } else {
-    await launchDialer(cleaned);
+      await launchDialer(cleaned);
     }
   }
 
@@ -124,7 +124,7 @@ class Helpers {
         destFolder: AppConstants.recordingsFolder,
       );
       // ignore: avoid_print
-      print('[CallUpload] Uploaded to: $publicUrl');
+      // CallUpload: Uploaded to: $publicUrl
       return publicUrl;
     } catch (_) {
       return null;
@@ -162,7 +162,7 @@ class Helpers {
         'getLastRecordingPath',
       );
       // ignore: avoid_print
-      print('[CallRecord] last path: ${path ?? '(none)'}');
+      // CallRecord: last path: ${path ?? '(none)'}
       return path;
     } catch (_) {
       return null;
@@ -503,11 +503,11 @@ class Helpers {
     try {
       final String? location = await LocationService.getLocationString();
       if (location != null) {
-        print('[Location] Current location: $location');
+        // Location: Current location: $location
       }
       return location;
     } catch (e) {
-      print('[Location] Error getting current location: $e');
+      // Location: Error getting current location: $e
       return null;
     }
   }
@@ -517,7 +517,7 @@ class Helpers {
     try {
       return await LocationService.isLocationAvailable();
     } catch (e) {
-      print('[Location] Error checking location availability: $e');
+      // Location: Error checking location availability: $e
       return false;
     }
   }
@@ -527,7 +527,7 @@ class Helpers {
     try {
       return await LocationService.requestLocationPermission();
     } catch (e) {
-      print('[Location] Error requesting location permission: $e');
+      // Location: Error requesting location permission: $e
       return false;
     }
   }

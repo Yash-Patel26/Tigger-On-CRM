@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../utils/helpers.dart';
 import '../utils/page_transitions.dart';
 import '../repositories/lead_repository.dart';
@@ -111,15 +112,20 @@ class _LeadScreenState extends State<LeadScreen> {
 
   final LeadRepository _leadRepository = LeadRepository();
 
+  // Realtime subscription for lead updates
+  supabase.RealtimeChannel? _leadsRealtimeChannel;
+
   @override
   void initState() {
     super.initState();
     _loadPage(_currentPage);
     _loadStats();
+    _subscribeToLeadUpdates();
   }
 
   @override
   void dispose() {
+    _leadsRealtimeChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -144,7 +150,7 @@ class _LeadScreenState extends State<LeadScreen> {
         });
       }
     } catch (e) {
-      print('Error loading stats: $e');
+      // Error loading stats: $e
     }
   }
 
@@ -178,6 +184,7 @@ class _LeadScreenState extends State<LeadScreen> {
         status: statusFilter,
         page: page,
         limit: _pageSize,
+        forceRefresh: true, // Force refresh to get latest data
       );
 
       if (response.success && response.data != null) {
@@ -214,12 +221,48 @@ class _LeadScreenState extends State<LeadScreen> {
     _loadPage(1); // Reset to first page when searching
   }
 
+  void _subscribeToLeadUpdates() {
+    // Listen for lead updates in real-time
+    final client = supabase.Supabase.instance.client;
+    _leadsRealtimeChannel = client.channel('public:leads_list');
+
+    _leadsRealtimeChannel!
+        .onPostgresChanges(
+          event: supabase.PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'leads',
+          callback: (supabase.PostgresChangePayload payload) {
+            if (!mounted) return;
+            // Refresh the current page when any lead is updated
+            _loadPage(_currentPage);
+          },
+        )
+        .onPostgresChanges(
+          event: supabase.PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'leads',
+          callback: (supabase.PostgresChangePayload payload) {
+            if (!mounted) return;
+            // Refresh the current page when a new lead is created
+            _loadPage(_currentPage);
+          },
+        )
+        .subscribe();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Leads'),
         actions: <Widget>[
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              _loadPage(_currentPage); // Refresh current page
+            },
+          ),
           IconButton(
             tooltip: 'Call History',
             icon: const Icon(Icons.history_toggle_off),
@@ -1659,10 +1702,33 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
 
   Future<void> _assignLead() async {
     try {
+      // First, resolve the human-readable lead ID to UUID
+      final Lead? lead = await DatabaseService.getLeadById(widget.leadId);
+      if (lead == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Lead not found')));
+        }
+        return;
+      }
+
+      // Store old assignee for logging
+      final String? oldAssignee = lead.assignedToName;
+
       await DatabaseService.updateLeadAssignment(
-        leadId: widget.leadId,
+        leadId: lead.id, // Use the UUID instead of human-readable ID
         assignedToId: _selectedUserId!,
         assignedToName: _selectedUserName,
+      );
+
+      // Log the assignment change for timeline/activity tracking
+      await DatabaseServiceMasters.logLeadAssignment(
+        leadId: lead.id,
+        oldAssignee: oldAssignee,
+        newAssignee: _selectedUserName,
+        performedBy: 'current_user_id', // TODO: Get actual current user ID
+        performedByName: 'Current User', // TODO: Get actual current user name
       );
 
       if (mounted) {

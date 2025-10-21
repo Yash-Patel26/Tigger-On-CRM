@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-// import '../utils/page_transitions.dart';
 import 'vendor_profile_screen.dart';
-// import 'vendor_edit_screen.dart';
-// import 'vendor_basic_details_screen.dart';
 
 class VendorScreen extends StatefulWidget {
   const VendorScreen({super.key});

@@ -14,7 +14,7 @@ class LocationService {
       // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        debugPrint('Location services are disabled.');
+        // Location services are disabled.
         return null;
       }
 
@@ -23,13 +23,13 @@ class LocationService {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          debugPrint('Location permissions are denied');
+          // Location permissions are denied
           return null;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        debugPrint('Location permissions are permanently denied');
+        // Location permissions are permanently denied
         return null;
       }
 
@@ -49,7 +49,7 @@ class LocationService {
         'timestamp': position.timestamp.toIso8601String(),
       };
     } catch (e) {
-      debugPrint('Error getting location: $e');
+      // Error getting location: $e
       return null;
     }
   }
@@ -119,7 +119,7 @@ class LocationService {
         };
       }
     } catch (e) {
-      debugPrint('Error getting IP location: $e');
+      // Error getting IP location: $e
     }
     return null;
   }
@@ -136,7 +136,7 @@ class LocationService {
         return data['ip'];
       }
     } catch (e) {
-      debugPrint('Error getting public IP: $e');
+      // Error getting public IP: $e
     }
     return null;
   }

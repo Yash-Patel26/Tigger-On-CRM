@@ -90,7 +90,7 @@ class AuthService extends ChangeNotifier {
         }
       } catch (error) {
         // If we can't get user ID, we can't track the failed login
-        print('Could not track failed login: $error');
+        // Could not track failed login: $error
       }
 
       rethrow;
@@ -132,7 +132,7 @@ class AuthService extends ChangeNotifier {
           );
         }
       } catch (error) {
-        print('Could not track failed signup: $error');
+        // Could not track failed signup: $error
       }
 
       rethrow;

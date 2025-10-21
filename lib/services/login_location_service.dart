@@ -53,9 +53,9 @@ class LoginLocationService {
       // Insert into database
       await _supabase.from('user_login_locations').insert(loginLocationData);
 
-      print('Login location tracked successfully for user: $userId');
+      // Login location tracked successfully for user: $userId
     } catch (e) {
-      print('Error tracking login location: $e');
+      // Error tracking login location: $e
       // Don't throw error to avoid breaking login flow
     }
   }
@@ -87,7 +87,7 @@ class LoginLocationService {
           .map((json) => UserLoginLocation.fromJson(json))
           .toList();
     } catch (e) {
-      print('Error getting user login history: $e');
+      // Error getting user login history: $e
       return [];
     }
   }
@@ -148,7 +148,7 @@ class LoginLocationService {
         'lastLogin': lastLogin?.toIso8601String(),
       };
     } catch (e) {
-      print('Error getting user login stats: $e');
+      // Error getting user login stats: $e
       return {};
     }
   }
@@ -203,7 +203,7 @@ class LoginLocationService {
           .map((json) => UserLoginLocation.fromJson(json))
           .toList();
     } catch (e) {
-      print('Error getting all login locations: $e');
+      // Error getting all login locations: $e
       return [];
     }
   }
@@ -291,7 +291,7 @@ class LoginLocationService {
         'deviceTypes': deviceCounts,
       };
     } catch (e) {
-      print('Error getting login analytics: $e');
+      // Error getting login analytics: $e
       return {};
     }
   }

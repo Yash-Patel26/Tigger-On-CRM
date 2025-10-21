@@ -77,7 +77,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       });
     } catch (e) {
       // Handle error
-      print('Error loading metrics: $e');
+      // Error loading metrics: $e
     }
   }
 
