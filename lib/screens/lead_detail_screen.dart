@@ -2082,734 +2082,59 @@ class _PersonalInfoCardState extends State<_PersonalInfoCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _LabelValueText(
+        _LabelValueText(
                 label: 'DOB: ',
-                value: dob == null
-                    ? '—'
-                    : '${dob!.day}/${dob!.month}/${dob!.year}',
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _editDob,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit'),
-            ),
-          ],
+          value: dob == null ? '—' : '${dob!.day}/${dob!.month}/${dob!.year}',
         ),
         const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _LabelValueText(
-                label: 'Age: ',
-                value: age?.toString() ?? '—',
-              ),
-            ),
-          ],
-        ),
+        _LabelValueText(label: 'Age: ', value: age?.toString() ?? '—'),
         const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _LabelValueText(label: 'Gender: ', value: gender),
-            ),
-            TextButton.icon(
-              onPressed: _editGender,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit'),
-            ),
-          ],
-        ),
+        _LabelValueText(label: 'Gender: ', value: gender),
         const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _LabelValueText(
-                label: 'Marital Status: ',
-                value: maritalStatus,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _editMarital,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit'),
-            ),
-          ],
-        ),
+        _LabelValueText(label: 'Marital Status: ', value: maritalStatus),
         const SizedBox(height: 12),
         const Divider(height: 16),
         // Employment details
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _LabelValueText(
-                label: 'Employment Type: ',
-                value: employmentType,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _editEmploymentType,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit'),
-            ),
-          ],
-        ),
+        _LabelValueText(label: 'Employment Type: ', value: employmentType),
         const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _LabelValueText(
-                label: 'ITR Filing: ',
-                value: itrFilingStatus,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _editItrStatus,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit'),
-            ),
-          ],
-        ),
+        _LabelValueText(label: 'ITR Filing: ', value: itrFilingStatus),
         const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _LabelValueText(label: 'Occupation: ', value: occupation),
-            ),
-            TextButton.icon(
-              onPressed: _editOccupation,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit'),
-            ),
-          ],
-        ),
+        _LabelValueText(label: 'Occupation: ', value: occupation),
         const SizedBox(height: 12),
         const Divider(height: 16),
         // Address details
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _LabelValueText(
+        _LabelValueText(
                 label: 'Address: ',
                 value: address.isEmpty ? '—' : address,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _editAddress,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit'),
-            ),
-          ],
         ),
         const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _LabelValueText(label: 'Country: ', value: country),
-            ),
-            TextButton.icon(
-              onPressed: _editCountry,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit'),
-            ),
-          ],
-        ),
+        _LabelValueText(label: 'Country: ', value: country),
         const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _LabelValueText(
+        _LabelValueText(
                 label: 'State: ',
                 value: stateName.isEmpty ? '—' : stateName,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _editState,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit'),
-            ),
-          ],
         ),
         const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _LabelValueText(
-                label: 'City: ',
-                value: city.isEmpty ? '—' : city,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _editCity,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit'),
-            ),
-          ],
-        ),
+        _LabelValueText(label: 'City: ', value: city.isEmpty ? '—' : city),
         const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _LabelValueText(
+        _LabelValueText(
                 label: 'Location: ',
                 value: location.isEmpty ? '—' : location,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _editLocation,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit'),
-            ),
-          ],
         ),
         const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _LabelValueText(
+        _LabelValueText(
                 label: 'Pincode: ',
                 value: pincode.isEmpty ? '—' : pincode,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _editPincode,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit'),
-            ),
-          ],
         ),
       ],
     );
-  }
-
-  Future<void> _editDob() async {
-    final DateTime now = DateTime.now();
-    final DateTime firstDate = DateTime(now.year - 100);
-    final DateTime lastDate = now;
-    final DateTime initial = dob ?? DateTime(now.year - 25, now.month, now.day);
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      firstDate: firstDate,
-      lastDate: lastDate,
-      initialDate: initial,
-    );
-    if (picked != null) {
-      setState(() {
-        dob = picked;
-        age = _calculateAge(picked);
-      });
-    }
-  }
-
-  // Employment editors
-  Future<void> _editEmploymentType() async {
-    String temp = employmentType;
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Employment Type'),
-          content: StatefulBuilder(
-            builder:
-                (BuildContext context, void Function(void Function()) setSt) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      RadioListTile<String>(
-                        title: const Text('Salaried'),
-                        value: 'Salaried',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Salaried'),
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('Self Employed'),
-                        value: 'Self Employed',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Self Employed'),
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('Business'),
-                        value: 'Business',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Business'),
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('Other'),
-                        value: 'Other',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Other'),
-                      ),
-                    ],
-                  );
-                },
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                setState(() => employmentType = temp);
-                Navigator.of(context).pop();
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _editItrStatus() async {
-    String temp = itrFilingStatus;
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('ITR Filing Status'),
-          content: StatefulBuilder(
-            builder:
-                (BuildContext context, void Function(void Function()) setSt) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      RadioListTile<String>(
-                        title: const Text('Filed'),
-                        value: 'Filed',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Filed'),
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('Not Filed'),
-                        value: 'Not Filed',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Not Filed'),
-                      ),
-                    ],
-                  );
-                },
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                setState(() => itrFilingStatus = temp);
-                Navigator.of(context).pop();
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _editOccupation() async {
-    final TextEditingController ctrl = TextEditingController(text: occupation);
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Occupation'),
-          content: TextField(
-            controller: ctrl,
-            decoration: const InputDecoration(
-              labelText: 'Occupation',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                setState(() => occupation = ctrl.text.trim());
-                Navigator.of(context).pop();
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Address editors
-  Future<void> _editAddress() async {
-    final TextEditingController ctrl = TextEditingController(text: address);
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Address'),
-          content: TextField(
-            controller: ctrl,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Address',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                setState(() => address = ctrl.text.trim());
-                Navigator.of(context).pop();
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _editCountry() async {
-    String temp = country;
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Country'),
-          content: StatefulBuilder(
-            builder:
-                (BuildContext context, void Function(void Function()) setSt) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      RadioListTile<String>(
-                        title: const Text('India'),
-                        value: 'India',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'India'),
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('Other'),
-                        value: 'Other',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Other'),
-                      ),
-                    ],
-                  );
-                },
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                setState(() => country = temp);
-                Navigator.of(context).pop();
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _editState() async {
-    final TextEditingController ctrl = TextEditingController(text: stateName);
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('State'),
-          content: TextField(
-            controller: ctrl,
-            decoration: const InputDecoration(
-              labelText: 'State',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                setState(() => stateName = ctrl.text.trim());
-                Navigator.of(context).pop();
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _editCity() async {
-    final TextEditingController ctrl = TextEditingController(text: city);
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('City'),
-          content: TextField(
-            controller: ctrl,
-            decoration: const InputDecoration(
-              labelText: 'City',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                setState(() => city = ctrl.text.trim());
-                Navigator.of(context).pop();
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _editLocation() async {
-    final TextEditingController ctrl = TextEditingController(text: location);
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Location'),
-          content: TextField(
-            controller: ctrl,
-            decoration: const InputDecoration(
-              labelText: 'Location',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                setState(() => location = ctrl.text.trim());
-                Navigator.of(context).pop();
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _editPincode() async {
-    final TextEditingController ctrl = TextEditingController(text: pincode);
-    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Pincode'),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: ctrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Pincode',
-                border: OutlineInputBorder(),
-              ),
-              validator: (String? v) {
-                if (v == null || v.trim().isEmpty) return 'Required';
-                if (v.trim().length < 4 || v.trim().length > 10) {
-                  return 'Enter valid pincode';
-                }
-                return null;
-              },
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  setState(() => pincode = ctrl.text.trim());
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Age is derived from DOB; editing disabled per spec.
-
-  Future<void> _editGender() async {
-    String temp = gender;
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Select Gender'),
-          content: StatefulBuilder(
-            builder:
-                (BuildContext context, void Function(void Function()) setSt) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      RadioListTile<String>(
-                        title: const Text('Male'),
-                        value: 'Male',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Male'),
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('Female'),
-                        value: 'Female',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Female'),
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('Other'),
-                        value: 'Other',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Other'),
-                      ),
-                    ],
-                  );
-                },
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                setState(() => gender = temp);
-                Navigator.of(context).pop();
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _editMarital() async {
-    String temp = maritalStatus;
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Marital Status'),
-          content: StatefulBuilder(
-            builder:
-                (BuildContext context, void Function(void Function()) setSt) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      RadioListTile<String>(
-                        title: const Text('Single'),
-                        value: 'Single',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Single'),
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('Married'),
-                        value: 'Married',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Married'),
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('Divorced'),
-                        value: 'Divorced',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Divorced'),
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('Widowed'),
-                        value: 'Widowed',
-                        groupValue: temp,
-                        onChanged: (String? v) =>
-                            setSt(() => temp = v ?? 'Widowed'),
-                      ),
-                    ],
-                  );
-                },
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                setState(() => maritalStatus = temp);
-                Navigator.of(context).pop();
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  int _calculateAge(DateTime birthDate) {
-    final DateTime today = DateTime.now();
-    int years = today.year - birthDate.year;
-    final bool hadBirthdayThisYear =
-        (today.month > birthDate.month) ||
-        (today.month == birthDate.month && today.day >= birthDate.day);
-    if (!hadBirthdayThisYear) years -= 1;
-    return years;
   }
 }
 
 // Edit Personal Information Dialog
 void _showEditPersonalInfoDialog(BuildContext context, Lead lead) {
   showDialog<void>(
-    context: context,
+      context: context,
     builder: (BuildContext context) => _EditPersonalInfoDialog(lead: lead),
   );
 }
@@ -2898,11 +2223,16 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
             children: [
               Row(
                 children: [
-                  const Text(
-                    'Edit Personal Information',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Text(
+                      'Edit Personal Information',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close),
@@ -2924,103 +2254,93 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Row(
+                      Column(
                         children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _nameController,
-                              decoration: const InputDecoration(
-                                labelText: 'Full Name',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) => value?.isEmpty == true
-                                  ? 'Name is required'
-                                  : null,
+                          TextFormField(
+                            controller: _nameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Full Name',
+                              border: OutlineInputBorder(),
                             ),
+                            validator: (value) => value?.isEmpty == true
+                                ? 'Name is required'
+                                : null,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _emailController,
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) => value?.isEmpty == true
-                                  ? 'Email is required'
-                                  : null,
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _emailController,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) => value?.isEmpty == true
+                                ? 'Email is required'
+                                : null,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Column(
+                        children: [
+                          TextFormField(
+                            controller: _phoneController,
+            decoration: const InputDecoration(
+                              labelText: 'Phone',
+              border: OutlineInputBorder(),
+            ),
+                            validator: (value) => value?.isEmpty == true
+                                ? 'Phone is required'
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _alternatePhoneController,
+                            decoration: const InputDecoration(
+                              labelText: 'Alternate Phone',
+                              border: OutlineInputBorder(),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Row(
+                      // Stack in a column for small widths to avoid Row overflow
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _phoneController,
-                              decoration: const InputDecoration(
-                                labelText: 'Phone',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) => value?.isEmpty == true
-                                  ? 'Phone is required'
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _alternatePhoneController,
-                              decoration: const InputDecoration(
-                                labelText: 'Alternate Phone',
-                                border: OutlineInputBorder(),
+                          InkWell(
+                            onTap: _selectDateOfBirth,
+                            child: InputDecorator(
+            decoration: const InputDecoration(
+                                labelText: 'Date of Birth',
+              border: OutlineInputBorder(),
+            ),
+                              child: Text(
+                                _selectedDob == null
+                                    ? 'Select Date'
+                                    : '${_selectedDob!.day}/${_selectedDob!.month}/${_selectedDob!.year}',
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: _selectDateOfBirth,
-                              child: InputDecorator(
-                                decoration: const InputDecoration(
-                                  labelText: 'Date of Birth',
-                                  border: OutlineInputBorder(),
-                                ),
-                                child: Text(
-                                  _selectedDob == null
-                                      ? 'Select Date'
-                                      : '${_selectedDob!.day}/${_selectedDob!.month}/${_selectedDob!.year}',
-                                ),
-                              ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: _selectedGender,
+                            decoration: const InputDecoration(
+                              labelText: 'Gender',
+                              border: OutlineInputBorder(),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedGender,
-                              decoration: const InputDecoration(
-                                labelText: 'Gender',
-                                border: OutlineInputBorder(),
-                              ),
-                              items: ['Male', 'Female', 'Other'].map((
-                                String value,
-                              ) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value),
-                                );
-                              }).toList(),
-                              onChanged: (String? newValue) {
-                                setState(() {
-                                  _selectedGender = newValue!;
-                                });
-                              },
-                            ),
+                            items: ['Male', 'Female', 'Other']
+                                .map(
+                                  (String value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                _selectedGender = newValue!;
+                              });
+                            },
                           ),
                         ],
                       ),
@@ -3057,69 +2377,69 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Row(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedEmploymentType,
-                              decoration: const InputDecoration(
-                                labelText: 'Employment Type',
-                                border: OutlineInputBorder(),
-                              ),
-                              items:
-                                  [
-                                    'Salaried',
-                                    'Self-Employed',
-                                    'Business',
-                                    'Retired',
-                                    'Student',
-                                    'Unemployed',
-                                  ].map((String value) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    );
-                                  }).toList(),
-                              onChanged: (String? newValue) {
-                                setState(() {
-                                  _selectedEmploymentType = newValue!;
-                                });
-                              },
+                          DropdownButtonFormField<String>(
+                            value: _selectedEmploymentType,
+                            decoration: const InputDecoration(
+                              labelText: 'Employment Type',
+                              border: OutlineInputBorder(),
                             ),
+                            items:
+                                [
+                                      'Salaried',
+                                      'Self-Employed',
+                                      'Business',
+                                      'Retired',
+                                      'Student',
+                                      'Unemployed',
+                                    ]
+                                    .map(
+                                      (String value) =>
+                                          DropdownMenuItem<String>(
+                                            value: value,
+                                            child: Text(value),
+                                          ),
+                                    )
+                                    .toList(),
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                _selectedEmploymentType = newValue!;
+                              });
+                            },
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedItrStatus,
-                              decoration: const InputDecoration(
-                                labelText: 'ITR Filing Status',
-                                border: OutlineInputBorder(),
-                              ),
-                              items: ['Filed', 'Not Filed', 'Not Applicable']
-                                  .map((String value) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    );
-                                  })
-                                  .toList(),
-                              onChanged: (String? newValue) {
-                                setState(() {
-                                  _selectedItrStatus = newValue!;
-                                });
-                              },
-                            ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: _selectedItrStatus,
+            decoration: const InputDecoration(
+                              labelText: 'ITR Filing Status',
+              border: OutlineInputBorder(),
+            ),
+                            items: ['Filed', 'Not Filed', 'Not Applicable']
+                                .map(
+                                  (String value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                _selectedItrStatus = newValue!;
+                              });
+                            },
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _occupationController,
-                        decoration: const InputDecoration(
+            decoration: const InputDecoration(
                           labelText: 'Occupation',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
+              border: OutlineInputBorder(),
+            ),
+          ),
 
                       const SizedBox(height: 24),
 
@@ -3134,32 +2454,29 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _addressController,
-                        decoration: const InputDecoration(
+            decoration: const InputDecoration(
                           labelText: 'Address',
-                          border: OutlineInputBorder(),
-                        ),
+              border: OutlineInputBorder(),
+            ),
                         maxLines: 2,
                       ),
                       const SizedBox(height: 12),
-                      Row(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _cityController,
-                              decoration: const InputDecoration(
-                                labelText: 'City',
-                                border: OutlineInputBorder(),
-                              ),
+                          TextFormField(
+                            controller: _cityController,
+                            decoration: const InputDecoration(
+                              labelText: 'City',
+                              border: OutlineInputBorder(),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _stateController,
-                              decoration: const InputDecoration(
-                                labelText: 'State',
-                                border: OutlineInputBorder(),
-                              ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _stateController,
+                            decoration: const InputDecoration(
+                              labelText: 'State',
+                              border: OutlineInputBorder(),
                             ),
                           ),
                         ],
@@ -3167,10 +2484,10 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _pincodeController,
-                        decoration: const InputDecoration(
-                          labelText: 'Pincode',
-                          border: OutlineInputBorder(),
-                        ),
+              decoration: const InputDecoration(
+                labelText: 'Pincode',
+                border: OutlineInputBorder(),
+              ),
                         keyboardType: TextInputType.number,
                       ),
                     ],
@@ -3181,12 +2498,12 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
-                  ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
                   const SizedBox(width: 12),
-                  FilledButton(
+            FilledButton(
                     onPressed: _savePersonalInfo,
                     child: const Text('Save Changes'),
                   ),
@@ -3239,7 +2556,7 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
       );
 
       if (mounted) {
-        Navigator.of(context).pop();
+                Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Personal information updated successfully'),
@@ -3926,20 +3243,20 @@ class _TimelineCompactState extends State<_TimelineCompact> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
 
     if (_timelineItems.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Text('No timeline events'),
-      );
-    }
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No timeline events'),
+              );
+            }
 
     return _TimelineCard(items: _timelineItems);
   }
@@ -8645,8 +7962,8 @@ class _TimelineItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
         Container(
           width: 32,
           height: 32,
@@ -8656,15 +7973,15 @@ class _TimelineItem extends StatelessWidget {
           ),
           child: Icon(
             _getIconForType(type),
-            size: 18,
+                size: 18,
             color: _getIconColor(type),
-          ),
+              ),
         ),
         const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
               Row(
                 children: <Widget>[
                   Expanded(
@@ -8674,17 +7991,17 @@ class _TimelineItem extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                  Text(
-                    _formatTimestamp(timestamp),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.color?.withOpacity(0.7),
                     ),
-                  ),
-                ],
-              ),
+                    Text(
+                    _formatTimestamp(timestamp),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.color?.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
               if (description != null && description!.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 4),
                 Text(

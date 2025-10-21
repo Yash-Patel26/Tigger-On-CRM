@@ -1055,6 +1055,23 @@ class _LeadCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
+              // Assign button
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => _showAssignDialog(context, leadData.leadId),
+                  icon: const Icon(Icons.assignment_ind_outlined, size: 16),
+                  label: const Text('Assign'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
               // Add Site Visit button
               Expanded(
                 child: FilledButton.icon(
@@ -1169,9 +1186,42 @@ class _LeadVisitInline extends StatelessWidget {
         if (visits.isEmpty) {
           return const Text('No visits', style: TextStyle(fontSize: 14));
         }
-        return const Text('Has visit', style: TextStyle(fontSize: 14));
+        // Show the actual visit date instead of "Has visit"
+        final visit = visits.first;
+        final visitDate = visit.meetingFrom ?? visit.createdAt;
+        return Text(
+          _formatDateTime(visitDate),
+          style: const TextStyle(fontSize: 14),
+        );
       },
     );
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final month = months[dateTime.month - 1];
+    final year = dateTime.year;
+    final hour = dateTime.hour;
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+
+    return '$day $month $year $displayHour:$minute $period';
   }
 }
 
@@ -1485,4 +1535,148 @@ Color _panelColor(BuildContext context) {
 Color _panelBorderColor(BuildContext context) {
   final Color primary = Theme.of(context).colorScheme.primary;
   return primary.withOpacity(0.30);
+}
+
+// Assign dialog functionality for lead cards
+void _showAssignDialog(BuildContext context, String leadId) {
+  showDialog<void>(
+    context: context,
+    builder: (BuildContext context) {
+      return _AssignLeadDialog(leadId: leadId);
+    },
+  );
+}
+
+class _AssignLeadDialog extends StatefulWidget {
+  const _AssignLeadDialog({required this.leadId});
+  final String leadId;
+
+  @override
+  State<_AssignLeadDialog> createState() => _AssignLeadDialogState();
+}
+
+class _AssignLeadDialogState extends State<_AssignLeadDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _descCtrl = TextEditingController();
+  String? _selectedUserId;
+  String _selectedUserName = '';
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
+      title: const Text('Assign Lead'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520, minWidth: 320),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Text('Assign To'),
+              const SizedBox(height: 6),
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: DatabaseServiceUsersAndDisposition.getAssignableUsers(),
+                builder:
+                    (
+                      BuildContext context,
+                      AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
+                    ) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const CircularProgressIndicator();
+                      }
+                      if (snapshot.hasError) {
+                        return Text('Error: ${snapshot.error}');
+                      }
+                      final List<Map<String, dynamic>> users =
+                          snapshot.data ?? <Map<String, dynamic>>[];
+                      return DropdownButtonFormField<String>(
+                        value: _selectedUserId,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          hintText: 'Select user',
+                        ),
+                        items: users.map((Map<String, dynamic> user) {
+                          return DropdownMenuItem<String>(
+                            value: user['id'] as String,
+                            child: Text(user['name'] as String),
+                          );
+                        }).toList(),
+                        onChanged: (String? value) {
+                          setState(() {
+                            _selectedUserId = value;
+                            _selectedUserName =
+                                users.firstWhere(
+                                      (Map<String, dynamic> user) =>
+                                          user['id'] == value,
+                                    )['name']
+                                    as String;
+                          });
+                        },
+                        validator: (String? value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please select a user';
+                          }
+                          return null;
+                        },
+                      );
+                    },
+              ),
+              const SizedBox(height: 12),
+              const Text('Description'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _descCtrl,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Assignment description',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _onAssign, child: const Text('Assign')),
+      ],
+    );
+  }
+
+  void _onAssign() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.of(context).pop();
+
+    if (_selectedUserId != null) {
+      _assignLead();
+    }
+  }
+
+  Future<void> _assignLead() async {
+    try {
+      await DatabaseService.updateLeadAssignment(
+        leadId: widget.leadId,
+        assignedToId: _selectedUserId!,
+        assignedToName: _selectedUserName,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Assigned to $_selectedUserName')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to assign: $e')));
+      }
+    }
+  }
 }
