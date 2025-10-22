@@ -67,6 +67,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadStats() async {
+    setState(() {
+      _isLoadingStats = true;
+    });
+
     try {
       // Load active projects
       final List<Project> projects = await DatabaseService.getProjects();
@@ -84,25 +88,32 @@ class _HomeScreenState extends State<HomeScreen> {
           )
           .length;
 
-      // For team members, you might need to implement getUserProfiles or similar
-      // For now, using a placeholder
-      const int teamMembers = 8; // TODO: Load real team members count
+      // Load team members count from users table
+      final List<Map<String, dynamic>> users =
+          await DatabaseServiceUsersAndDisposition.getAssignableUsers();
+      final int teamMembers = users.length;
 
-      setState(() {
-        _activeProjectsCount = activeProjects;
-        _activeTasksCount = activeTasks;
-        _teamMembersCount = teamMembers;
-        _isLoadingStats = false;
-      });
+      if (mounted) {
+        setState(() {
+          _activeProjectsCount = activeProjects;
+          _activeTasksCount = activeTasks;
+          _teamMembersCount = teamMembers;
+          _isLoadingStats = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoadingStats = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingStats = false;
+        });
+      }
     }
   }
 
   // Realtime notifications (listen to updates on public.leads)
   supabase.RealtimeChannel? _notifChannel;
+  supabase.RealtimeChannel? _statsChannel;
+
   void _subscribeNotifications() {
     final supabase.SupabaseClient client = supabase.Supabase.instance.client;
     final supabase.RealtimeChannel ch = client.channel('public:events');
@@ -247,11 +258,52 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     _notifChannel = ch.subscribe();
+
+    // Subscribe to stats-related table changes for real-time updates
+    _subscribeStatsUpdates();
+  }
+
+  void _subscribeStatsUpdates() {
+    final supabase.SupabaseClient client = supabase.Supabase.instance.client;
+    final supabase.RealtimeChannel statsCh = client.channel('public:stats');
+
+    // Listen to projects table changes
+    statsCh.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'projects',
+      callback: (supabase.PostgresChangePayload payload) {
+        _loadStats(); // Refresh stats when projects change
+      },
+    );
+
+    // Listen to tasks table changes
+    statsCh.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'tasks',
+      callback: (supabase.PostgresChangePayload payload) {
+        _loadStats(); // Refresh stats when tasks change
+      },
+    );
+
+    // Listen to users table changes
+    statsCh.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'users',
+      callback: (supabase.PostgresChangePayload payload) {
+        _loadStats(); // Refresh stats when users change
+      },
+    );
+
+    _statsChannel = statsCh.subscribe();
   }
 
   @override
   void dispose() {
     _notifChannel?.unsubscribe();
+    _statsChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -352,6 +404,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: <Widget>[
+          IconButton(
+            onPressed: _loadStats,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh Stats',
+          ),
           Stack(
             children: <Widget>[
               IconButton(

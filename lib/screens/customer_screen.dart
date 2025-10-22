@@ -1,5 +1,6 @@
 // ignore_for_file: unused_field, unused_element
 import 'package:flutter/material.dart';
+import '../services/database_service.dart';
 
 class CustomerScreen extends StatefulWidget {
   const CustomerScreen({super.key});
@@ -15,11 +16,76 @@ class _CustomerScreenState extends State<CustomerScreen> {
   String? _selectedAging; // reserved for future
   DateTime? _selectedLastUpdateDate; // reserved for future
 
-  // All list/data removed per request. Screen shows only quick stats for now.
+  // Quick stats data
+  int _developersCount = 0;
+  int _citiesCount = 0;
+  int _locationsCount = 0;
+  int _propertyCategoriesCount = 0;
+  int _propertyTypesCount = 0;
+  int _projectsCount = 0;
+  bool _isLoadingStats = true;
 
   @override
   void initState() {
     super.initState();
+    _loadQuickStats();
+  }
+
+  Future<void> _loadQuickStats() async {
+    setState(() {
+      _isLoadingStats = true;
+    });
+
+    try {
+      // Load developers count
+      final developers = await DatabaseService.getDevelopers();
+      final developersCount = developers.length;
+
+      // Load projects to get unique cities and locations
+      final projects = await DatabaseService.getProjects();
+      final projectsCount = projects.length;
+
+      // Get unique cities from projects
+      final uniqueCities = projects
+          .map((p) => p.city)
+          .where((city) => city != null && city.isNotEmpty)
+          .toSet();
+      final citiesCount = uniqueCities.length;
+
+      // Get unique locations from projects (using state as location)
+      final uniqueLocations = projects
+          .map((p) => p.state)
+          .where((state) => state != null && state.isNotEmpty)
+          .toSet();
+      final locationsCount = uniqueLocations.length;
+
+      // Load property categories count
+      final propertyCategories =
+          await DatabaseServiceMasters.getPropertyCategories();
+      final propertyCategoriesCount = propertyCategories.length;
+
+      // Load property types count
+      final propertyTypes = await DatabaseServiceMasters.getPropertyTypes();
+      final propertyTypesCount = propertyTypes.length;
+
+      if (mounted) {
+        setState(() {
+          _developersCount = developersCount;
+          _citiesCount = citiesCount;
+          _locationsCount = locationsCount;
+          _propertyCategoriesCount = propertyCategoriesCount;
+          _propertyTypesCount = propertyTypesCount;
+          _projectsCount = projectsCount;
+          _isLoadingStats = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingStats = false;
+        });
+      }
+    }
   }
 
   @override
@@ -46,7 +112,16 @@ class _CustomerScreenState extends State<CustomerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: null,
+      appBar: AppBar(
+        title: const Text('Customer Statistics'),
+        actions: [
+          IconButton(
+            onPressed: _loadQuickStats,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh Stats',
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -60,40 +135,49 @@ class _CustomerScreenState extends State<CustomerScreen> {
   }
 
   Widget _buildQuickStats(BuildContext context) {
+    if (_isLoadingStats) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     final List<_QuickStat> stats = <_QuickStat>[
       _QuickStat(
         label: 'Developer',
-        count: 112,
+        count: _developersCount,
         icon: Icons.account_balance,
         iconColor: const Color(0xFF1E88E5),
       ),
       _QuickStat(
         label: 'City',
-        count: 18,
+        count: _citiesCount,
         icon: Icons.location_city,
         iconColor: const Color(0xFF1E88E5),
       ),
       _QuickStat(
         label: 'Location',
-        count: 301,
+        count: _locationsCount,
         icon: Icons.map,
         iconColor: const Color(0xFF1E88E5),
       ),
       _QuickStat(
         label: 'Property Category',
-        count: 2,
+        count: _propertyCategoriesCount,
         icon: Icons.apartment,
         iconColor: const Color(0xFF1E88E5),
       ),
       _QuickStat(
         label: 'Property Type',
-        count: 33,
+        count: _propertyTypesCount,
         icon: Icons.playlist_add_check,
         iconColor: const Color(0xFF1E88E5),
       ),
       _QuickStat(
         label: 'Project Management',
-        count: 450,
+        count: _projectsCount,
         icon: Icons.church,
         iconColor: const Color(0xFF1E88E5),
       ),

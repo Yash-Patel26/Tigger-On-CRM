@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../repositories/dashboard_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -18,11 +19,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, int> _total = <String, int>{};
 
   final DashboardRepository _dashboardRepository = DashboardRepository();
+  supabase.RealtimeChannel? _statsChannel;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _subscribeToStatsUpdates();
   }
 
   Future<void> _loadData() async {
@@ -63,6 +66,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
         });
       }
     }
+  }
+
+  void _subscribeToStatsUpdates() {
+    final supabase.SupabaseClient client = supabase.Supabase.instance.client;
+    final supabase.RealtimeChannel statsCh = client.channel(
+      'public:dashboard_stats',
+    );
+
+    // Listen to leads table changes
+    statsCh.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'leads',
+      callback: (supabase.PostgresChangePayload payload) {
+        _loadData(); // Refresh stats when leads change
+      },
+    );
+
+    // Listen to site_visits table changes
+    statsCh.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'site_visits',
+      callback: (supabase.PostgresChangePayload payload) {
+        _loadData(); // Refresh stats when site visits change
+      },
+    );
+
+    // Listen to bookings table changes
+    statsCh.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'bookings',
+      callback: (supabase.PostgresChangePayload payload) {
+        _loadData(); // Refresh stats when bookings change
+      },
+    );
+
+    // Listen to customers table changes
+    statsCh.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'customers',
+      callback: (supabase.PostgresChangePayload payload) {
+        _loadData(); // Refresh stats when customers change
+      },
+    );
+
+    _statsChannel = statsCh.subscribe();
+  }
+
+  @override
+  void dispose() {
+    _statsChannel?.unsubscribe();
+    super.dispose();
   }
 
   Map<String, int> _parseStatsData(Map<String, dynamic> data) {
