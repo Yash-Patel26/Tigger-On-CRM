@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'site_visit_detail_screen.dart';
 import '../../../data/services/database_service.dart';
-import '../../../data/models/site_visit_model.dart';
 import '../../../data/models/models.dart';
 
 class SiteVisitScreen extends StatefulWidget {

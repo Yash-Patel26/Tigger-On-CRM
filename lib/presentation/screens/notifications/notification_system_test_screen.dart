@@ -4,7 +4,7 @@ import '../../../shared/managers/notification_manager.dart';
 import '../../../shared/helpers/notification_helper.dart';
 
 class NotificationSystemTestScreen extends StatefulWidget {
-  const NotificationSystemTestScreen({Key? key}) : super(key: key);
+  const NotificationSystemTestScreen({super.key});
 
   @override
   State<NotificationSystemTestScreen> createState() =>

@@ -120,11 +120,11 @@ class Helpers {
             if (await f.exists()) {
               final int size = await f.length();
               print(
-                'Recording file check: $path (${size} bytes) - attempt ${attempts + 1}',
+                'Recording file check: $path ($size bytes) - attempt ${attempts + 1}',
               );
 
               if (size > 0) {
-                print('Recording file found and ready: $path (${size} bytes)');
+                print('Recording file found and ready: $path ($size bytes)');
                 break;
               } else {
                 print('Recording file exists but is empty, waiting...');
@@ -163,7 +163,7 @@ class Helpers {
         return null;
       }
 
-      print('Uploading recording to Supabase: $path (${finalSize} bytes)');
+      print('Uploading recording to Supabase: $path ($finalSize bytes)');
       final String publicUrl = await SupabaseService.uploadRecording(
         bucket: AppConstants.recordingsBucket,
         filePath: path,

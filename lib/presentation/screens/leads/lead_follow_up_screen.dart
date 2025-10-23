@@ -197,7 +197,7 @@ class _LeadFollowUpScreenState extends State<LeadFollowUpScreen> {
                             vertical: 8,
                           ),
                         ),
-                        value: _selectedStatus,
+                        initialValue: _selectedStatus,
                         items: [
                           const DropdownMenuItem(
                             value: null,
@@ -224,7 +224,7 @@ class _LeadFollowUpScreenState extends State<LeadFollowUpScreen> {
                             vertical: 8,
                           ),
                         ),
-                        value: _selectedPriority,
+                        initialValue: _selectedPriority,
                         items: [
                           const DropdownMenuItem(
                             value: null,

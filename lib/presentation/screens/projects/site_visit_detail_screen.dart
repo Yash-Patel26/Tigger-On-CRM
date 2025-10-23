@@ -1195,7 +1195,7 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                     const Center(child: CircularProgressIndicator())
                   else
                     DropdownButtonFormField<String>(
-                      value: tempSelectedStatus,
+                      initialValue: tempSelectedStatus,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(

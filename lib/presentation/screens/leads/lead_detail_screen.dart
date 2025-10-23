@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:realtime_client/realtime_client.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
-import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import '../../../../shared/utils/helpers.dart';
 import '../projects/site_visit_detail_screen.dart';
-import '../../../../data/models/lead_model.dart';
 import '../../../../data/repositories/lead_repository.dart';
-import '../../../../data/models/project_model.dart';
 import '../../../../data/services/database_service.dart';
+import '../../../../data/services/database_service_masters.dart' as masters;
 import '../../../../data/models/models.dart';
 
 class LeadDetailScreen extends StatefulWidget {
@@ -126,85 +124,100 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                     horizontal: 8,
                     vertical: 6,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: <Widget>[
-                      _IconAction(
-                        assetPng: 'assets/icons/phone-call.png',
-                        tooltip: 'Call',
-                        onTap: () async {
-                          await Helpers.placeCall('+91 98765 43210');
-                          await Future<void>.delayed(
-                            const Duration(seconds: 2),
-                          );
-                          final String? url =
-                              await Helpers.uploadLastRecordingToSupabase();
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  url == null
-                                      ? 'No recording captured or upload failed'
-                                      : 'Recording uploaded',
-                                ),
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                      _IconAction(
-                        assetPng: 'assets/icons/phone-call.png',
-                        tooltip: 'Edit Before Call',
-                        onTap: () async {
-                          final String? number = await _promptPhone(
-                            context,
-                            initial: '+91 98765 43210',
-                          );
-                          if (number != null && number.trim().isNotEmpty) {
-                            await Helpers.placeCall(number.trim());
-                            await Future<void>.delayed(
-                              const Duration(seconds: 2),
-                            );
-                            final String? url =
-                                await Helpers.uploadLastRecordingToSupabase();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    url == null
-                                        ? 'No recording captured or upload failed'
-                                        : 'Recording uploaded',
-                                  ),
-                                  duration: const Duration(seconds: 3),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        rotateTurns: 2, // rotate 180° to differentiate
-                      ),
-                      _IconAction(
-                        assetPng: 'assets/icons/email.png',
-                        tooltip: 'Email',
-                        onTap: () => _launchEmail('alex.johnson@example.com'),
-                      ),
-                      _IconAction(
-                        assetPng: 'assets/icons/conversation.png',
-                        tooltip: 'SMS',
-                        onTap: () => _launchSms('+91 98765 43210'),
-                      ),
-                      _IconAction(
-                        assetPng: 'assets/icons/whatsapp.png',
-                        tooltip: 'WhatsApp',
-                        onTap: () => _launchWhatsApp('+91 98765 43210'),
-                      ),
-                      _IconAction(
-                        assetPng: 'assets/icons/whatsapp.png',
-                        tooltip: 'Offline WA',
-                        onTap: () => _launchWhatsAppWeb('+91 98765 43210'),
-                      ),
-                    ],
+                  child: FutureBuilder<Lead>(
+                    future: _leadFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        final lead = snapshot.data!;
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: <Widget>[
+                            _IconAction(
+                              assetPng: 'assets/icons/phone-call.png',
+                              tooltip: 'Call',
+                              onTap: () async {
+                                await Helpers.placeCall(lead.phone);
+                                await Future<void>.delayed(
+                                  const Duration(seconds: 2),
+                                );
+                                final String? url =
+                                    await Helpers.uploadLastRecordingToSupabase();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        url == null
+                                            ? 'No recording captured or upload failed'
+                                            : 'Recording uploaded',
+                                      ),
+                                      duration: const Duration(seconds: 3),
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                            _IconAction(
+                              assetPng: 'assets/icons/phone-call.png',
+                              tooltip: 'Edit Before Call',
+                              onTap: () async {
+                                final String? number = await _promptPhone(
+                                  context,
+                                  initial: lead.phone,
+                                );
+                                if (number != null &&
+                                    number.trim().isNotEmpty) {
+                                  await Helpers.placeCall(number.trim());
+                                  await Future<void>.delayed(
+                                    const Duration(seconds: 2),
+                                  );
+                                  final String? url =
+                                      await Helpers.uploadLastRecordingToSupabase();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          url == null
+                                              ? 'No recording captured or upload failed'
+                                              : 'Recording uploaded',
+                                        ),
+                                        duration: const Duration(seconds: 3),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              rotateTurns: 2, // rotate 180° to differentiate
+                            ),
+                            _IconAction(
+                              assetPng: 'assets/icons/email.png',
+                              tooltip: 'Email',
+                              onTap: () => _launchEmail(lead.email),
+                            ),
+                            _IconAction(
+                              assetPng: 'assets/icons/conversation.png',
+                              tooltip: 'SMS',
+                              onTap: () => _launchSms(lead.phone),
+                            ),
+                            _IconAction(
+                              assetPng: 'assets/icons/whatsapp.png',
+                              tooltip: 'WhatsApp',
+                              onTap: () => _launchWhatsApp(lead.phone),
+                            ),
+                            _IconAction(
+                              assetPng: 'assets/icons/whatsapp.png',
+                              tooltip: 'Offline WA',
+                              onTap: () => _launchWhatsAppWeb(lead.phone),
+                            ),
+                          ],
+                        );
+                      } else if (snapshot.hasError) {
+                        return const Center(
+                          child: Text('Error loading lead data'),
+                        );
+                      } else {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                    },
                   ),
                 ),
                 const Divider(height: 1),
@@ -274,13 +287,13 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 
                       _CollapsibleCard(
                         title: 'Personal Information',
-                        child: _PersonalInfoCard(lead: lead),
                         action: IconButton(
                           onPressed: () =>
                               _showEditPersonalInfoDialog(context, lead),
                           icon: const Icon(Icons.edit, size: 20),
                           tooltip: 'Edit Personal Information',
                         ),
+                        child: _PersonalInfoCard(lead: lead),
                       ),
                       const SizedBox(height: 12),
 
@@ -324,7 +337,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     showDialog<void>(
       context: context,
       builder: (BuildContext context) {
-        return const _DisposeLeadDialog();
+        return _DisposeLeadDialog(leadId: widget.leadId);
       },
     );
   }
@@ -429,7 +442,9 @@ class _CollapsibleCard extends StatefulWidget {
 }
 
 class _DisposeLeadDialog extends StatefulWidget {
-  const _DisposeLeadDialog();
+  const _DisposeLeadDialog({required this.leadId});
+
+  final String leadId;
 
   @override
   State<_DisposeLeadDialog> createState() => _DisposeLeadDialogState();
@@ -471,7 +486,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               FutureBuilder<List<Map<String, dynamic>>>(
-                future: DatabaseServiceMasters.getLeadStatuses(),
+                future: masters.DatabaseServiceMasters.getLeadStatuses(),
                 builder:
                     (
                       BuildContext _,
@@ -484,7 +499,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
                       final List<Map<String, dynamic>> items =
                           snap.data ?? <Map<String, dynamic>>[];
                       return DropdownButtonFormField<String>(
-                        value: _statusId,
+                        initialValue: _statusId,
                         isExpanded: true,
                         items: items
                             .map(
@@ -517,7 +532,9 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
                     ? Future<List<Map<String, dynamic>>>.value(
                         <Map<String, dynamic>>[],
                       )
-                    : DatabaseServiceMasters.getLeadSubStatuses(_statusId!),
+                    : masters.DatabaseServiceMasters.getLeadSubStatuses(
+                        _statusId!,
+                      ),
                 builder:
                     (
                       BuildContext _,
@@ -530,7 +547,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
                       final List<Map<String, dynamic>> items =
                           snap.data ?? <Map<String, dynamic>>[];
                       return DropdownButtonFormField<String>(
-                        value: _subStatusId,
+                        initialValue: _subStatusId,
                         isExpanded: true,
                         items: items
                             .map(
@@ -682,20 +699,15 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
         _time.minute,
       );
 
-      // Get the lead ID from the parent widget
-      final String leadId =
-          (context
-              .findAncestorStateOfType<_LeadDetailScreenState>()
-              ?.widget
-              .leadId) ??
-          '';
+      // Get the lead ID from the widget parameter
+      final String leadId = widget.leadId;
 
       if (leadId.isEmpty) {
         throw Exception('Lead ID not found');
       }
 
       // Save disposition to database
-      await DatabaseServiceMasters.createDisposition(
+      await masters.DatabaseServiceMasters.createDisposition(
         leadId: leadId,
         mainDispositionId: _statusId!,
         subDispositionId: _subStatusId!,
@@ -717,7 +729,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
       );
 
       // Log disposition activity
-      await DatabaseServiceMasters.logDispositionActivity(
+      await masters.DatabaseServiceMasters.logDispositionActivity(
         leadId: leadId,
         mainDispositionName: mainDispositionName,
         subDispositionName: subDispositionName,
@@ -739,7 +751,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
       );
 
       // Create follow-up task if needed
-      await DatabaseServiceMasters.createDispositionFollowUp(
+      await masters.DatabaseServiceMasters.createDispositionFollowUp(
         leadId: leadId,
         mainDispositionName: mainDispositionName,
         subDispositionName: subDispositionName,
@@ -817,7 +829,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
       });
 
       // Log status change activity
-      await DatabaseServiceMasters.logLeadStatusChange(
+      await masters.DatabaseServiceMasters.logLeadStatusChange(
         leadId: leadId,
         oldStatus: 'Previous Status',
         newStatus: '$newStatus - $newSubStatus',
@@ -945,7 +957,7 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
                       final List<Map<String, dynamic>> users =
                           snap.data ?? <Map<String, dynamic>>[];
                       return DropdownButtonFormField<String>(
-                        value: _selectedUserId,
+                        initialValue: _selectedUserId,
                         isExpanded: true,
                         items: users
                             .map(
@@ -958,7 +970,7 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
                             .toList(),
                         onChanged: (String? v) => setState(() {
                           _selectedUserId = v;
-                          final Map<String, dynamic>? sel = users.firstWhere(
+                          final Map<String, dynamic> sel = users.firstWhere(
                             (Map<String, dynamic> e) => e['id'] == v,
                             orElse: () => <String, dynamic>{},
                           );
@@ -1015,7 +1027,7 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
           );
 
           // Log the assignment change
-          await DatabaseServiceMasters.logLeadAssignment(
+          await masters.DatabaseServiceMasters.logLeadAssignment(
             leadId: lead.id,
             oldAssignee: currentLead.assignedToName,
             newAssignee: _selectedUserName,
@@ -1292,7 +1304,8 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                   ),
                   const SizedBox(height: 12),
                   FutureBuilder<List<Map<String, dynamic>>>(
-                    future: DatabaseServiceMasters.getPropertyCategories(),
+                    future:
+                        masters.DatabaseServiceMasters.getPropertyCategories(),
                     builder:
                         (
                           BuildContext _,
@@ -1303,12 +1316,13 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                               child: CircularProgressIndicator(),
                             );
                           }
-                          if (snap.hasError)
+                          if (snap.hasError) {
                             return const Text('Failed to load categories');
+                          }
                           final List<Map<String, dynamic>> cats =
                               snap.data ?? <Map<String, dynamic>>[];
                           return DropdownButtonFormField<String>(
-                            value: category.isEmpty ? null : category,
+                            initialValue: category.isEmpty ? null : category,
                             items: cats
                                 .map(
                                   (Map<String, dynamic> c) =>
@@ -1331,7 +1345,7 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                   ),
                   const SizedBox(height: 12),
                   FutureBuilder<List<Map<String, dynamic>>>(
-                    future: DatabaseServiceMasters.getPropertyTypes(),
+                    future: masters.DatabaseServiceMasters.getPropertyTypes(),
                     builder:
                         (
                           BuildContext _,
@@ -1342,12 +1356,15 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                               child: CircularProgressIndicator(),
                             );
                           }
-                          if (snap.hasError)
+                          if (snap.hasError) {
                             return const Text('Failed to load property types');
+                          }
                           final List<Map<String, dynamic>> types =
                               snap.data ?? <Map<String, dynamic>>[];
                           return DropdownButtonFormField<String>(
-                            value: propertyType.isEmpty ? null : propertyType,
+                            initialValue: propertyType.isEmpty
+                                ? null
+                                : propertyType,
                             items: types
                                 .map(
                                   (Map<String, dynamic> t) =>
@@ -1379,11 +1396,12 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                               child: CircularProgressIndicator(),
                             );
                           }
-                          if (snap.hasError)
+                          if (snap.hasError) {
                             return const Text('Failed to load projects');
+                          }
                           final List<Project> projs = snap.data ?? <Project>[];
                           return DropdownButtonFormField<String>(
-                            value: projectId,
+                            initialValue: projectId,
                             items: projs
                                 .map(
                                   (Project p) => DropdownMenuItem<String>(
@@ -1432,7 +1450,7 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                           final List<Map<String, dynamic>> users =
                               snap.data ?? <Map<String, dynamic>>[];
                           return DropdownButtonFormField<String>(
-                            value: allocatedToId,
+                            initialValue: allocatedToId,
                             items: users
                                 .map(
                                   (Map<String, dynamic> u) =>
@@ -1446,7 +1464,7 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                                 .toList(),
                             onChanged: (String? v) => setModal(() {
                               allocatedToId = v;
-                              final Map<String, dynamic>? user = users
+                              final Map<String, dynamic> user = users
                                   .firstWhere(
                                     (Map<String, dynamic> e) => e['id'] == v,
                                     orElse: () => <String, dynamic>{},
@@ -2544,7 +2562,7 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            value: _selectedGender,
+                            initialValue: _selectedGender,
                             decoration: const InputDecoration(
                               labelText: 'Gender',
                               border: OutlineInputBorder(),
@@ -2567,7 +2585,7 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        value: _selectedMaritalStatus,
+                        initialValue: _selectedMaritalStatus,
                         decoration: const InputDecoration(
                           labelText: 'Marital Status',
                           border: OutlineInputBorder(),
@@ -2602,7 +2620,7 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           DropdownButtonFormField<String>(
-                            value: _selectedEmploymentType,
+                            initialValue: _selectedEmploymentType,
                             decoration: const InputDecoration(
                               labelText: 'Employment Type',
                               border: OutlineInputBorder(),
@@ -2632,7 +2650,7 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            value: _selectedItrStatus,
+                            initialValue: _selectedItrStatus,
                             decoration: const InputDecoration(
                               labelText: 'ITR Filing Status',
                               border: OutlineInputBorder(),
@@ -3497,7 +3515,7 @@ class _ActivityCompactState extends State<_ActivityCompact> {
   @override
   void initState() {
     super.initState();
-    _activitiesFuture = DatabaseServiceMasters.getLeadActivities(
+    _activitiesFuture = masters.DatabaseServiceMasters.getLeadActivities(
       leadId: widget.leadId,
       limit: 5, // Show only recent 5 activities
     );
@@ -4241,8 +4259,9 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                       }
                       final List<SiteVisit> visits =
                           snapshot.data ?? <SiteVisit>[];
-                      if (visits.isEmpty)
+                      if (visits.isEmpty) {
                         return const Center(child: Text('No site visits yet'));
+                      }
                       return ListView.separated(
                         itemCount: visits.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -4594,7 +4613,7 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                   ),
                   const SizedBox(height: 12),
                   FutureBuilder<List<Map<String, dynamic>>>(
-                    future: DatabaseServiceMasters.getVisitModes(),
+                    future: masters.DatabaseServiceMasters.getVisitModes(),
                     builder:
                         (
                           BuildContext _,
@@ -4611,7 +4630,7 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                           final List<Map<String, dynamic>> modes =
                               snap.data ?? <Map<String, dynamic>>[];
                           return DropdownButtonFormField<String>(
-                            value: mode.isEmpty ? null : mode,
+                            initialValue: mode.isEmpty ? null : mode,
                             items: modes
                                 .map(
                                   (Map<String, dynamic> m) =>
@@ -4717,7 +4736,7 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                                   'No existing customer found. A new customer will be created.',
                                 ),
                                 backgroundColor: Colors.blue,
-                                duration: const Duration(seconds: 2),
+                                duration: Duration(seconds: 2),
                               ),
                             );
                           }
@@ -4740,7 +4759,8 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                               );
 
                           // Log the site visit creation activity
-                          await DatabaseServiceMasters.logSiteVisitScheduled(
+                          await masters
+                              .DatabaseServiceMasters.logSiteVisitScheduled(
                             leadId: activeLeadId,
                             siteVisitId: siteVisit.id,
                             performedBy:
@@ -4830,8 +4850,9 @@ class _TaskTabState extends State<_TaskTab> {
                         );
                       }
                       final List<Task> tasks = snapshot.data ?? <Task>[];
-                      if (tasks.isEmpty)
+                      if (tasks.isEmpty) {
                         return const Center(child: Text('No tasks yet'));
+                      }
                       return ListView(
                         children: <Widget>[
                           ...tasks.asMap().entries.map(
@@ -4985,7 +5006,7 @@ class _TaskTabState extends State<_TaskTab> {
                                     final List<Map<String, dynamic>> users =
                                         snap.data ?? <Map<String, dynamic>>[];
                                     return DropdownButtonFormField<String>(
-                                      value:
+                                      initialValue:
                                           users.any(
                                             (Map<String, dynamic> u) =>
                                                 u['name'] == assignTo,
@@ -5009,7 +5030,7 @@ class _TaskTabState extends State<_TaskTab> {
                                           )
                                           .toList(),
                                       onChanged: (String? v) => setModal(() {
-                                        final Map<String, dynamic>? user = users
+                                        final Map<String, dynamic> user = users
                                             .firstWhere(
                                               (Map<String, dynamic> e) =>
                                                   e['id'] == v,
@@ -5102,7 +5123,7 @@ class _TaskTabState extends State<_TaskTab> {
                       );
 
                       // Log the task creation activity
-                      await DatabaseServiceMasters.logTaskCreated(
+                      await masters.DatabaseServiceMasters.logTaskCreated(
                         leadId: activeLeadId,
                         taskId: createdTask.id,
                         taskTitle: titleCtrl.text.trim(),
@@ -6266,10 +6287,11 @@ class _TicketTabState extends State<_TicketTab> {
                         );
                       }
                       final List<Ticket> items = snapshot.data ?? <Ticket>[];
-                      if (items.isEmpty)
+                      if (items.isEmpty) {
                         return const Center(
                           child: Text('No tickets created yet'),
                         );
+                      }
                       return ListView.separated(
                         itemCount: items.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -7498,7 +7520,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                           snap.data ?? <Map<String, dynamic>>[];
                       if (users.isEmpty) return const Text('No active users');
                       return DropdownButtonFormField<String>(
-                        value: selectedUserId,
+                        initialValue: selectedUserId,
                         items: users
                             .map(
                               (Map<String, dynamic> u) =>
@@ -7510,7 +7532,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                             .toList(),
                         onChanged: (String? v) {
                           selectedUserId = v;
-                          final Map<String, dynamic>? user = users.firstWhere(
+                          final Map<String, dynamic> user = users.firstWhere(
                             (Map<String, dynamic> e) => e['id'] == v,
                             orElse: () => <String, dynamic>{},
                           );
@@ -7552,7 +7574,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                     });
                     Navigator.of(ctx).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Assigned to ${_assignedTo}')),
+                      SnackBar(content: Text('Assigned to $_assignedTo')),
                     );
                   },
                   child: const Text('Assign'),
@@ -7632,7 +7654,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                           final List<Map<String, dynamic>> mains =
                               snap.data ?? <Map<String, dynamic>>[];
                           return DropdownButtonFormField<String>(
-                            value: mainDispId,
+                            initialValue: mainDispId,
                             items: mains
                                 .map(
                                   (Map<String, dynamic> m) =>
@@ -7682,7 +7704,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                           final List<Map<String, dynamic>> subs =
                               snap.data ?? <Map<String, dynamic>>[];
                           return DropdownButtonFormField<String>(
-                            value: subDispId,
+                            initialValue: subDispId,
                             items: subs
                                 .map(
                                   (Map<String, dynamic> s) =>

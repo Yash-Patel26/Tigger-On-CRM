@@ -397,7 +397,7 @@ class _NotificationScreenState extends State<NotificationScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<notification_model.NotificationType?>(
-              value: _selectedType,
+              initialValue: _selectedType,
               decoration: const InputDecoration(labelText: 'Type'),
               items: [
                 const DropdownMenuItem(value: null, child: Text('All Types')),
@@ -414,7 +414,7 @@ class _NotificationScreenState extends State<NotificationScreen>
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<notification_model.NotificationPriority?>(
-              value: _selectedPriority,
+              initialValue: _selectedPriority,
               decoration: const InputDecoration(labelText: 'Priority'),
               items: [
                 const DropdownMenuItem(
@@ -434,7 +434,7 @@ class _NotificationScreenState extends State<NotificationScreen>
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<notification_model.NotificationStatus?>(
-              value: _selectedStatus,
+              initialValue: _selectedStatus,
               decoration: const InputDecoration(labelText: 'Status'),
               items: [
                 const DropdownMenuItem(

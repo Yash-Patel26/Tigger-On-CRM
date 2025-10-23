@@ -1635,7 +1635,7 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
                       final List<Map<String, dynamic>> users =
                           snapshot.data ?? <Map<String, dynamic>>[];
                       return DropdownButtonFormField<String>(
-                        value: _selectedUserId,
+                        initialValue: _selectedUserId,
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                           hintText: 'Select user',
@@ -1714,7 +1714,7 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
       }
 
       // Store old assignee for logging
-      final String? oldAssignee = lead.assignedToName;
+      final String oldAssignee = lead.assignedToName;
 
       await DatabaseService.updateLeadAssignment(
         leadId: lead.id, // Use the UUID instead of human-readable ID

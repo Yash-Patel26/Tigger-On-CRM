@@ -42,7 +42,7 @@ class LoginLocationService {
       final locationData = await LocationService.getLoginLocationData();
 
       // Helper function to truncate strings to 255 characters
-      String? _truncateString(dynamic value, {int maxLength = 255}) {
+      String? truncateString(dynamic value, {int maxLength = 255}) {
         if (value == null) return null;
         final str = value.toString();
         return str.length > maxLength ? str.substring(0, maxLength) : str;
@@ -53,23 +53,23 @@ class LoginLocationService {
         'user_id': targetUserId,
         'login_timestamp': DateTime.now().toIso8601String(),
         'ip_address': locationData['ipAddress']?.toString(),
-        'country': _truncateString(locationData['country']),
-        'country_code': _truncateString(
+        'country': truncateString(locationData['country']),
+        'country_code': truncateString(
           locationData['countryCode'],
           maxLength: 10,
         ),
-        'state': _truncateString(locationData['state']),
-        'city': _truncateString(locationData['city']),
+        'state': truncateString(locationData['state']),
+        'city': truncateString(locationData['city']),
         'latitude': locationData['latitude']?.toDouble(),
         'longitude': locationData['longitude']?.toDouble(),
-        'timezone': _truncateString(locationData['timezone']),
-        'device_type': _truncateString(locationData['deviceType']),
-        'device_os': _truncateString(locationData['deviceOs']),
-        'browser': _truncateString(locationData['browser']),
-        'user_agent': _truncateString(locationData['userAgent']),
+        'timezone': truncateString(locationData['timezone']),
+        'device_type': truncateString(locationData['deviceType']),
+        'device_os': truncateString(locationData['deviceOs']),
+        'browser': truncateString(locationData['browser']),
+        'user_agent': truncateString(locationData['userAgent']),
         'is_successful': isSuccessful,
-        'failure_reason': _truncateString(failureReason),
-        'session_id': _truncateString(sessionId),
+        'failure_reason': truncateString(failureReason),
+        'session_id': truncateString(sessionId),
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
       };

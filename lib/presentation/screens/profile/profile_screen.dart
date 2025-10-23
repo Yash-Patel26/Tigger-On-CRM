@@ -17,7 +17,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<Profile?>? _profileFuture;
 
   // Location data cache
-  Map<String, String> _locationNames = {};
+  final Map<String, String> _locationNames = {};
 
   @override
   void initState() {
