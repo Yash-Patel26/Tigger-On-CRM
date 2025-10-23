@@ -108,7 +108,7 @@ class ApiService {
   Future<ApiResponse<T>> get<T>(
     String endpoint, {
     Map<String, String>? queryParams,
-    T Function(Map<String, dynamic>)? fromJson,
+    T Function(dynamic)? fromJson,
   }) async {
     try {
       final uri = Uri.parse(
@@ -132,14 +132,16 @@ class ApiService {
   Future<ApiResponse<T>> post<T>(
     String endpoint, {
     Map<String, dynamic>? body,
-    T Function(Map<String, dynamic>)? fromJson,
+    T Function(dynamic)? fromJson,
   }) async {
     try {
       final uri = Uri.parse('$_resolvedBaseUrl$endpoint');
+      final headers = Map<String, String>.from(_headers)
+        ..putIfAbsent('Prefer', () => 'return=representation');
       final response = await _client
           .post(
             uri,
-            headers: _headers,
+            headers: headers,
             body: body != null ? jsonEncode(body) : null,
           )
           .timeout(timeout);
@@ -157,14 +159,16 @@ class ApiService {
   Future<ApiResponse<T>> put<T>(
     String endpoint, {
     Map<String, dynamic>? body,
-    T Function(Map<String, dynamic>)? fromJson,
+    T Function(dynamic)? fromJson,
   }) async {
     try {
       final uri = Uri.parse('$_resolvedBaseUrl$endpoint');
+      final headers = Map<String, String>.from(_headers)
+        ..putIfAbsent('Prefer', () => 'return=representation');
       final response = await _client
           .put(
             uri,
-            headers: _headers,
+            headers: headers,
             body: body != null ? jsonEncode(body) : null,
           )
           .timeout(timeout);
@@ -181,7 +185,7 @@ class ApiService {
 
   Future<ApiResponse<T>> delete<T>(
     String endpoint, {
-    T Function(Map<String, dynamic>)? fromJson,
+    T Function(dynamic)? fromJson,
   }) async {
     try {
       final uri = Uri.parse('$_resolvedBaseUrl$endpoint');
@@ -202,14 +206,16 @@ class ApiService {
   Future<ApiResponse<T>> patch<T>(
     String endpoint, {
     Map<String, dynamic>? body,
-    T Function(Map<String, dynamic>)? fromJson,
+    T Function(dynamic)? fromJson,
   }) async {
     try {
       final uri = Uri.parse('$_resolvedBaseUrl$endpoint');
+      final headers = Map<String, String>.from(_headers)
+        ..putIfAbsent('Prefer', () => 'return=representation');
       final response = await _client
           .patch(
             uri,
-            headers: _headers,
+            headers: headers,
             body: body != null ? jsonEncode(body) : null,
           )
           .timeout(timeout);
@@ -226,15 +232,14 @@ class ApiService {
 
   ApiResponse<T> _handleResponse<T>(
     http.Response response,
-    T Function(Map<String, dynamic>)? fromJson,
+    T Function(dynamic)? fromJson,
   ) {
     final statusCode = response.statusCode;
     final body = response.body;
 
     if (statusCode >= 200 && statusCode < 300) {
       try {
-        final jsonData = jsonDecode(body) as Map<String, dynamic>;
-
+        final dynamic jsonData = body.isNotEmpty ? jsonDecode(body) : null;
         if (fromJson != null) {
           final data = fromJson(jsonData);
           return ApiResponse.success(data, statusCode: statusCode);
