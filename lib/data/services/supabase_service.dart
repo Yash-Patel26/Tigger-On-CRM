@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'location_data_service.dart';
 
 class SupabaseService {
   static supabase.SupabaseClient get client =>
@@ -59,6 +60,29 @@ class SupabaseService {
     String? role,
     Map<String, dynamic>? metadata,
   }) async {
+    // Validate Aadhar and PAN uniqueness if provided
+    if (metadata != null) {
+      if (metadata['aadhar'] != null) {
+        final isAadharUnique = await LocationDataService.isAadharUnique(
+          metadata['aadhar'],
+          excludeUserId: userId,
+        );
+        if (!isAadharUnique) {
+          throw Exception('Aadhar number already exists');
+        }
+      }
+
+      if (metadata['pan'] != null) {
+        final isPANUnique = await LocationDataService.isPANUnique(
+          metadata['pan'],
+          excludeUserId: userId,
+        );
+        if (!isPANUnique) {
+          throw Exception('PAN number already exists');
+        }
+      }
+    }
+
     // Update users table first
     await client
         .from('users')
@@ -68,6 +92,7 @@ class SupabaseService {
           'designation': designation,
           'role': role,
           'profile_image_url': avatarUrl,
+          'metadata': metadata,
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('id', userId);

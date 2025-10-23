@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../data/services/supabase_service.dart';
+import '../../../data/services/location_data_service.dart';
 import '../../../data/models/profile_model.dart';
+import '../../../shared/utils/validation_utils.dart';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -13,6 +15,9 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   Future<Profile?>? _profileFuture;
+
+  // Location data cache
+  Map<String, String> _locationNames = {};
 
   @override
   void initState() {
@@ -49,7 +54,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
           row['updatedAt'] ??
           DateTime.now().toIso8601String(),
     };
-    return Profile.fromJson(mapped);
+
+    final profile = Profile.fromJson(mapped);
+
+    // Load location names for display
+    await _loadLocationNames(profile);
+
+    return profile;
+  }
+
+  Future<void> _loadLocationNames(Profile profile) async {
+    try {
+      final metadata = profile.metadata ?? {};
+
+      // Load country name
+      if (metadata['country_id'] != null) {
+        final countries = await LocationDataService.getCountries();
+        final country = countries.firstWhere(
+          (c) => c['id'].toString() == metadata['country_id'].toString(),
+          orElse: () => {'name': 'Unknown'},
+        );
+        _locationNames['country'] = country['name'];
+      }
+
+      // Load state name
+      if (metadata['state_id'] != null) {
+        final states = await LocationDataService.getStatesByCountry(
+          metadata['country_id'].toString(),
+        );
+        final state = states.firstWhere(
+          (s) => s['id'].toString() == metadata['state_id'].toString(),
+          orElse: () => {'name': 'Unknown'},
+        );
+        _locationNames['state'] = state['name'];
+      }
+
+      // Load city name
+      if (metadata['city_id'] != null) {
+        final cities = await LocationDataService.getCitiesByState(
+          metadata['state_id'].toString(),
+        );
+        final city = cities.firstWhere(
+          (c) => c['id'].toString() == metadata['city_id'].toString(),
+          orElse: () => {'name': 'Unknown'},
+        );
+        _locationNames['city'] = city['name'];
+      }
+
+      // Load pincode
+      if (metadata['pincode_id'] != null) {
+        final pincodes = await LocationDataService.getPincodesByCity(
+          metadata['city_id'].toString(),
+        );
+        final pincode = pincodes.firstWhere(
+          (p) => p['id'].toString() == metadata['pincode_id'].toString(),
+          orElse: () => {'pincode': 'Unknown'},
+        );
+        _locationNames['pincode'] = pincode['pincode'];
+      }
+
+      // Load project name
+      if (metadata['project_id'] != null) {
+        final projects = await LocationDataService.getProjects();
+        final project = projects.firstWhere(
+          (p) => p['id'].toString() == metadata['project_id'].toString(),
+          orElse: () => {'name': 'Unknown'},
+        );
+        _locationNames['project'] = project['name'];
+      }
+    } catch (e) {
+      print('Error loading location names: $e');
+    }
   }
 
   void _refreshProfile() {
@@ -106,38 +181,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _IconKeyValueRow(
                           icon: Icons.cake_outlined,
                           label: 'DOB',
-                          value: profile?.metadata?['dob'] as String? ?? '-',
+                          value: profile?.metadata?['dob'] != null
+                              ? ValidationUtils.formatDate(
+                                  profile!.metadata!['dob'] as String,
+                                )
+                              : '-',
                         ),
                         const _DividerSpacer(),
                         _IconKeyValueRow(
                           icon: Icons.badge_outlined,
                           label: 'PAN Card',
-                          value: profile?.metadata?['pan'] as String? ?? '-',
+                          value: profile?.metadata?['pan'] != null
+                              ? ValidationUtils.formatPAN(
+                                  profile!.metadata!['pan'] as String,
+                                )
+                              : '-',
                         ),
                         const _DividerSpacer(),
                         _IconKeyValueRow(
                           icon: Icons.credit_card,
                           label: 'Aadhar Card',
-                          value: profile?.metadata?['aadhar'] as String? ?? '-',
+                          value: profile?.metadata?['aadhar'] != null
+                              ? ValidationUtils.formatAadhar(
+                                  profile!.metadata!['aadhar'] as String,
+                                )
+                              : '-',
                         ),
                         const _DividerSpacer(),
                         _IconKeyValueRow(
                           icon: Icons.flag_outlined,
                           label: 'Country',
-                          value:
-                              profile?.metadata?['country'] as String? ?? '-',
+                          value: _locationNames['country'] ?? '-',
                         ),
                         const _DividerSpacer(),
                         _IconKeyValueRow(
                           icon: Icons.map_outlined,
                           label: 'State',
-                          value: profile?.metadata?['state'] as String? ?? '-',
+                          value: _locationNames['state'] ?? '-',
                         ),
                         const _DividerSpacer(),
                         _IconKeyValueRow(
                           icon: Icons.location_city,
                           label: 'City',
-                          value: profile?.metadata?['city'] as String? ?? '-',
+                          value: _locationNames['city'] ?? '-',
                         ),
                         const _DividerSpacer(),
                         _IconKeyValueRow(
@@ -150,8 +236,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _IconKeyValueRow(
                           icon: Icons.local_post_office_outlined,
                           label: 'Pincode',
-                          value:
-                              profile?.metadata?['pincode'] as String? ?? '-',
+                          value: _locationNames['pincode'] ?? '-',
                         ),
                       ],
                     ),
@@ -233,8 +318,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           rows: <List<String>>[
                             <String>[
                               '1',
-                              profile?.metadata?['project_name'] as String? ??
-                                  '-',
+                              _locationNames['project'] ?? '-',
                               profile?.metadata?['user_type'] as String? ?? '-',
                             ],
                           ],
