@@ -6,6 +6,7 @@ import '../../../core/utils/page_transitions.dart';
 import '../../../presentation/screens/dashboard/home_screen.dart';
 import '../../../presentation/pages/widgets/splash_background.dart';
 import '../../../../data/services/auth_service.dart';
+import '../../../shared/utils/connectivity_helper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,6 +30,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Check internet connectivity first
+    final bool hasInternet = await ConnectivityHelper.hasInternetConnection();
+    if (!hasInternet) {
+      if (mounted) {
+        ConnectivityHelper.showNoInternetDialog(context);
+      }
+      return;
+    }
 
     final authService = Provider.of<AuthService>(context, listen: false);
 

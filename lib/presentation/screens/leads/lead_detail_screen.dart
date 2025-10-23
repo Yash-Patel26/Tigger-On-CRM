@@ -460,13 +460,32 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
   final TextEditingController _remarkCtrl = TextEditingController();
 
   bool get _showInitiatedBy {
-    final String m = (_statusId ?? '').toLowerCase();
-    return m == 'customer' || m == 'disqualified' || m == 'spam';
+    // Show initiated by radio buttons for all dispositions
+    return _statusId != null && _statusId!.isNotEmpty;
   }
 
   bool get _showDateTime {
-    final String m = (_statusId ?? '').toLowerCase();
-    return m == 'follow up' || m == 'hot' || m == 'opportunity';
+    // Check if we have a status ID and if it matches Follow Up or Hot UUIDs
+    if (_statusId == null || _statusId!.isEmpty) return false;
+
+    // Follow Up UUID: b50e8400-e29b-41d4-a716-446655440010
+    // Hot UUID: b50e8400-e29b-41d4-a716-446655440011
+    return _statusId == 'b50e8400-e29b-41d4-a716-446655440010' || // Follow Up
+        _statusId == 'b50e8400-e29b-41d4-a716-446655440011'; // Hot
+  }
+
+  Future<String?> _getLeadUuidFromLeadId(String leadId) async {
+    try {
+      final response = await supabase.Supabase.instance.client
+          .from('leads')
+          .select('id')
+          .eq('lead_id', leadId)
+          .single();
+      return response['id'] as String?;
+    } catch (e) {
+      print('Error fetching lead UUID: $e');
+      return null;
+    }
   }
 
   @override
@@ -606,6 +625,70 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
                 ),
               ],
               if (_showDateTime) ...<Widget>[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.schedule,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'Next Follow-up Date & Time ',
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                ),
+                                TextSpan(
+                                  text: '*',
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.red,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'This field is required for Follow Up and Hot dispositions',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 12),
                 Row(
                   children: <Widget>[
@@ -615,16 +698,27 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
                           final DateTime now = DateTime.now();
                           final DateTime? d = await showDatePicker(
                             context: context,
-                            firstDate: DateTime(now.year - 1),
+                            firstDate: now, // Only allow future dates
                             lastDate: DateTime(now.year + 2),
-                            initialDate: _date,
+                            initialDate: _date.isBefore(now) ? now : _date,
                           );
                           if (d != null) setState(() => _date = d);
                         },
                         child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: 'Date',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: 'Date *',
+                            border: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.primary,
+                                width: 1.5,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.primary,
+                                width: 2,
+                              ),
+                            ),
                           ),
                           child: Text(
                             '${_date.day}/${_date.month}/${_date.year}',
@@ -636,16 +730,41 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
                     Expanded(
                       child: InkWell(
                         onTap: () async {
+                          final DateTime now = DateTime.now();
+                          final TimeOfDay currentTime = TimeOfDay.fromDateTime(
+                            now,
+                          );
+                          final TimeOfDay initialTime =
+                              _date.day == now.day &&
+                                  _date.month == now.month &&
+                                  _date.year == now.year
+                              ? TimeOfDay(
+                                  hour: currentTime.hour,
+                                  minute: currentTime.minute + 1,
+                                ) // Set to next minute if today
+                              : _time;
+
                           final TimeOfDay? t = await showTimePicker(
                             context: context,
-                            initialTime: _time,
+                            initialTime: initialTime,
                           );
                           if (t != null) setState(() => _time = t);
                         },
                         child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: 'Time',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: 'Time *',
+                            border: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.primary,
+                                width: 1.5,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.primary,
+                                width: 2,
+                              ),
+                            ),
                           ),
                           child: Text(_time.format(context)),
                         ),
@@ -683,6 +802,35 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
   void _onSave() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Validate date/time for Follow Up and Hot dispositions
+    if (_showDateTime) {
+      final now = DateTime.now();
+      final selectedDateTime = DateTime(
+        _date.year,
+        _date.month,
+        _date.day,
+        _time.hour,
+        _time.minute,
+      );
+
+      if (selectedDateTime.isBefore(now)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Follow-up date and time must be in the future',
+            ),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
     try {
       // Get current user info
       final currentUser = supabase.Supabase.instance.client.auth.currentUser;
@@ -700,15 +848,21 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
       );
 
       // Get the lead ID from the widget parameter
-      final String leadId = widget.leadId;
+      final String leadIdString = widget.leadId;
 
-      if (leadId.isEmpty) {
+      if (leadIdString.isEmpty) {
         throw Exception('Lead ID not found');
+      }
+
+      // Convert lead_id to UUID by fetching from database
+      final leadUuid = await _getLeadUuidFromLeadId(leadIdString);
+      if (leadUuid == null) {
+        throw Exception('Lead not found in database');
       }
 
       // Save disposition to database
       await masters.DatabaseServiceMasters.createDisposition(
-        leadId: leadId,
+        leadId: leadUuid,
         mainDispositionId: _statusId!,
         subDispositionId: _subStatusId!,
         disposedAt: disposedAt,
@@ -730,7 +884,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
 
       // Log disposition activity
       await masters.DatabaseServiceMasters.logDispositionActivity(
-        leadId: leadId,
+        leadId: leadUuid,
         mainDispositionName: mainDispositionName,
         subDispositionName: subDispositionName,
         disposedBy: _initiatedBy.toLowerCase(),
@@ -743,7 +897,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
 
       // Update lead status based on disposition
       await _updateLeadStatusFromDisposition(
-        leadId: leadId,
+        leadId: leadUuid,
         mainDispositionName: mainDispositionName,
         subDispositionName: subDispositionName,
         performedBy: userId ?? 'system',
@@ -752,7 +906,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
 
       // Create follow-up task if needed
       await masters.DatabaseServiceMasters.createDispositionFollowUp(
-        leadId: leadId,
+        leadId: leadUuid,
         mainDispositionName: mainDispositionName,
         subDispositionName: subDispositionName,
         performedBy: userId ?? 'system',
@@ -764,6 +918,13 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
       );
 
       Navigator.of(context).pop();
+
+      // Refresh lead data to show updated follow-up date
+      final parent = context.findAncestorStateOfType<_LeadDetailScreenState>();
+      if (parent != null) {
+        parent.refreshLead();
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Disposition saved successfully'),
@@ -821,12 +982,28 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
         subDispositionName,
       );
 
-      // Update lead status
-      await DatabaseService.patchLead(leadId, {
+      // Prepare update data
+      Map<String, dynamic> updateData = {
         'status': newStatus,
         'sub_status': newSubStatus,
         'updated_at': DateTime.now().toIso8601String(),
-      });
+      };
+
+      // Update follow-up date for Follow Up and Hot dispositions
+      if (_showDateTime) {
+        final followUpDateTime = DateTime(
+          _date.year,
+          _date.month,
+          _date.day,
+          _time.hour,
+          _time.minute,
+        );
+        updateData['last_follow_up_date'] = followUpDateTime.toIso8601String();
+        updateData['next_follow_up_date'] = followUpDateTime.toIso8601String();
+      }
+
+      // Update lead status and follow-up date
+      await DatabaseService.patchLead(leadId, updateData);
 
       // Log status change activity
       await masters.DatabaseServiceMasters.logLeadStatusChange(

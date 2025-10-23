@@ -4,6 +4,7 @@ import '../../../presentation/pages/widgets/animated_glowing_logo.dart';
 import '../../../presentation/pages/widgets/splash_background.dart';
 import '../../../core/utils/page_transitions.dart';
 import 'login_screen.dart' as login;
+import '../../../shared/utils/connectivity_helper.dart';
 
 class EmailLoginScreen extends StatefulWidget {
   const EmailLoginScreen({super.key});
@@ -22,7 +23,16 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
     super.dispose();
   }
 
-  void _proceedToFullLogin() {
+  Future<void> _proceedToFullLogin() async {
+    // Check internet connectivity first
+    final bool hasInternet = await ConnectivityHelper.hasInternetConnection();
+    if (!hasInternet) {
+      if (mounted) {
+        ConnectivityHelper.showNoInternetDialog(context);
+      }
+      return;
+    }
+
     final String workspace = _emailController.text.trim().toLowerCase();
 
     // Check if workspace is real estate related

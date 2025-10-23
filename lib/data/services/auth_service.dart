@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import 'location_service.dart';
 import 'login_location_service.dart';
+import '../../shared/utils/connectivity_helper.dart';
 
 class AuthService extends ChangeNotifier {
   static final supabase.SupabaseClient _supabase =
@@ -33,6 +34,14 @@ class AuthService extends ChangeNotifier {
     try {
       _setLoading(true);
       _setError(null);
+
+      // Check internet connectivity first
+      final bool hasInternet = await ConnectivityHelper.hasInternetConnection();
+      if (!hasInternet) {
+        _setError('Please connect to the internet');
+        _setLoading(false);
+        return false;
+      }
 
       final response = await signInWithPassword(
         email: email,

@@ -121,7 +121,7 @@ class ApiService {
 
       return _handleResponse<T>(response, fromJson);
     } on SocketException {
-      return ApiResponse.error('No internet connection');
+      return ApiResponse.error('Please connect to the internet');
     } on HttpException catch (e) {
       return ApiResponse.error('HTTP error: ${e.message}');
     } catch (e) {
@@ -148,7 +148,7 @@ class ApiService {
 
       return _handleResponse<T>(response, fromJson);
     } on SocketException {
-      return ApiResponse.error('No internet connection');
+      return ApiResponse.error('Please connect to the internet');
     } on HttpException catch (e) {
       return ApiResponse.error('HTTP error: ${e.message}');
     } catch (e) {
@@ -175,7 +175,7 @@ class ApiService {
 
       return _handleResponse<T>(response, fromJson);
     } on SocketException {
-      return ApiResponse.error('No internet connection');
+      return ApiResponse.error('Please connect to the internet');
     } on HttpException catch (e) {
       return ApiResponse.error('HTTP error: ${e.message}');
     } catch (e) {
@@ -195,7 +195,7 @@ class ApiService {
 
       return _handleResponse<T>(response, fromJson);
     } on SocketException {
-      return ApiResponse.error('No internet connection');
+      return ApiResponse.error('Please connect to the internet');
     } on HttpException catch (e) {
       return ApiResponse.error('HTTP error: ${e.message}');
     } catch (e) {
@@ -222,7 +222,7 @@ class ApiService {
 
       return _handleResponse<T>(response, fromJson);
     } on SocketException {
-      return ApiResponse.error('No internet connection');
+      return ApiResponse.error('Please connect to the internet');
     } on HttpException catch (e) {
       return ApiResponse.error('HTTP error: ${e.message}');
     } catch (e) {
