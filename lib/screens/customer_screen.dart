@@ -1,6 +1,12 @@
 // ignore_for_file: unused_field, unused_element
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
+import 'developer_quick_stats_screen.dart';
+import 'city_quick_stats_screen.dart';
+import 'location_quick_stats_screen.dart';
+import 'property_category_quick_stats_screen.dart';
+import 'property_type_quick_stats_screen.dart';
+import 'project_management_stats_screen.dart';
 
 class CustomerScreen extends StatefulWidget {
   const CustomerScreen({super.key});
@@ -150,36 +156,78 @@ class _CustomerScreenState extends State<CustomerScreen> {
         count: _developersCount,
         icon: Icons.account_balance,
         iconColor: const Color(0xFF1E88E5),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const DeveloperQuickStatsScreen(),
+            ),
+          );
+        },
       ),
       _QuickStat(
         label: 'City',
         count: _citiesCount,
         icon: Icons.location_city,
         iconColor: const Color(0xFF1E88E5),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const CityQuickStatsScreen(),
+            ),
+          );
+        },
       ),
       _QuickStat(
         label: 'Location',
         count: _locationsCount,
         icon: Icons.map,
         iconColor: const Color(0xFF1E88E5),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const LocationQuickStatsScreen(),
+            ),
+          );
+        },
       ),
       _QuickStat(
         label: 'Property Category',
         count: _propertyCategoriesCount,
         icon: Icons.apartment,
         iconColor: const Color(0xFF1E88E5),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const PropertyCategoryQuickStatsScreen(),
+            ),
+          );
+        },
       ),
       _QuickStat(
         label: 'Property Type',
         count: _propertyTypesCount,
         icon: Icons.playlist_add_check,
         iconColor: const Color(0xFF1E88E5),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const PropertyTypeQuickStatsScreen(),
+            ),
+          );
+        },
       ),
       _QuickStat(
         label: 'Project Management',
         count: _projectsCount,
         icon: Icons.church,
         iconColor: const Color(0xFF1E88E5),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const ProjectManagementStatsScreen(),
+            ),
+          );
+        },
       ),
     ];
 
@@ -219,50 +267,54 @@ class _CustomerScreenState extends State<CustomerScreen> {
   }
 
   Widget _buildQuickStatTile(BuildContext context, _QuickStat stat) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Icon(stat.icon, size: 22, color: stat.iconColor),
-            const SizedBox(height: 6),
-            Text(
-              stat.count.toString(),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.black,
-                fontWeight: FontWeight.w700,
-                fontSize: 17,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: Text(
-                stat.label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(fontSize: 10.5),
-              ),
+    return InkWell(
+      onTap: stat.onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(stat.icon, size: 22, color: stat.iconColor),
+              const SizedBox(height: 6),
+              Text(
+                stat.count.toString(),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.black,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 17,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Text(
+                  stat.label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontSize: 10.5),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -531,10 +583,12 @@ class _QuickStat {
     required this.count,
     required this.icon,
     required this.iconColor,
+    this.onTap,
   });
 
   final String label;
   final int count;
   final IconData icon;
   final Color iconColor;
+  final VoidCallback? onTap;
 }

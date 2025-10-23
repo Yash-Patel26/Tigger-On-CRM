@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/supabase_service.dart';
 import '../models/profile_model.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -38,8 +39,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'department': row['department'],
       'role': row['role'],
       'is_active': row['is_active'] ?? row['isActive'] ?? true,
-      'created_at': row['created_at'] ?? row['createdAt'] ?? DateTime.now().toIso8601String(),
-      'updated_at': row['updated_at'] ?? row['updatedAt'] ?? DateTime.now().toIso8601String(),
+      'created_at':
+          row['created_at'] ??
+          row['createdAt'] ??
+          DateTime.now().toIso8601String(),
+      'updated_at':
+          row['updated_at'] ??
+          row['updatedAt'] ??
+          DateTime.now().toIso8601String(),
     };
     return Profile.fromJson(mapped);
   }
@@ -64,192 +71,221 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 _buildHeader(context, profile: profile),
-            const SizedBox(height: 16),
-            // Removed Stats section per request
-            const SizedBox(height: 0),
-            // Basic Details
-            _SectionCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const _SectionTitle('Basic Details'),
-                  const SizedBox(height: 12),
-                  _IconKeyValueRow(
-                    icon: Icons.alternate_email,
-                    label: 'Mail ID',
-                    value: SupabaseService.currentUser?.email ?? '-',
-                  ),
-                  const _DividerSpacer(),
-                  _IconKeyValueRow(
-                    icon: Icons.cake_outlined,
-                    label: 'DOB',
-                    value: profile?.metadata?['dob'] as String? ?? '-',
-                  ),
-                  const _DividerSpacer(),
-                  _IconKeyValueRow(
-                    icon: Icons.badge_outlined,
-                    label: 'PAN Card',
-                    value: profile?.metadata?['pan'] as String? ?? '-',
-                  ),
-                  const _DividerSpacer(),
-                  _IconKeyValueRow(
-                    icon: Icons.credit_card,
-                    label: 'Aadhar Card',
-                    value: profile?.metadata?['aadhar'] as String? ?? '-',
-                  ),
-                  const _DividerSpacer(),
-                  _IconKeyValueRow(
-                    icon: Icons.flag_outlined,
-                    label: 'Country',
-                    value: profile?.metadata?['country'] as String? ?? '-',
-                  ),
-                  const _DividerSpacer(),
-                  _IconKeyValueRow(
-                    icon: Icons.map_outlined,
-                    label: 'State',
-                    value: profile?.metadata?['state'] as String? ?? '-',
-                  ),
-                  const _DividerSpacer(),
-                  _IconKeyValueRow(
-                    icon: Icons.location_city,
-                    label: 'City',
-                    value: profile?.metadata?['city'] as String? ?? '-',
-                  ),
-                  const _DividerSpacer(),
-                  _IconKeyValueRow(
-                    icon: Icons.home_outlined,
-                    label: 'Address',
-                    value: profile?.metadata?['address'] as String? ?? '-',
-                  ),
-                  const _DividerSpacer(),
-                  _IconKeyValueRow(
-                    icon: Icons.local_post_office_outlined,
-                    label: 'Pincode',
-                    value: profile?.metadata?['pincode'] as String? ?? '-',
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Mapping Details
-            _SectionCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const _SectionTitle('Mapping Details'),
-                  const SizedBox(height: 12),
-                  Text(
-                    'IVR Number Details',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _TableSection(
-                    columns: const <String>['Sr. No', 'IVR Name', 'IVR Number'],
-                    rows: <List<String>>[
-                      <String>['1', profile?.metadata?['ivr_name'] as String? ?? '-', profile?.metadata?['ivr_number'] as String? ?? '-'],
+                const SizedBox(height: 16),
+                // Removed Stats section per request
+                const SizedBox(height: 0),
+                // Basic Details
+                _SectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const _SectionTitle('Basic Details'),
+                      const SizedBox(height: 12),
+                      _IconKeyValueRow(
+                        icon: Icons.alternate_email,
+                        label: 'Mail ID',
+                        value: SupabaseService.currentUser?.email ?? '-',
+                      ),
+                      const _DividerSpacer(),
+                      _IconKeyValueRow(
+                        icon: Icons.cake_outlined,
+                        label: 'DOB',
+                        value: profile?.metadata?['dob'] as String? ?? '-',
+                      ),
+                      const _DividerSpacer(),
+                      _IconKeyValueRow(
+                        icon: Icons.badge_outlined,
+                        label: 'PAN Card',
+                        value: profile?.metadata?['pan'] as String? ?? '-',
+                      ),
+                      const _DividerSpacer(),
+                      _IconKeyValueRow(
+                        icon: Icons.credit_card,
+                        label: 'Aadhar Card',
+                        value: profile?.metadata?['aadhar'] as String? ?? '-',
+                      ),
+                      const _DividerSpacer(),
+                      _IconKeyValueRow(
+                        icon: Icons.flag_outlined,
+                        label: 'Country',
+                        value: profile?.metadata?['country'] as String? ?? '-',
+                      ),
+                      const _DividerSpacer(),
+                      _IconKeyValueRow(
+                        icon: Icons.map_outlined,
+                        label: 'State',
+                        value: profile?.metadata?['state'] as String? ?? '-',
+                      ),
+                      const _DividerSpacer(),
+                      _IconKeyValueRow(
+                        icon: Icons.location_city,
+                        label: 'City',
+                        value: profile?.metadata?['city'] as String? ?? '-',
+                      ),
+                      const _DividerSpacer(),
+                      _IconKeyValueRow(
+                        icon: Icons.home_outlined,
+                        label: 'Address',
+                        value: profile?.metadata?['address'] as String? ?? '-',
+                      ),
+                      const _DividerSpacer(),
+                      _IconKeyValueRow(
+                        icon: Icons.local_post_office_outlined,
+                        label: 'Pincode',
+                        value: profile?.metadata?['pincode'] as String? ?? '-',
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Team Detail',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _TableSection(
-                    columns: const <String>['Sr. No', 'Team Name'],
-                    rows: <List<String>>[
-                      <String>['1', profile?.metadata?['team'] as String? ?? '-'],
+                ),
+                const SizedBox(height: 16),
+                // Mapping Details
+                _SectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const _SectionTitle('Mapping Details'),
+                      const SizedBox(height: 12),
+                      Text(
+                        'IVR Number Details',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _TableSection(
+                        columns: const <String>[
+                          'Sr. No',
+                          'IVR Name',
+                          'IVR Number',
+                        ],
+                        rows: <List<String>>[
+                          <String>[
+                            '1',
+                            profile?.metadata?['ivr_name'] as String? ?? '-',
+                            profile?.metadata?['ivr_number'] as String? ?? '-',
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Team Detail',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _TableSection(
+                        columns: const <String>['Sr. No', 'Team Name'],
+                        rows: <List<String>>[
+                          <String>[
+                            '1',
+                            profile?.metadata?['team'] as String? ?? '-',
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Group Detail',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _TableSection(
+                        columns: const <String>['Sr. No', 'Group Name'],
+                        rows: <List<String>>[
+                          <String>[
+                            '1',
+                            profile?.metadata?['group'] as String? ?? '-',
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Project Name · User Type',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _TableSection(
+                        columns: const <String>[
+                          'Sr. No',
+                          'Project Name',
+                          'User Type',
+                        ],
+                        rows: <List<String>>[
+                          <String>[
+                            '1',
+                            profile?.metadata?['project_name'] as String? ??
+                                '-',
+                            profile?.metadata?['user_type'] as String? ?? '-',
+                          ],
+                        ],
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Group Detail',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _TableSection(
-                    columns: const <String>['Sr. No', 'Group Name'],
-                    rows: <List<String>>[
-                      <String>['1', profile?.metadata?['group'] as String? ?? '-'],
+                ),
+                const SizedBox(height: 16),
+                _SectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const <Widget>[
+                      _SectionTitle('Preferences'),
+                      SizedBox(height: 8),
+                      _SettingsTile(
+                        icon: Icons.notifications_none_rounded,
+                        title: 'Notifications',
+                      ),
+                      _SettingsTile(
+                        icon: Icons.palette_outlined,
+                        title: 'Appearance',
+                      ),
+                      _SettingsTile(
+                        icon: Icons.language_outlined,
+                        title: 'Language',
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Project Name · User Type',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _TableSection(
-                    columns: const <String>[
-                      'Sr. No',
-                      'Project Name',
-                      'User Type',
+                ),
+                const SizedBox(height: 16),
+                _SectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const _SectionTitle('About'),
+                      const SizedBox(height: 8),
+                      _AboutRow(label: 'App', value: 'TiggerOn'),
+                      _AboutRow(
+                        label: 'Version',
+                        value:
+                            profile?.metadata?['app_version'] as String? ??
+                            '1.0.0',
+                      ),
+                      _AboutRow(
+                        label: 'Build',
+                        value:
+                            profile?.metadata?['build'] as String? ?? '2025.09',
+                      ),
                     ],
-                    rows: <List<String>>[
-                      <String>['1', profile?.metadata?['project_name'] as String? ?? '-', profile?.metadata?['user_type'] as String? ?? '-'],
-                    ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            _SectionCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const <Widget>[
-                  _SectionTitle('Preferences'),
-                  SizedBox(height: 8),
-                  _SettingsTile(
-                    icon: Icons.notifications_none_rounded,
-                    title: 'Notifications',
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).maybePop();
+                    },
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Log out'),
                   ),
-                  _SettingsTile(
-                    icon: Icons.palette_outlined,
-                    title: 'Appearance',
-                  ),
-                  _SettingsTile(
-                    icon: Icons.language_outlined,
-                    title: 'Language',
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            _SectionCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const _SectionTitle('About'),
-                  const SizedBox(height: 8),
-                  _AboutRow(label: 'App', value: 'TiggerOn'),
-                  _AboutRow(label: 'Version', value: profile?.metadata?['app_version'] as String? ?? '1.0.0'),
-                  _AboutRow(label: 'Build', value: profile?.metadata?['build'] as String? ?? '2025.09'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).maybePop();
-                },
-                icon: const Icon(Icons.logout),
-                label: const Text('Log out'),
-              ),
-            ),
-          ],
-        ),
-      );
-      }),
+          );
+        },
+      ),
     );
   }
 
@@ -277,7 +313,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Text(
                   profile?.fullName.isNotEmpty == true
                       ? profile!.fullName
-                      : (SupabaseService.currentUser?.email?.split('@').first ?? 'User'),
+                      : (SupabaseService.currentUser?.email?.split('@').first ??
+                            'User'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(
@@ -296,7 +333,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(width: 8),
           OutlinedButton.icon(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.of(context)
+                  .push(
+                    MaterialPageRoute<bool>(
+                      builder: (context) =>
+                          EditProfileScreen(profile: profile!),
+                    ),
+                  )
+                  .then((result) {
+                    if (result == true) {
+                      // Refresh the profile data
+                      final userId = SupabaseService.currentUser?.id;
+                      if (userId != null) {
+                        setState(() {
+                          _profileFuture = _loadProfile(userId);
+                        });
+                      }
+                    }
+                  });
+            },
             icon: const Icon(Icons.edit_outlined, size: 18),
             label: const Text('Edit'),
           ),

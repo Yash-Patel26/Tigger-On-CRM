@@ -41,6 +41,11 @@ class SupabaseService {
     String? fullName,
     String? website,
     String? avatarUrl,
+    String? phone,
+    String? designation,
+    String? department,
+    String? role,
+    Map<String, dynamic>? metadata,
   }) async {
     await client.from('profiles').upsert({
       'id': userId,
@@ -48,6 +53,11 @@ class SupabaseService {
       'full_name': fullName,
       'website': website,
       'avatar_url': avatarUrl,
+      'phone': phone,
+      'designation': designation,
+      'department': department,
+      'role': role,
+      'metadata': metadata,
       'updated_at': DateTime.now().toIso8601String(),
     });
   }

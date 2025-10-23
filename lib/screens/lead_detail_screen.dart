@@ -663,13 +663,239 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
     );
   }
 
-  void _onSave() {
+  void _onSave() async {
     if (!_formKey.currentState!.validate()) return;
-    // Collect data; in real app, call API here
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Disposition saved')));
+
+    try {
+      // Get current user info
+      final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+      final String? userId = currentUser?.id;
+      final String userName =
+          (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
+
+      // Combine date and time
+      final DateTime disposedAt = DateTime(
+        _date.year,
+        _date.month,
+        _date.day,
+        _time.hour,
+        _time.minute,
+      );
+
+      // Get the lead ID from the parent widget
+      final String leadId =
+          (context
+              .findAncestorStateOfType<_LeadDetailScreenState>()
+              ?.widget
+              .leadId) ??
+          '';
+
+      if (leadId.isEmpty) {
+        throw Exception('Lead ID not found');
+      }
+
+      // Save disposition to database
+      await DatabaseServiceMasters.createDisposition(
+        leadId: leadId,
+        mainDispositionId: _statusId!,
+        subDispositionId: _subStatusId!,
+        disposedAt: disposedAt,
+        disposedBy: _initiatedBy.toLowerCase(),
+        disposedFrom: 'system',
+        remarks: _remarkCtrl.text.trim().isNotEmpty
+            ? _remarkCtrl.text.trim()
+            : null,
+        performedBy: userId,
+        performedByName: userName,
+      );
+
+      // Get disposition names for logging
+      final mainDispositionName = await _getDispositionName(_statusId!, true);
+      final subDispositionName = await _getDispositionName(
+        _subStatusId!,
+        false,
+      );
+
+      // Log disposition activity
+      await DatabaseServiceMasters.logDispositionActivity(
+        leadId: leadId,
+        mainDispositionName: mainDispositionName,
+        subDispositionName: subDispositionName,
+        disposedBy: _initiatedBy.toLowerCase(),
+        performedBy: userId ?? 'system',
+        performedByName: userName,
+        remarks: _remarkCtrl.text.trim().isNotEmpty
+            ? _remarkCtrl.text.trim()
+            : null,
+      );
+
+      // Update lead status based on disposition
+      await _updateLeadStatusFromDisposition(
+        leadId: leadId,
+        mainDispositionName: mainDispositionName,
+        subDispositionName: subDispositionName,
+        performedBy: userId ?? 'system',
+        performedByName: userName,
+      );
+
+      // Create follow-up task if needed
+      await DatabaseServiceMasters.createDispositionFollowUp(
+        leadId: leadId,
+        mainDispositionName: mainDispositionName,
+        subDispositionName: subDispositionName,
+        performedBy: userId ?? 'system',
+        performedByName: userName,
+        // Use current lead's assigned user for follow-up
+        assignedTo:
+            null, // Will be assigned to current user or lead's assigned user
+        assignedToName: null,
+      );
+
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Disposition saved successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save disposition: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Helper method to get disposition name by ID
+  Future<String> _getDispositionName(String dispositionId, bool isMain) async {
+    try {
+      if (isMain) {
+        final mains =
+            await DatabaseServiceUsersAndDisposition.getTicketDispositionMains();
+        final main = mains.firstWhere((m) => m['id'] == dispositionId);
+        return main['name'] as String;
+      } else {
+        final subs =
+            await DatabaseServiceUsersAndDisposition.getTicketDispositionSubs(
+              dispositionId,
+            );
+        final sub = subs.firstWhere((s) => s['id'] == dispositionId);
+        return sub['name'] as String;
+      }
+    } catch (e) {
+      return 'Unknown Disposition';
+    }
+  }
+
+  // Helper method to update lead status based on disposition
+  Future<void> _updateLeadStatusFromDisposition({
+    required String leadId,
+    required String mainDispositionName,
+    required String subDispositionName,
+    required String performedBy,
+    required String performedByName,
+  }) async {
+    try {
+      // Determine new lead status based on disposition
+      String newStatus = _determineLeadStatusFromDisposition(
+        mainDispositionName,
+        subDispositionName,
+      );
+      String newSubStatus = _determineLeadSubStatusFromDisposition(
+        mainDispositionName,
+        subDispositionName,
+      );
+
+      // Update lead status
+      await DatabaseService.patchLead(leadId, {
+        'status': newStatus,
+        'sub_status': newSubStatus,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      // Log status change activity
+      await DatabaseServiceMasters.logLeadStatusChange(
+        leadId: leadId,
+        oldStatus: 'Previous Status',
+        newStatus: '$newStatus - $newSubStatus',
+        performedBy: performedBy,
+        performedByName: performedByName,
+      );
+    } catch (e) {
+      // Don't fail the entire disposition if status update fails
+      print('Warning: Failed to update lead status: $e');
+    }
+  }
+
+  // Helper method to determine lead status from disposition
+  String _determineLeadStatusFromDisposition(
+    String mainDisposition,
+    String subDisposition,
+  ) {
+    final lowerMain = mainDisposition.toLowerCase();
+    final lowerSub = subDisposition.toLowerCase();
+
+    // Hot dispositions
+    if (lowerMain.contains('hot') ||
+        lowerSub.contains('urgent') ||
+        lowerMain.contains('interested') ||
+        lowerSub.contains('interested')) {
+      return 'hot';
+    }
+
+    // Warm dispositions
+    if (lowerMain.contains('warm') ||
+        lowerSub.contains('considering') ||
+        lowerMain.contains('negotiation') ||
+        lowerSub.contains('negotiation')) {
+      return 'warm';
+    }
+
+    // Cold dispositions
+    if (lowerMain.contains('cold') ||
+        lowerSub.contains('not_interested') ||
+        lowerMain.contains('rejected') ||
+        lowerSub.contains('rejected')) {
+      return 'cold';
+    }
+
+    // Default to warm for other dispositions
+    return 'warm';
+  }
+
+  // Helper method to determine lead sub-status from disposition
+  String _determineLeadSubStatusFromDisposition(
+    String mainDisposition,
+    String subDisposition,
+  ) {
+    final lowerMain = mainDisposition.toLowerCase();
+    final lowerSub = subDisposition.toLowerCase();
+
+    // Closed dispositions
+    if (lowerMain.contains('closed') ||
+        lowerSub.contains('closed') ||
+        lowerMain.contains('converted') ||
+        lowerSub.contains('converted') ||
+        lowerMain.contains('booked') ||
+        lowerSub.contains('booked')) {
+      return 'closed';
+    }
+
+    // In progress dispositions
+    if (lowerMain.contains('follow') ||
+        lowerSub.contains('follow') ||
+        lowerMain.contains('negotiation') ||
+        lowerSub.contains('negotiation') ||
+        lowerMain.contains('pending') ||
+        lowerSub.contains('pending')) {
+      return 'inProgress';
+    }
+
+    // Default to new lead for other dispositions
+    return 'newLead';
   }
 
   String _capitalize(String s) {

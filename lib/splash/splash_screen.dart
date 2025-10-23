@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'widgets/splash_background.dart';
 import 'widgets/animated_glowing_logo.dart';
-import '../utils/page_transitions.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
-import '../screens/home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key, required this.nextPageBuilder});
@@ -23,39 +21,48 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _navigateToHomeAfterDelay() async {
-    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    await Future<void>.delayed(const Duration(milliseconds: 800));
     if (!mounted) return;
-    final supabase.SupabaseClient client = supabase.Supabase.instance.client;
-    final bool hasSession = client.auth.currentSession != null;
-    final Widget target = hasSession
-        ? const HomeScreen()
-        : widget.nextPageBuilder(context);
-    Navigator.of(context).pushReplacement(
-      SmoothPageTransitions.fadeTransition<void>(child: target),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute<void>(builder: widget.nextPageBuilder));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       body: SplashBackground(
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               AnimatedGlowingLogo(
-                child: Image.asset(
+                child: SvgPicture.asset(
                   'assets/favicon.webp',
                   width: 120,
                   height: 120,
-                  fit: BoxFit.contain,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.redAccent,
+                    BlendMode.srcIn,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
               Text(
                 'TiggerOn',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.red,
                 ),
               ),
             ],
@@ -65,3 +72,5 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
+
+// No placeholder needed; next page is injected from main.dart

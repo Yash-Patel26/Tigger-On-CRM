@@ -6,6 +6,7 @@ import '../models/app_notification.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../splash/widgets/animated_glowing_logo.dart';
 import 'ticket_hub_screen.dart';
+import 'lead_follow_up_screen.dart';
 import 'vendor_screen.dart';
 import 'profile_screen.dart';
 import '../utils/page_transitions.dart';
@@ -708,11 +709,20 @@ class DashboardTab extends StatelessWidget {
                   color: panelBorderColor(context),
                 ),
                 Expanded(
-                  child: _buildStatItem(
-                    context,
-                    'Team Members',
-                    teamMembersCount.toString(),
-                    Icons.people,
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ProfileScreen(),
+                        ),
+                      );
+                    },
+                    child: _buildStatItem(
+                      context,
+                      'Team Members',
+                      teamMembersCount.toString(),
+                      Icons.people,
+                    ),
                   ),
                 ),
               ],
@@ -1935,17 +1945,6 @@ void _showAddActions(BuildContext context) {
                 );
               },
             ),
-            ListTile(
-              leading: Icon(
-                Icons.travel_explore_rounded,
-                color: Theme.of(context).iconTheme.color,
-              ),
-              title: Text(
-                'Property Finder',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              enabled: false,
-            ),
             // Removed Vendor Management from plus sheet; now available in bottom nav
             // Booking removed from bottom nav; keep optional in sheet if needed later
             ListTile(
@@ -1959,7 +1958,11 @@ void _showAddActions(BuildContext context) {
               ),
               onTap: () {
                 Navigator.of(ctx).pop();
-                // TODO: Navigate to lead follow-up
+                Navigator.of(context).push(
+                  SmoothPageTransitions.slideFromBottom<void>(
+                    child: const LeadFollowUpScreen(),
+                  ),
+                );
               },
             ),
             const SizedBox(height: 8),
