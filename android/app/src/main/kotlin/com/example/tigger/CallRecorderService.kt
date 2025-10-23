@@ -69,8 +69,14 @@ class CallRecorderService : Service() {
                     }
                 }
                 TelephonyManager.CALL_STATE_IDLE -> {
-                    Log.d("CallRecorderService", "CALL_STATE_IDLE → stopping")
-                    stopSelf()
+                    Log.d("CallRecorderService", "CALL_STATE_IDLE → stopping recording and service")
+                    // Stop recording first, then stop service
+                    stopRecording()
+                    // Give more time to ensure recording is properly finalized and file is written
+                    android.os.Handler(mainLooper).postDelayed({
+                        Log.d("CallRecorderService", "Stopping service after recording finalized")
+                        stopSelf()
+                    }, 3000) // Increased delay to 3 seconds
                 }
                 TelephonyManager.CALL_STATE_RINGING -> {
                     Log.d("CallRecorderService", "CALL_STATE_RINGING")
@@ -115,12 +121,26 @@ class CallRecorderService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        Log.d("CallRecorderService", "Service destroying, stopping recording...")
+        
+        // Stop recording first
         stopRecording()
-        telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
-        // restore speaker state if we modified it
+        
+        // Unregister phone state listener
+        try {
+            telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
+        } catch (e: Exception) {
+            Log.e("CallRecorderService", "Error unregistering phone listener: ${e.message}")
+        }
+        
+        // Restore speaker state if we modified it
         try {
             audioManager?.isSpeakerphoneOn = wasSpeakerOn
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.e("CallRecorderService", "Error restoring speaker state: ${e.message}")
+        }
+        
+        Log.d("CallRecorderService", "Service destroyed successfully")
     }
 
     private fun buildNotification(content: String): Notification {
@@ -195,17 +215,42 @@ class CallRecorderService : Service() {
     private fun stopRecording() {
         val r = recorder ?: return
         try {
-            r.stop()
-        } catch (_: Exception) {}
-        r.reset()
-        r.release()
-        recorder = null
-        isRecording = false
+            if (isRecording) {
+                r.stop()
+                Log.d("CallRecorderService", "Recording stopped successfully")
+                
+                // Verify file was written properly
+                outputPath?.let { path ->
+                    val file = File(path)
+                    if (file.exists() && file.length() > 0) {
+                        Log.d("CallRecorderService", "Recording file verified: $path (${file.length()} bytes)")
+                    } else {
+                        Log.w("CallRecorderService", "Recording file not ready: $path")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("CallRecorderService", "Error stopping recording: ${e.message}")
+        } finally {
+            try {
+                r.reset()
+                r.release()
+            } catch (e: Exception) {
+                Log.e("CallRecorderService", "Error releasing recorder: ${e.message}")
+            }
+            recorder = null
+            isRecording = false
+        }
+        
         // restore speakerphone
         try {
             audioManager?.isSpeakerphoneOn = wasSpeakerOn
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.e("CallRecorderService", "Error restoring speakerphone: ${e.message}")
+        }
+        
         // keep lastOutputPath as is for Flutter to fetch
+        Log.d("CallRecorderService", "Recording cleanup completed, file available at: $outputPath")
     }
 
     private fun updateNotif(content: String) {

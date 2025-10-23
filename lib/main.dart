@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
-import 'services/auth_service.dart';
-import 'utils/constants.dart';
-import 'splash/splash_screen.dart';
-import 'onboarding/email_login_screen.dart';
-import 'state/notification_store.dart';
+import 'data/services/auth_service.dart';
+import 'core/constants/constants.dart';
+import 'presentation/pages/splash_screen.dart';
+import 'presentation/screens/auth/email_login_screen.dart';
+import 'shared/managers/notification_store.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
