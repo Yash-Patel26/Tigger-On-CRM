@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:tigger/data/models/site_visit_model.dart';
+import 'package:tigger/data/models/meeting_status_model.dart';
+import 'package:tigger/data/services/site_visit_service.dart';
 
 class SiteVisitDetailScreen extends StatefulWidget {
   final String siteVisitId;
@@ -19,6 +22,14 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
   bool _isDetailsView =
       true; // true for site visit details, false for visit history
   String _selectedMeetingStatus = 'Scheduled'; // Current meeting status
+  bool _isLoading = false;
+  bool _isUpdatingStatus = false;
+  bool _isLoadingTimeline = false;
+  bool _isLoadingStatusOptions = false;
+  SiteVisit? _siteVisit;
+  List<Map<String, dynamic>> _timelineData = [];
+  List<MeetingStatusOption> _meetingStatusOptions = [];
+  late SiteVisitService _siteVisitService;
 
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -28,6 +39,8 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
   @override
   void initState() {
     super.initState();
+    _siteVisitService = SiteVisitService();
+
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -47,6 +60,19 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
 
     _fadeController.forward();
     _slideController.forward();
+
+    // Initialize with default status options first
+    _meetingStatusOptions = _getDefaultStatusOptions();
+    _initializeMeetingStatus();
+
+    // Fetch latest site visit data from backend
+    _fetchSiteVisitData();
+
+    // Fetch timeline data
+    _fetchTimelineData();
+
+    // Fetch meeting status options from backend
+    _fetchMeetingStatusOptions();
   }
 
   @override
@@ -54,6 +80,303 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
     _fadeController.dispose();
     _slideController.dispose();
     super.dispose();
+  }
+
+  void _initializeMeetingStatus() {
+    // Initialize meeting status from the passed site visit data
+    final status = widget.siteVisitData['status'] as String?;
+    if (status != null) {
+      _selectedMeetingStatus = _getDisplayStatus(status);
+    } else if (_meetingStatusOptions.isNotEmpty) {
+      // Use default status if no status is provided
+      final defaultOption = _meetingStatusOptions.firstWhere(
+        (opt) => opt.isDefault,
+        orElse: () => _meetingStatusOptions.first,
+      );
+      _selectedMeetingStatus = defaultOption.displayName;
+    }
+  }
+
+  String _getDisplayStatus(String status) {
+    // Find the option by name and return its display name
+    final option = _meetingStatusOptions.firstWhere(
+      (opt) => opt.name.toLowerCase() == status.toLowerCase(),
+      orElse: () => _meetingStatusOptions.firstWhere(
+        (opt) => opt.isDefault,
+        orElse: () => _meetingStatusOptions.first,
+      ),
+    );
+    return option.displayName;
+  }
+
+  String _getApiStatus(String displayStatus) {
+    // Find the option by display name and return its name (API value)
+    final option = _meetingStatusOptions.firstWhere(
+      (opt) => opt.displayName == displayStatus,
+      orElse: () => _meetingStatusOptions.firstWhere(
+        (opt) => opt.isDefault,
+        orElse: () => _meetingStatusOptions.first,
+      ),
+    );
+    return option.name;
+  }
+
+  Future<void> _fetchSiteVisitData() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
+    try {
+      final response = await _siteVisitService.getSiteVisit(widget.siteVisitId);
+      if (response.success && response.data != null) {
+        if (mounted) {
+          setState(() {
+            _siteVisit = response.data;
+            _selectedMeetingStatus = _getDisplayStatus(
+              _siteVisit!.status.toString().split('.').last,
+            );
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        _showErrorSnackBar(
+          response.message ?? 'Failed to fetch site visit data',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      _showErrorSnackBar('Error fetching site visit data: $e');
+    }
+  }
+
+  Future<void> _fetchTimelineData() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingTimeline = true;
+      });
+    }
+
+    try {
+      final response = await _siteVisitService.getSiteVisitTimeline(
+        widget.siteVisitId,
+      );
+      if (response.success && response.data != null) {
+        if (mounted) {
+          setState(() {
+            _timelineData = response.data!;
+            _isLoadingTimeline = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoadingTimeline = false;
+          });
+        }
+        // If timeline fetch fails, use empty list instead of showing error
+        // as timeline is not critical for the main functionality
+        if (mounted) {
+          setState(() {
+            _timelineData = [];
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingTimeline = false;
+          _timelineData = [];
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchMeetingStatusOptions() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingStatusOptions = true;
+      });
+    }
+
+    try {
+      final response = await _siteVisitService.getMeetingStatusOptions();
+      if (response.success && response.data != null) {
+        if (mounted) {
+          setState(() {
+            _meetingStatusOptions = response.data!;
+            _isLoadingStatusOptions = false;
+          });
+          // Reinitialize meeting status with new options
+          _initializeMeetingStatus();
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoadingStatusOptions = false;
+          });
+        }
+        // If status options fetch fails, use default hardcoded values as fallback
+        if (mounted) {
+          setState(() {
+            _meetingStatusOptions = _getDefaultStatusOptions();
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingStatusOptions = false;
+          _meetingStatusOptions = _getDefaultStatusOptions();
+        });
+      }
+    }
+  }
+
+  List<MeetingStatusOption> _getDefaultStatusOptions() {
+    return [
+      MeetingStatusOption(
+        id: '1',
+        name: 'scheduled',
+        displayName: 'Scheduled',
+        description: 'Meeting is scheduled and pending',
+        colorCode: '#2196F3',
+        iconName: 'schedule',
+        sortOrder: 1,
+        isActive: true,
+        isDefault: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+      MeetingStatusOption(
+        id: '2',
+        name: 'completed',
+        displayName: 'Completed',
+        description: 'Meeting has been completed successfully',
+        colorCode: '#4CAF50',
+        iconName: 'check_circle',
+        sortOrder: 2,
+        isActive: true,
+        isDefault: false,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+      MeetingStatusOption(
+        id: '3',
+        name: 'cancelled',
+        displayName: 'Cancelled',
+        description: 'Meeting has been cancelled',
+        colorCode: '#F44336',
+        iconName: 'cancel',
+        sortOrder: 3,
+        isActive: true,
+        isDefault: false,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+      MeetingStatusOption(
+        id: '4',
+        name: 'rescheduled',
+        displayName: 'Rescheduled',
+        description: 'Meeting has been rescheduled to a different time',
+        colorCode: '#FF9800',
+        iconName: 'update',
+        sortOrder: 4,
+        isActive: true,
+        isDefault: false,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    ];
+  }
+
+  Future<void> _updateMeetingStatus(String newStatus) async {
+    if (mounted) {
+      setState(() {
+        _isUpdatingStatus = true;
+      });
+    }
+
+    try {
+      final apiStatus = _getApiStatus(newStatus);
+      final statusEnum = SiteVisitStatus.values.firstWhere(
+        (e) => e.toString().split('.').last == apiStatus,
+        orElse: () => SiteVisitStatus.scheduled,
+      );
+
+      final response = await _siteVisitService.updateSiteVisitStatus(
+        widget.siteVisitId,
+        statusEnum,
+        'Status updated via mobile app',
+      );
+
+      if (response.success && response.data != null) {
+        if (mounted) {
+          setState(() {
+            _siteVisit = response.data;
+            _selectedMeetingStatus = newStatus;
+            _isUpdatingStatus = false;
+          });
+        }
+
+        // Refresh timeline data after status update
+        _fetchTimelineData();
+
+        _showSuccessSnackBar('Meeting status updated to: $newStatus');
+      } else {
+        if (mounted) {
+          setState(() {
+            _isUpdatingStatus = false;
+          });
+        }
+        _showErrorSnackBar(
+          response.message ?? 'Failed to update meeting status',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isUpdatingStatus = false;
+        });
+      }
+      _showErrorSnackBar('Error updating meeting status: $e');
+    }
+  }
+
+  void _showSuccessSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -69,44 +392,46 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: SlideTransition(
-          position: _slideAnimation,
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                // Header Information Card
-                _buildHeaderCard(),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : FadeTransition(
+              opacity: _fadeAnimation,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      // Header Information Card
+                      _buildHeaderCard(),
 
-                // Toggle Buttons
-                _buildToggleButtons(),
+                      // Toggle Buttons
+                      _buildToggleButtons(),
 
-                // Content based on toggle
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  transitionBuilder:
-                      (Widget child, Animation<double> animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.1),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        );
-                      },
-                  child: _isDetailsView
-                      ? _buildSiteVisitDetails()
-                      : _buildVisitHistory(),
+                      // Content based on toggle
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        transitionBuilder:
+                            (Widget child, Animation<double> animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0, 0.1),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              );
+                            },
+                        child: _isDetailsView
+                            ? _buildSiteVisitDetails()
+                            : _buildVisitHistory(),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -158,7 +483,9 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                   ),
                 ),
                 ElevatedButton(
-                  onPressed: () => _showMeetingStatusDialog(context),
+                  onPressed: _isUpdatingStatus
+                      ? null
+                      : () => _showMeetingStatusDialog(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
@@ -166,7 +493,18 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: const Text('Meeting Status'),
+                  child: _isUpdatingStatus
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : Text('Meeting Status: $_selectedMeetingStatus'),
                 ),
               ],
             ),
@@ -471,34 +809,10 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
   }
 
   Widget _buildVisitHistory() {
-    final List<Map<String, dynamic>> visitHistory = [
-      {
-        'date': DateTime.now().subtract(const Duration(days: 2)),
-        'status': 'Completed',
-        'description': 'Initial site visit completed successfully',
-        'duration': '2h 30m',
-        'attender': 'Sarah Wilson',
-        'notes':
-            'Customer showed great interest in 2BHK apartment. Discussed pricing and payment plans.',
-      },
-      {
-        'date': DateTime.now().subtract(const Duration(days: 1)),
-        'status': 'Follow-up',
-        'description': 'Follow-up call made to customer',
-        'duration': '15m',
-        'attender': 'John Doe',
-        'notes':
-            'Customer had some questions about amenities. Scheduled another visit.',
-      },
-      {
-        'date': DateTime.now(),
-        'status': 'Scheduled',
-        'description': 'Current visit scheduled',
-        'duration': '1h 30m',
-        'attender': 'Sarah Wilson',
-        'notes': 'Property inspection and site visit for 2 BHK apartment',
-      },
-    ];
+    // Use real timeline data from backend, fallback to empty list if loading or no data
+    final List<Map<String, dynamic>> visitHistory = _timelineData.isNotEmpty
+        ? _timelineData
+        : [];
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -533,20 +847,52 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                   ),
                 ),
                 const Spacer(),
-                Text(
-                  '${visitHistory.length} entries',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
+                if (_isLoadingTimeline)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  Text(
+                    '${visitHistory.length} entries',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          // Timeline Cards
-          ...visitHistory.asMap().entries.map((entry) {
-            final index = entry.key;
-            final visit = entry.value;
-            return _buildHistoryCard(visit, index, visitHistory.length);
-          }),
+          // Timeline Cards or Empty State
+          if (visitHistory.isEmpty && !_isLoadingTimeline)
+            Container(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  Icon(Icons.timeline, size: 48, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No timeline data available',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Timeline will appear here as activities are recorded',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            )
+          else
+            ...visitHistory.asMap().entries.map((entry) {
+              final index = entry.key;
+              final visit = entry.value;
+              return _buildHistoryCard(visit, index, visitHistory.length);
+            }),
         ],
       ),
     );
@@ -554,7 +900,35 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
 
   Widget _buildHistoryCard(Map<String, dynamic> visit, int index, int total) {
     final isLast = index == total - 1;
-    final statusColor = _getStatusColor(visit['status']);
+    final status = visit['status'] ?? visit['action'] ?? 'Unknown';
+    final statusColor = _getStatusColor(status);
+
+    // Parse date from various possible formats
+    DateTime? date;
+    if (visit['createdAt'] != null) {
+      try {
+        date = DateTime.parse(visit['createdAt']);
+      } catch (e) {
+        // Try alternative date fields
+        if (visit['date'] != null) {
+          try {
+            date = DateTime.parse(visit['date']);
+          } catch (e) {
+            date = DateTime.now();
+          }
+        } else {
+          date = DateTime.now();
+        }
+      }
+    } else if (visit['date'] != null) {
+      try {
+        date = DateTime.parse(visit['date']);
+      } catch (e) {
+        date = DateTime.now();
+      }
+    } else {
+      date = DateTime.now();
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -619,7 +993,7 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                         border: Border.all(color: statusColor.withOpacity(0.3)),
                       ),
                       child: Text(
-                        visit['status'],
+                        status,
                         style: TextStyle(
                           color: statusColor,
                           fontWeight: FontWeight.w600,
@@ -629,7 +1003,7 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                     ),
                     const Spacer(),
                     Text(
-                      _formatDate(visit['date']),
+                      _formatDate(date),
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 12,
@@ -642,7 +1016,10 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
 
                 // Description
                 Text(
-                  visit['description'],
+                  visit['description'] ??
+                      visit['message'] ??
+                      visit['notes'] ??
+                      'Activity recorded',
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
@@ -653,23 +1030,27 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                 // Details Row
                 Row(
                   children: [
-                    _buildHistoryDetail(
-                      Icons.access_time,
-                      visit['duration'],
-                      Colors.blue,
-                    ),
-                    const SizedBox(width: 16),
-                    _buildHistoryDetail(
-                      Icons.person,
-                      visit['attender'],
-                      Colors.green,
-                    ),
+                    if (visit['duration'] != null)
+                      _buildHistoryDetail(
+                        Icons.access_time,
+                        visit['duration'],
+                        Colors.blue,
+                      ),
+                    if (visit['duration'] != null && visit['attender'] != null)
+                      const SizedBox(width: 16),
+                    if (visit['attender'] != null || visit['userName'] != null)
+                      _buildHistoryDetail(
+                        Icons.person,
+                        visit['attender'] ?? visit['userName'] ?? 'Unknown',
+                        Colors.green,
+                      ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
                 // Notes
-                if (visit['notes'] != null) ...[
+                if (visit['notes'] != null &&
+                    visit['notes'] != visit['description']) ...[
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -738,6 +1119,27 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
     return '${date.day}/${date.month}/${date.year}';
   }
 
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+      case 'schedule':
+        return Icons.schedule;
+      case 'check_circle':
+        return Icons.check_circle;
+      case 'cancel':
+        return Icons.cancel;
+      case 'update':
+        return Icons.update;
+      case 'play_circle':
+        return Icons.play_circle;
+      case 'person_off':
+        return Icons.person_off;
+      case 'pause_circle':
+        return Icons.pause_circle;
+      default:
+        return Icons.info;
+    }
+  }
+
   void _showMeetingStatusDialog(BuildContext context) {
     String tempSelectedStatus = _selectedMeetingStatus;
 
@@ -761,68 +1163,90 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                     style: TextStyle(fontSize: 14),
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: tempSelectedStatus,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                  if (_isLoadingStatusOptions)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    DropdownButtonFormField<String>(
+                      value: tempSelectedStatus,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
+                      items: _meetingStatusOptions
+                          .where((option) => option.isActive)
+                          .map(
+                            (option) => DropdownMenuItem(
+                              value: option.displayName,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (option.iconName != null) ...[
+                                    Icon(
+                                      _getIconData(option.iconName!),
+                                      size: 16,
+                                      color: option.colorCode != null
+                                          ? Color(
+                                              int.parse(
+                                                    option.colorCode!.substring(
+                                                      1,
+                                                    ),
+                                                    radix: 16,
+                                                  ) +
+                                                  0xFF000000,
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Flexible(child: Text(option.displayName)),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            tempSelectedStatus = newValue;
+                          });
+                        }
+                      },
                     ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'Scheduled',
-                        child: Text('Scheduled'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Attended',
-                        child: Text('Attended'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Completed',
-                        child: Text('Completed'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Customer Not Interested',
-                        child: Text('Customer Not Interested'),
-                      ),
-                      DropdownMenuItem(value: 'Select', child: Text('Select')),
-                    ],
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        setState(() {
-                          tempSelectedStatus = newValue;
-                        });
-                      }
-                    },
-                  ),
                 ],
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: _isUpdatingStatus
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   child: const Text('Cancel'),
                 ),
                 FilledButton(
-                  onPressed: () {
-                    setState(() {
-                      _selectedMeetingStatus = tempSelectedStatus;
-                    });
-                    Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Meeting status updated to: $tempSelectedStatus',
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Text('Update Status'),
+                  onPressed: _isUpdatingStatus
+                      ? null
+                      : () async {
+                          if (tempSelectedStatus != _selectedMeetingStatus) {
+                            Navigator.of(context).pop();
+                            await _updateMeetingStatus(tempSelectedStatus);
+                          } else {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                  child: _isUpdatingStatus
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : const Text('Update Status'),
                 ),
               ],
             );

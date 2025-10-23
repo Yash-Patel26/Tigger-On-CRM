@@ -86,6 +86,8 @@ class ApiNetwork {
       '/projects/$id/site-visits';
   static String _siteVisitFeedback(String id) => '/site-visits/$id/feedback';
   static const String _siteVisitCalendar = '/site-visits/calendar';
+  static const String _siteVisitMeetingStatusOptions =
+      '/site-visits/meeting-status-options';
 
   // Tasks
   static const String _tasks = '/tasks';
@@ -635,6 +637,10 @@ class ApiNetwork {
     Map<String, dynamic>? query,
   }) {
     return _client.get(_siteVisitCalendar, query: query);
+  }
+
+  Future<Map<String, dynamic>> getSiteVisitMeetingStatusOptions() {
+    return _client.get(_siteVisitMeetingStatusOptions);
   }
 
   // ---- Task APIs ----

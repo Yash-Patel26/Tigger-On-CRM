@@ -1,4 +1,5 @@
 import '../models/site_visit_model.dart';
+import '../models/meeting_status_model.dart';
 import 'api_service.dart';
 
 class SiteVisitService {
@@ -323,6 +324,17 @@ class SiteVisitService {
       queryParams: queryParams,
       fromJson: (json) =>
           (json['data'] as List).map((e) => e as Map<String, dynamic>).toList(),
+    );
+  }
+
+  // Get meeting status options from master table
+  Future<ApiResponse<List<MeetingStatusOption>>>
+  getMeetingStatusOptions() async {
+    return await _apiService.get<List<MeetingStatusOption>>(
+      '/site-visits/meeting-status-options',
+      fromJson: (json) => (json['data'] as List)
+          .map((e) => MeetingStatusOption.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }

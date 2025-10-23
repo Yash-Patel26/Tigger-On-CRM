@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../../core/constants/constants.dart';
 import '../../shared/utils/platform_origin_stub.dart'
-    if (dart.library.html) 'platform_origin_web.dart'
-    as platformOrigin;
+    if (dart.library.html) '../../shared/utils/platform_origin_web.dart'
+    as platform_origin;
 
 class ApiResponse<T> {
   final bool success;
@@ -60,7 +60,7 @@ class ApiService {
   static String get _baseUrl {
     if (_envBaseUrl.isNotEmpty) return _envBaseUrl;
     if (_envFromOriginPath.isNotEmpty) {
-      final String? origin = platformOrigin.getWebOrigin();
+      final String? origin = platform_origin.getWebOrigin();
       if (origin != null && origin.isNotEmpty) {
         return origin + _envFromOriginPath;
       }
