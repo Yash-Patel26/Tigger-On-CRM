@@ -27,25 +27,41 @@ class SupabaseService {
 
   // Profile methods
   static Future<Map<String, dynamic>?> getProfile(String userId) async {
-    // First try to get from users table (primary source)
-    final userResponse = await client
-        .from('users')
-        .select()
-        .eq('id', userId)
-        .maybeSingle();
-
-    if (userResponse != null) {
-      return userResponse;
-    }
-
-    // Fallback to profiles table if not found in users
+    // First try to get from profiles table (has metadata with all profile details)
     final profileResponse = await client
         .from('profiles')
         .select()
         .eq('id', userId)
         .maybeSingle();
 
-    return profileResponse;
+    if (profileResponse != null) {
+      // Get additional data from users table and merge
+      final userResponse = await client
+          .from('users')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (userResponse != null) {
+        // Merge user data with profile data, prioritizing profile data for metadata
+        return {
+          ...userResponse,
+          ...profileResponse,
+          // Ensure metadata comes from profiles table
+          'metadata': profileResponse['metadata'],
+        };
+      }
+      return profileResponse;
+    }
+
+    // Fallback to users table if not found in profiles
+    final userResponse = await client
+        .from('users')
+        .select()
+        .eq('id', userId)
+        .maybeSingle();
+
+    return userResponse;
   }
 
   static Future<void> updateProfile({

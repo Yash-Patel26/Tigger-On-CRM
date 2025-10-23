@@ -122,6 +122,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
         _locationNames['project'] = project['name'];
       }
+
+      // Update UI after loading location names
+      if (mounted) {
+        setState(() {});
+      }
     } catch (e) {
       print('Error loading location names: $e');
     }
@@ -131,6 +136,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final userId = SupabaseService.currentUser?.id;
     if (userId != null) {
       setState(() {
+        _locationNames.clear(); // Clear cached location names
         _profileFuture = _loadProfile(userId);
       });
     }
