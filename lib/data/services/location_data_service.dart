@@ -118,8 +118,8 @@ class LocationDataService {
     String? excludeUserId,
   }) async {
     try {
-      // Check in users table metadata
-      var query = client.from('users').select('id').contains('metadata', {
+      // Check only in profiles table metadata (users table doesn't have metadata column)
+      var query = client.from('profiles').select('id').contains('metadata', {
         'aadhar': aadhar,
       });
 
@@ -129,19 +129,7 @@ class LocationDataService {
 
       final response = await query;
 
-      // Also check in profiles table metadata
-      var profileQuery = client.from('profiles').select('id').contains(
-        'metadata',
-        {'aadhar': aadhar},
-      );
-
-      if (excludeUserId != null) {
-        profileQuery = profileQuery.neq('id', excludeUserId);
-      }
-
-      final profileResponse = await profileQuery;
-
-      return response.isEmpty && profileResponse.isEmpty;
+      return response.isEmpty;
     } catch (e) {
       print('Error checking Aadhar uniqueness: $e');
       return true; // Return true to allow saving if check fails
@@ -151,8 +139,8 @@ class LocationDataService {
   /// Check if PAN number is unique
   static Future<bool> isPANUnique(String pan, {String? excludeUserId}) async {
     try {
-      // Check in users table metadata
-      var query = client.from('users').select('id').contains('metadata', {
+      // Check only in profiles table metadata (users table doesn't have metadata column)
+      var query = client.from('profiles').select('id').contains('metadata', {
         'pan': pan.toUpperCase(),
       });
 
@@ -162,19 +150,7 @@ class LocationDataService {
 
       final response = await query;
 
-      // Also check in profiles table metadata
-      var profileQuery = client.from('profiles').select('id').contains(
-        'metadata',
-        {'pan': pan.toUpperCase()},
-      );
-
-      if (excludeUserId != null) {
-        profileQuery = profileQuery.neq('id', excludeUserId);
-      }
-
-      final profileResponse = await profileQuery;
-
-      return response.isEmpty && profileResponse.isEmpty;
+      return response.isEmpty;
     } catch (e) {
       print('Error checking PAN uniqueness: $e');
       return true; // Return true to allow saving if check fails

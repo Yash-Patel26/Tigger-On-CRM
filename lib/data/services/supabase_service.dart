@@ -83,7 +83,7 @@ class SupabaseService {
       }
     }
 
-    // Update users table first
+    // Update users table first (without metadata since it doesn't exist in users table)
     await client
         .from('users')
         .update({
@@ -92,7 +92,6 @@ class SupabaseService {
           'designation': designation,
           'role': role,
           'profile_image_url': avatarUrl,
-          'metadata': metadata,
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('id', userId);
