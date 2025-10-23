@@ -330,7 +330,10 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
         }
 
         // Refresh timeline data after status update
-        _fetchTimelineData();
+        await _fetchTimelineData();
+
+        // Refresh site visit data to get latest info
+        await _fetchSiteVisitData();
 
         _showSuccessSnackBar('Meeting status updated to: $newStatus');
       } else {
@@ -462,7 +465,8 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.siteVisitData['customerName'] ??
+                        _siteVisit?.customerName ??
+                            widget.siteVisitData['customerName'] ??
                             'Unknown Customer',
                         style: TextStyle(
                           fontSize: 24,
@@ -472,11 +476,11 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Lead Id : ${widget.siteVisitData['leadId'] ?? 'N/A'}',
+                        'Lead Id : ${_siteVisit?.leadId ?? widget.siteVisitData['leadId'] ?? 'N/A'}',
                         style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                       Text(
-                        'Contact : ${widget.siteVisitData['customerPhone'] ?? 'N/A'}',
+                        'Contact : ${_siteVisit?.customerPhone ?? widget.siteVisitData['customerPhone'] ?? 'N/A'}',
                         style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
@@ -504,7 +508,7 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                             ),
                           ),
                         )
-                      : Text('Meeting Status: $_selectedMeetingStatus'),
+                      : Text(_selectedMeetingStatus),
                 ),
               ],
             ),
@@ -512,19 +516,27 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
             // Key details in clean format
             _buildCleanDetailRow(
               'Project:',
-              widget.siteVisitData['projectName'] ?? 'N/A',
+              _siteVisit?.projectName ??
+                  widget.siteVisitData['projectName'] ??
+                  'N/A',
             ),
             _buildCleanDetailRow(
               'Visit Mode:',
-              widget.siteVisitData['visitMode'] ?? 'N/A',
+              _siteVisit?.visitMode.toString().split('.').last ??
+                  widget.siteVisitData['visitMode'] ??
+                  'N/A',
             ),
             _buildCleanDetailRow(
               'Status:',
-              widget.siteVisitData['status'] ?? 'N/A',
+              _siteVisit?.status.toString().split('.').last ??
+                  widget.siteVisitData['status'] ??
+                  'N/A',
             ),
             _buildCleanDetailRow(
               'Telecaller:',
-              widget.siteVisitData['telecallerName'] ?? 'N/A',
+              _siteVisit?.telecallerName ??
+                  widget.siteVisitData['telecallerName'] ??
+                  'N/A',
             ),
             _buildCleanDetailRow(
               'Assigned At:',
@@ -611,14 +623,20 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
   }
 
   String _calculateMeetingDuration() {
-    final String? fromString = widget.siteVisitData['meetingFrom'];
-    final String? toString = widget.siteVisitData['meetingTo'];
+    final DateTime? from =
+        _siteVisit?.meetingFrom ??
+        (widget.siteVisitData['meetingFrom'] != null
+            ? DateTime.tryParse(widget.siteVisitData['meetingFrom'])
+            : null);
+    final DateTime? to =
+        _siteVisit?.meetingTo ??
+        (widget.siteVisitData['meetingTo'] != null
+            ? DateTime.tryParse(widget.siteVisitData['meetingTo'])
+            : null);
 
-    if (fromString == null || toString == null) return 'N/A';
+    if (from == null || to == null) return 'N/A';
 
     try {
-      final DateTime from = DateTime.parse(fromString);
-      final DateTime to = DateTime.parse(toString);
       final Duration duration = to.difference(from);
 
       final int hours = duration.inHours;
@@ -750,11 +768,17 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
               children: [
                 _buildCleanDetailRow(
                   'From:',
-                  _formatDateTime(widget.siteVisitData['meetingFrom']),
+                  _formatDateTime(
+                    _siteVisit?.meetingFrom?.toIso8601String() ??
+                        widget.siteVisitData['meetingFrom'],
+                  ),
                 ),
                 _buildCleanDetailRow(
                   'To:',
-                  _formatDateTime(widget.siteVisitData['meetingTo']),
+                  _formatDateTime(
+                    _siteVisit?.meetingTo?.toIso8601String() ??
+                        widget.siteVisitData['meetingTo'],
+                  ),
                 ),
                 _buildCleanDetailRow(
                   'Total Meeting Time:',
@@ -794,11 +818,15 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
                 const SizedBox(height: 12),
                 _buildCleanDetailRow(
                   'Purpose Of Meeting:',
-                  widget.siteVisitData['purpose'] ?? 'N/A',
+                  _siteVisit?.purpose ??
+                      widget.siteVisitData['purpose'] ??
+                      'N/A',
                 ),
                 _buildCleanDetailRow(
                   'Address:',
-                  widget.siteVisitData['address'] ?? 'N/A',
+                  _siteVisit?.address ??
+                      widget.siteVisitData['address'] ??
+                      'N/A',
                 ),
               ],
             ),

@@ -269,9 +269,10 @@ class SiteVisitService {
     String siteVisitId,
   ) async {
     return await _apiService.get<List<Map<String, dynamic>>>(
-      '/site-visits/$siteVisitId/timeline',
+      '/site_visit_timeline?site_visit_id=eq.$siteVisitId',
+      queryParams: {'order': 'created_at.desc'},
       fromJson: (json) =>
-          (json['data'] as List).map((e) => e as Map<String, dynamic>).toList(),
+          (json as List).map((e) => e as Map<String, dynamic>).toList(),
     );
   }
 
