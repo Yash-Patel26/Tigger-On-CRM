@@ -24,45 +24,46 @@ class SiteVisitService {
     int limit = 20,
   }) async {
     final queryParams = <String, String>{
-      'page': page.toString(),
       'limit': limit.toString(),
+      'offset': ((page - 1) * limit).toString(),
     };
 
     if (search != null && search.isNotEmpty) {
-      queryParams['search'] = search;
+      queryParams['or'] =
+          'purpose.ilike.%$search%,notes.ilike.%$search%,customer_name.ilike.%$search%';
     }
     if (status != null) {
-      queryParams['status'] = status.toString().split('.').last;
+      queryParams['status'] = 'eq.${status.toString().split('.').last}';
     }
     if (visitMode != null) {
-      queryParams['visitMode'] = visitMode.toString().split('.').last;
+      queryParams['visit_mode'] = 'eq.${visitMode.toString().split('.').last}';
     }
     if (visitType != null) {
-      queryParams['visitType'] = visitType.toString().split('.').last;
+      queryParams['visit_type'] = 'eq.${visitType.toString().split('.').last}';
     }
     if (customerId != null) {
-      queryParams['customerId'] = customerId;
+      queryParams['customer_id'] = 'eq.$customerId';
     }
     if (projectId != null) {
-      queryParams['projectId'] = projectId;
+      queryParams['project_id'] = 'eq.$projectId';
     }
     if (telecallerId != null) {
-      queryParams['telecallerId'] = telecallerId;
+      queryParams['telecaller_id'] = 'eq.$telecallerId';
     }
     if (attenderId != null) {
-      queryParams['attenderId'] = attenderId;
+      queryParams['attender_id'] = 'eq.$attenderId';
     }
     if (fromDate != null) {
-      queryParams['fromDate'] = fromDate.toIso8601String();
+      queryParams['meeting_from'] = 'gte.${fromDate.toIso8601String()}';
     }
     if (toDate != null) {
-      queryParams['toDate'] = toDate.toIso8601String();
+      queryParams['meeting_to'] = 'lte.${toDate.toIso8601String()}';
     }
 
     return await _apiService.get<List<SiteVisit>>(
-      '/site-visits',
+      '/site_visits',
       queryParams: queryParams,
-      fromJson: (json) => (json['data'] as List)
+      fromJson: (json) => (json as List)
           .map((e) => SiteVisit.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
@@ -71,19 +72,29 @@ class SiteVisitService {
   // Get site visit by ID
   Future<ApiResponse<SiteVisit>> getSiteVisit(String id) async {
     return await _apiService.get<SiteVisit>(
-      '/site-visits/$id',
-      fromJson: (json) =>
-          SiteVisit.fromJson(json['data'] as Map<String, dynamic>),
+      '/site_visits?id=eq.$id',
+      fromJson: (json) {
+        final List<dynamic> data = json as List;
+        if (data.isEmpty) {
+          throw Exception('Site visit not found');
+        }
+        return SiteVisit.fromJson(data.first as Map<String, dynamic>);
+      },
     );
   }
 
   // Create new site visit
   Future<ApiResponse<SiteVisit>> createSiteVisit(SiteVisit siteVisit) async {
     return await _apiService.post<SiteVisit>(
-      '/site-visits',
+      '/site_visits',
       body: siteVisit.toJson(),
-      fromJson: (json) =>
-          SiteVisit.fromJson(json['data'] as Map<String, dynamic>),
+      fromJson: (json) {
+        final List<dynamic> data = json as List;
+        if (data.isEmpty) {
+          throw Exception('Failed to create site visit');
+        }
+        return SiteVisit.fromJson(data.first as Map<String, dynamic>);
+      },
     );
   }
 
@@ -93,16 +104,21 @@ class SiteVisitService {
     SiteVisit siteVisit,
   ) async {
     return await _apiService.put<SiteVisit>(
-      '/site-visits/$id',
+      '/site_visits?id=eq.$id',
       body: siteVisit.toJson(),
-      fromJson: (json) =>
-          SiteVisit.fromJson(json['data'] as Map<String, dynamic>),
+      fromJson: (json) {
+        final List<dynamic> data = json as List;
+        if (data.isEmpty) {
+          throw Exception('Site visit not found');
+        }
+        return SiteVisit.fromJson(data.first as Map<String, dynamic>);
+      },
     );
   }
 
   // Delete site visit
   Future<ApiResponse<void>> deleteSiteVisit(String id) async {
-    return await _apiService.delete<void>('/site-visits/$id');
+    return await _apiService.delete<void>('/site_visits?id=eq.$id');
   }
 
   // Update site visit status
@@ -111,14 +127,25 @@ class SiteVisitService {
     SiteVisitStatus status,
     String? notes,
   ) async {
+    final body = <String, dynamic>{
+      'status': status.toString().split('.').last,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    if (notes != null) {
+      body['notes'] = notes;
+    }
+
     return await _apiService.patch<SiteVisit>(
-      '/site-visits/$siteVisitId/status',
-      body: {
-        'status': status.toString().split('.').last,
-        if (notes != null) 'notes': notes,
+      '/site_visits?id=eq.$siteVisitId',
+      body: body,
+      fromJson: (json) {
+        final List<dynamic> data = json as List;
+        if (data.isEmpty) {
+          throw Exception('Site visit not found');
+        }
+        return SiteVisit.fromJson(data.first as Map<String, dynamic>);
       },
-      fromJson: (json) =>
-          SiteVisit.fromJson(json['data'] as Map<String, dynamic>),
     );
   }
 
@@ -331,8 +358,9 @@ class SiteVisitService {
   Future<ApiResponse<List<MeetingStatusOption>>>
   getMeetingStatusOptions() async {
     return await _apiService.get<List<MeetingStatusOption>>(
-      '/site-visits/meeting-status-options',
-      fromJson: (json) => (json['data'] as List)
+      '/meeting_status_options?is_active=eq.true',
+      queryParams: {'order': 'sort_order'},
+      fromJson: (json) => (json as List)
           .map((e) => MeetingStatusOption.fromJson(e as Map<String, dynamic>))
           .toList(),
     );

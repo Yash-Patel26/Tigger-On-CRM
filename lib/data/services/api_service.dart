@@ -94,6 +94,8 @@ class ApiService {
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      'apikey': AppConstants.supabaseAnonKey,
+      'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
     };
 
     if (_authToken != null) {

@@ -66,28 +66,32 @@ class ApiNetwork {
   static String _projectPropertyTypes(String id) =>
       '/projects/$id/property-types';
 
-  // Site Visits
-  static const String _siteVisits = '/site-visits';
-  static String _siteVisitById(String id) => '/site-visits/$id';
-  static String _siteVisitStatus(String id) => '/site-visits/$id/status';
-  static String _siteVisitComplete(String id) => '/site-visits/$id/complete';
-  static String _siteVisitReschedule(String id) =>
-      '/site-visits/$id/reschedule';
-  static String _siteVisitAssign(String id) => '/site-visits/$id/assign';
-  static const String _siteVisitsStats = '/site-visits/stats';
-  static const String _siteVisitsToday = '/site-visits/today';
-  static const String _siteVisitsUpcoming = '/site-visits/upcoming';
-  static const String _siteVisitsLapsed = '/site-visits/lapsed';
-  static String _siteVisitTimeline(String id) => '/site-visits/$id/timeline';
-  static String _leadSiteVisits(String leadId) => '/leads/$leadId/site-visits';
+  // Site Visits - PostgREST endpoints
+  static const String _siteVisits = '/site_visits';
+  static String _siteVisitById(String id) => '/site_visits?id=eq.$id';
+  static String _siteVisitStatus(String id) => '/site_visits?id=eq.$id';
+  static String _siteVisitComplete(String id) => '/site_visits?id=eq.$id';
+  static String _siteVisitReschedule(String id) => '/site_visits?id=eq.$id';
+  static String _siteVisitAssign(String id) => '/site_visits?id=eq.$id';
+  static const String _siteVisitsStats = '/site_visits';
+  static const String _siteVisitsToday =
+      '/site_visits?meeting_from=gte.now()&meeting_from=lt.tomorrow';
+  static const String _siteVisitsUpcoming =
+      '/site_visits?meeting_from=gte.now()';
+  static const String _siteVisitsLapsed =
+      '/site_visits?meeting_from=lt.now()&status=eq.scheduled';
+  static String _siteVisitTimeline(String id) =>
+      '/site_visit_timeline?site_visit_id=eq.$id';
+  static String _leadSiteVisits(String leadId) =>
+      '/site_visits?lead_id=eq.$leadId';
   static String _customerSiteVisitsByCustomer(String id) =>
-      '/customers/$id/site-visits';
+      '/site_visits?customer_id=eq.$id';
   static String _projectSiteVisitsByProject(String id) =>
-      '/projects/$id/site-visits';
-  static String _siteVisitFeedback(String id) => '/site-visits/$id/feedback';
-  static const String _siteVisitCalendar = '/site-visits/calendar';
+      '/site_visits?project_id=eq.$id';
+  static String _siteVisitFeedback(String id) => '/site_visits?id=eq.$id';
+  static const String _siteVisitCalendar = '/site_visits';
   static const String _siteVisitMeetingStatusOptions =
-      '/site-visits/meeting-status-options';
+      '/meeting_status_options';
 
   // Tasks
   static const String _tasks = '/tasks';

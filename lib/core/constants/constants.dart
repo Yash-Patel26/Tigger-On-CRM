@@ -15,12 +15,9 @@ class AppConstants {
   static const int darkOnBackgroundColor = 0xFFEAF7FC;
 
   // API Configuration
-  // Update this per-environment. Examples:
-  //  - Android emulator to local backend: http://10.0.2.2:3000/v1
-  //  - iOS simulator to local backend: http://127.0.0.1:3000/v1
-  //  - Staging: https://staging.your-domain.com/v1
-  //  - Production: https://api.your-domain.com/v1
-  static const String baseUrl = 'https://api.tiggeron.com/v1';
+  // Using Supabase PostgREST API for direct database access
+  static const String baseUrl =
+      'https://tyntmzyinafmuwzirifb.supabase.co/rest/v1';
   static const Duration apiTimeout = Duration(seconds: 30);
   static const int maxRetryAttempts = 3;
 
