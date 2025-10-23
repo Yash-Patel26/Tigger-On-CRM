@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../../data/services/supabase_service.dart';
 import '../../../data/services/location_data_service.dart';
 import '../../../data/models/profile_model.dart';
 import '../../../shared/utils/validation_utils.dart';
+import '../../../shared/managers/auth_state_manager.dart';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -381,8 +383,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).maybePop();
+                      onPressed: () async {
+                        final authManager = Provider.of<AuthStateManager>(
+                          context,
+                          listen: false,
+                        );
+                        await authManager.signOut();
+                        // AuthStateManager will handle navigation automatically
                       },
                       icon: const Icon(Icons.logout),
                       label: const Text('Log out'),

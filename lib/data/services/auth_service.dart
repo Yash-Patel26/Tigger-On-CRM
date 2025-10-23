@@ -63,6 +63,29 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Static method for sign in with email and password
+  static Future<bool> signInWithEmailStatic({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      // Check internet connectivity first
+      final bool hasInternet = await ConnectivityHelper.hasInternetConnection();
+      if (!hasInternet) {
+        return false;
+      }
+
+      final response = await signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      return response.user != null;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /// Sign in with email and password, tracking location
   static Future<supabase.AuthResponse> signInWithPassword({
     required String email,

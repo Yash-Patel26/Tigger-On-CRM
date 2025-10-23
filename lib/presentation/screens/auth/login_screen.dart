@@ -2,10 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../presentation/pages/widgets/animated_glowing_logo.dart';
-import '../../../core/utils/page_transitions.dart';
-import '../../../presentation/screens/dashboard/home_screen.dart';
 import '../../../presentation/pages/widgets/splash_background.dart';
-import '../../../../data/services/auth_service.dart';
+import '../../../../shared/managers/auth_state_manager.dart';
 import '../../../shared/utils/connectivity_helper.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -40,23 +38,20 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    final authService = Provider.of<AuthService>(context, listen: false);
+    final authManager = Provider.of<AuthStateManager>(context, listen: false);
 
-    final success = await authService.signInWithEmail(
+    final success = await authManager.signInWithEmail(
       email: _emailController.text.trim(),
       password: _passwordController.text,
     );
 
     if (success && mounted) {
-      // Supabase Flutter persists the session securely; this enables auto-login on restart
-      // No extra storage needed; we just navigate to Home
-      Navigator.of(context).pushReplacement(
-        SmoothPageTransitions.slideFromRight<void>(child: const HomeScreen()),
-      );
+      // AuthStateManager handles navigation automatically
+      // No need to manually navigate as the AuthWrapper will handle routing
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authService.error ?? 'Login failed'),
+          content: Text(authManager.error ?? 'Login failed'),
           backgroundColor: Colors.red,
         ),
       );
@@ -187,15 +182,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                 },
                               ),
                               const SizedBox(height: 16),
-                              Consumer<AuthService>(
-                                builder: (context, authService, child) {
+                              Consumer<AuthStateManager>(
+                                builder: (context, authManager, child) {
                                   return SizedBox(
                                     width: double.infinity,
                                     child: FilledButton(
-                                      onPressed: authService.isLoading
+                                      onPressed: authManager.isLoading
                                           ? null
                                           : _handleLogin,
-                                      child: authService.isLoading
+                                      child: authManager.isLoading
                                           ? const SizedBox(
                                               height: 20,
                                               width: 20,
