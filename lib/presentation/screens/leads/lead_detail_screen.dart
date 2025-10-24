@@ -8719,8 +8719,8 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
     };
 
     for (final activity in activities) {
-      final type =
-          activity['activity_type'] as String? ?? activity['type'] as String?;
+      // Use activity_type field which contains the actual activity type
+      final type = activity['activity_type'] as String?;
 
       switch (type?.toLowerCase()) {
         case 'disposition_change':
@@ -9880,6 +9880,10 @@ class _ActivityLogCard extends StatelessWidget {
         return const Icon(Icons.person_add, color: Colors.orange);
       case ActivityType.statusChanged:
         return const Icon(Icons.swap_horiz, color: Colors.purple);
+      case ActivityType.dispositionChange:
+        return const Icon(Icons.category, color: Colors.deepPurple);
+      case ActivityType.siteVisit:
+        return const Icon(Icons.location_on, color: Colors.teal);
       case ActivityType.siteVisitScheduled:
         return const Icon(Icons.calendar_today, color: Colors.teal);
       case ActivityType.siteVisitCompleted:

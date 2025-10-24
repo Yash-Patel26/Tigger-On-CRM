@@ -3,6 +3,8 @@ enum ActivityType {
   updated,
   assigned,
   statusChanged,
+  dispositionChange,
+  siteVisit,
   siteVisitScheduled,
   siteVisitCompleted,
   taskCreated,
@@ -45,10 +47,16 @@ class LeadActivity {
     return LeadActivity(
       id: json['id'] as String,
       leadId: json['lead_id'] as String,
-      type: ActivityType.values.firstWhere(
-        (e) => e.toString().split('.').last == json['type'],
-        orElse: () => ActivityType.updated,
-      ),
+      type: ActivityType.values.firstWhere((e) {
+        final enumName = e.toString().split('.').last;
+        final dbType = json['type'] as String;
+        // Convert snake_case to camelCase for comparison
+        final camelCaseType = dbType.replaceAllMapped(
+          RegExp(r'_([a-z])'),
+          (match) => match.group(1)!.toUpperCase(),
+        );
+        return enumName == camelCaseType;
+      }, orElse: () => ActivityType.updated),
       action: json['action'] as String,
       description: json['description'] as String,
       performedBy: json['performed_by'] as String,
