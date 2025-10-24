@@ -1,5 +1,6 @@
 import '../models/models.dart';
 import '../services/database_service.dart';
+import '../services/database_service_masters.dart' as masters;
 
 class LeadService {
   LeadService();
@@ -258,6 +259,25 @@ class LeadService {
     try {
       // Aggregate events from related entities
       final List<Map<String, dynamic>> timeline = [];
+
+      // Fetch lead activities (including communication activities)
+      final activities = await masters.DatabaseServiceMasters.getLeadActivities(
+        leadId: leadId,
+        limit: 200,
+      );
+
+      for (final activity in activities) {
+        timeline.add({
+          'type': 'activity',
+          'timestamp': activity.createdAt.toIso8601String(),
+          'activity_type': activity.type.toString().split('.').last,
+          'action': activity.action,
+          'description': activity.description,
+          'performed_by': activity.performedByName,
+          'metadata': activity.metadata,
+          'id': activity.id,
+        });
+      }
 
       // Site visits for this lead
       final visits = await DatabaseService.getSiteVisits(

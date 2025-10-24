@@ -8,6 +8,7 @@ import '../projects/site_visit_detail_screen.dart';
 import '../../../../data/repositories/lead_repository.dart';
 import '../../../../data/services/database_service.dart';
 import '../../../../data/services/database_service_masters.dart' as masters;
+import '../../../../data/services/master_data_service.dart';
 import '../../../../data/models/models.dart';
 
 class LeadDetailScreen extends StatefulWidget {
@@ -142,6 +143,36 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                                 );
                                 final String? url =
                                     await Helpers.uploadLastRecordingToSupabase();
+
+                                // Log call activity with recording URL if available
+                                try {
+                                  final currentUser = supabase
+                                      .Supabase
+                                      .instance
+                                      .client
+                                      .auth
+                                      .currentUser;
+                                  final String userId =
+                                      currentUser?.id ?? 'system';
+                                  final String userName =
+                                      (currentUser?.userMetadata?['name']
+                                          as String?) ??
+                                      'System User';
+
+                                  await masters
+                                      .DatabaseServiceMasters.logCallInitiated(
+                                    leadId: lead.id,
+                                    phoneNumber: lead.phone,
+                                    performedBy: userId,
+                                    performedByName: userName,
+                                    recordingUrl: url,
+                                  );
+                                } catch (e) {
+                                  print(
+                                    'Warning: Failed to log call activity: $e',
+                                  );
+                                }
+
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -191,22 +222,23 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                             _IconAction(
                               assetPng: 'assets/icons/email.png',
                               tooltip: 'Email',
-                              onTap: () => _launchEmail(lead.email),
+                              onTap: () => _launchEmail(lead.email, lead.id),
                             ),
                             _IconAction(
                               assetPng: 'assets/icons/conversation.png',
                               tooltip: 'SMS',
-                              onTap: () => _launchSms(lead.phone),
+                              onTap: () => _launchSms(lead.phone, lead.id),
                             ),
                             _IconAction(
                               assetPng: 'assets/icons/whatsapp.png',
                               tooltip: 'WhatsApp',
-                              onTap: () => _launchWhatsApp(lead.phone),
+                              onTap: () => _launchWhatsApp(lead.phone, lead.id),
                             ),
                             _IconAction(
                               assetPng: 'assets/icons/whatsapp.png',
                               tooltip: 'Offline WA',
-                              onTap: () => _launchWhatsAppWeb(lead.phone),
+                              onTap: () =>
+                                  _launchWhatsAppWeb(lead.phone, lead.id),
                             ),
                           ],
                         );
@@ -834,7 +866,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
     try {
       // Get current user info
       final currentUser = supabase.Supabase.instance.client.auth.currentUser;
-      final String? userId = currentUser?.id;
+      final String userId = currentUser?.id ?? 'system';
       final String userName =
           (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
 
@@ -888,7 +920,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
         mainDispositionName: mainDispositionName,
         subDispositionName: subDispositionName,
         disposedBy: _initiatedBy.toLowerCase(),
-        performedBy: userId ?? 'system',
+        performedBy: userId,
         performedByName: userName,
         remarks: _remarkCtrl.text.trim().isNotEmpty
             ? _remarkCtrl.text.trim()
@@ -900,7 +932,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
         leadId: leadUuid,
         mainDispositionName: mainDispositionName,
         subDispositionName: subDispositionName,
-        performedBy: userId ?? 'system',
+        performedBy: userId,
         performedByName: userName,
       );
 
@@ -909,7 +941,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
         leadId: leadUuid,
         mainDispositionName: mainDispositionName,
         subDispositionName: subDispositionName,
-        performedBy: userId ?? 'system',
+        performedBy: userId,
         performedByName: userName,
         // Use current lead's assigned user for follow-up
         assignedTo:
@@ -1151,7 +1183,7 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
                             (Map<String, dynamic> e) => e['id'] == v,
                             orElse: () => <String, dynamic>{},
                           );
-                          _selectedUserName = (sel?['name'] ?? '-') as String;
+                          _selectedUserName = (sel['name'] ?? '-') as String;
                         }),
                         decoration: const InputDecoration(
                           labelText: 'Assign to',
@@ -1646,7 +1678,7 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                                     (Map<String, dynamic> e) => e['id'] == v,
                                     orElse: () => <String, dynamic>{},
                                   );
-                              allocatedTo = (user?['name'] ?? '-') as String;
+                              allocatedTo = (user['name'] ?? '-') as String;
                             }),
                             decoration: const InputDecoration(
                               labelText: 'Assigned To',
@@ -3792,14 +3824,31 @@ Future<String?> _promptPhone(BuildContext context, {String? initial}) async {
   );
 }
 
-void _launchSms(String phoneNumber) async {
+void _launchSms(String phoneNumber, String leadId) async {
   final Uri uri = Uri(scheme: 'sms', path: phoneNumber);
   if (await canLaunchUrl(uri)) {
     await launchUrl(uri);
+
+    // Log SMS activity
+    try {
+      final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+      final String userId = currentUser?.id ?? 'system';
+      final String userName =
+          (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
+
+      await masters.DatabaseServiceMasters.logMessageInitiated(
+        leadId: leadId,
+        phoneNumber: phoneNumber,
+        performedBy: userId,
+        performedByName: userName,
+      );
+    } catch (e) {
+      print('Warning: Failed to log SMS activity: $e');
+    }
   }
 }
 
-void _launchEmail(String email) async {
+void _launchEmail(String email, String leadId) async {
   final Uri uri = Uri(
     scheme: 'mailto',
     path: email,
@@ -3807,24 +3856,77 @@ void _launchEmail(String email) async {
   );
   if (await canLaunchUrl(uri)) {
     await launchUrl(uri);
+
+    // Log email activity
+    try {
+      final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+      final String userId = currentUser?.id ?? 'system';
+      final String userName =
+          (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
+
+      await masters.DatabaseServiceMasters.logEmailInitiated(
+        leadId: leadId,
+        emailAddress: email,
+        performedBy: userId,
+        performedByName: userName,
+      );
+    } catch (e) {
+      print('Warning: Failed to log email activity: $e');
+    }
   }
 }
 
-void _launchWhatsApp(String phoneNumber) async {
+void _launchWhatsApp(String phoneNumber, String leadId) async {
   String clean = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
   if (!clean.startsWith('91') && clean.length == 10) clean = '91$clean';
   final Uri uri = Uri.parse('https://wa.me/$clean');
   if (await canLaunchUrl(uri)) {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+    // Log WhatsApp activity
+    try {
+      final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+      final String userId = currentUser?.id ?? 'system';
+      final String userName =
+          (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
+
+      await masters.DatabaseServiceMasters.logWhatsAppInitiated(
+        leadId: leadId,
+        phoneNumber: phoneNumber,
+        performedBy: userId,
+        performedByName: userName,
+        isOffline: false,
+      );
+    } catch (e) {
+      print('Warning: Failed to log WhatsApp activity: $e');
+    }
   }
 }
 
-void _launchWhatsAppWeb(String phoneNumber) async {
+void _launchWhatsAppWeb(String phoneNumber, String leadId) async {
   String clean = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
   if (!clean.startsWith('91') && clean.length == 10) clean = '91$clean';
   final Uri uri = Uri.parse('https://web.whatsapp.com/send?phone=$clean');
   if (await canLaunchUrl(uri)) {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+    // Log offline WhatsApp activity
+    try {
+      final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+      final String userId = currentUser?.id ?? 'system';
+      final String userName =
+          (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
+
+      await masters.DatabaseServiceMasters.logWhatsAppInitiated(
+        leadId: leadId,
+        phoneNumber: phoneNumber,
+        performedBy: userId,
+        performedByName: userName,
+        isOffline: true,
+      );
+    } catch (e) {
+      print('Warning: Failed to log offline WhatsApp activity: $e');
+    }
   }
 }
 
@@ -5214,7 +5316,7 @@ class _TaskTabState extends State<_TaskTab> {
                                               orElse: () => <String, dynamic>{},
                                             );
                                         assignTo =
-                                            (user?['name'] ?? '-') as String;
+                                            (user['name'] ?? '-') as String;
                                       }),
                                       decoration: const InputDecoration(
                                         labelText: 'Assign To *',
@@ -5828,14 +5930,6 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
     );
   }
 
-  // Removed key/value badges display
-
-  // Removed project dropdown and inventory list per requirement.
-
-  // Removed unused action chip helpers
-
-  // Removed unused URL/share helpers
-
   Future<void> _openAddPropertyOptionScreen() async {
     final Map<String, String>? result = await Navigator.of(context).push(
       MaterialPageRoute<Map<String, String>>(
@@ -5843,7 +5937,6 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
       ),
     );
     if (result != null) {
-      // In a real flow, persist to backend and refresh projects/options as needed
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -5870,8 +5963,97 @@ class _CreatePropertyOptionScreenState
   String cityValue = '';
   String location = '';
   final TextEditingController _descCtrl = TextEditingController();
-  final List<Project> _projects = <Project>[];
   final Set<String> _selectedProjectIds = <String>{};
+
+  // Data lists for dropdowns
+  List<OptionType> _optionTypes = <OptionType>[];
+  List<Project> _projectNames = <Project>[];
+  List<PropertyCategory> _categories = <PropertyCategory>[];
+  List<PropertyTypeMaster> _propertyTypes = <PropertyTypeMaster>[];
+  List<StateMaster> _states = <StateMaster>[];
+  List<City> _cities = <City>[];
+  List<Location> _locations = <Location>[];
+  List<Inventory> _inventories = <Inventory>[];
+
+  // Loading states
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      // Load all data in parallel
+      final results = await Future.wait([
+        MasterDataService.getOptionTypes(),
+        MasterDataService.getProjects(),
+        MasterDataService.getPropertyCategories(),
+        MasterDataService.getPropertyTypesMaster(),
+        MasterDataService.getStates(),
+        MasterDataService.getInventories(),
+      ]);
+
+      setState(() {
+        _optionTypes = results[0] as List<OptionType>;
+        _projectNames = results[1] as List<Project>;
+        _categories = results[2] as List<PropertyCategory>;
+        _propertyTypes = results[3] as List<PropertyTypeMaster>;
+        _states = results[4] as List<StateMaster>;
+        _inventories = results[5] as List<Inventory>;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      // Handle error - could show a snackbar or error message
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
+      }
+    }
+  }
+
+  Future<void> _loadCities(String stateId) async {
+    try {
+      final cities = await MasterDataService.getCities(stateId: stateId);
+      setState(() {
+        _cities = cities;
+        cityValue = ''; // Reset city when state changes
+        location = ''; // Reset location when state changes
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading cities: $e')));
+      }
+    }
+  }
+
+  Future<void> _loadLocations(String cityId) async {
+    try {
+      final locations = await MasterDataService.getLocations(cityId: cityId);
+      setState(() {
+        _locations = locations;
+        location = ''; // Reset location when city changes
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading locations: $e')));
+      }
+    }
+  }
 
   void _clear() {
     setState(() {
@@ -5883,6 +6065,13 @@ class _CreatePropertyOptionScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Create Property Option')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Create Property Option')),
       body: SingleChildScrollView(
@@ -5913,11 +6102,11 @@ class _CreatePropertyOptionScreenState
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       initialValue: optionType.isEmpty ? null : optionType,
-                      items: const <String>['Fresh', 'Resale']
+                      items: _optionTypes
                           .map(
-                            (String e) => DropdownMenuItem<String>(
-                              value: e,
-                              child: Text(e),
+                            (OptionType e) => DropdownMenuItem<String>(
+                              value: e.name,
+                              child: Text(e.name),
                             ),
                           )
                           .toList(),
@@ -5935,19 +6124,14 @@ class _CreatePropertyOptionScreenState
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       initialValue: projectName.isEmpty ? null : projectName,
-                      items:
-                          const <String>[
-                                'Green Valley Heights',
-                                'Business Park Plaza',
-                                'Luxury Gardens',
-                              ]
-                              .map(
-                                (String e) => DropdownMenuItem<String>(
-                                  value: e,
-                                  child: Text(e),
-                                ),
-                              )
-                              .toList(),
+                      items: _projectNames
+                          .map(
+                            (Project e) => DropdownMenuItem<String>(
+                              value: e.name,
+                              child: Text(e.name),
+                            ),
+                          )
+                          .toList(),
                       onChanged: (String? v) =>
                           setState(() => projectName = v ?? projectName),
                       decoration: const InputDecoration(
@@ -5962,11 +6146,11 @@ class _CreatePropertyOptionScreenState
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       initialValue: category.isEmpty ? null : category,
-                      items: const <String>['Residential', 'Commercial']
+                      items: _categories
                           .map(
-                            (String e) => DropdownMenuItem<String>(
-                              value: e,
-                              child: Text(e),
+                            (PropertyCategory e) => DropdownMenuItem<String>(
+                              value: e.name,
+                              child: Text(e.name),
                             ),
                           )
                           .toList(),
@@ -5982,15 +6166,14 @@ class _CreatePropertyOptionScreenState
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       initialValue: propertyType.isEmpty ? null : propertyType,
-                      items:
-                          const <String>['Apartment', 'Villa', 'Office', 'Shop']
-                              .map(
-                                (String e) => DropdownMenuItem<String>(
-                                  value: e,
-                                  child: Text(e),
-                                ),
-                              )
-                              .toList(),
+                      items: _propertyTypes
+                          .map(
+                            (PropertyTypeMaster e) => DropdownMenuItem<String>(
+                              value: e.name,
+                              child: Text(e.name),
+                            ),
+                          )
+                          .toList(),
                       onChanged: (String? v) =>
                           setState(() => propertyType = v ?? propertyType),
                       decoration: const InputDecoration(
@@ -6011,23 +6194,31 @@ class _CreatePropertyOptionScreenState
                                 initialValue: stateValue.isEmpty
                                     ? null
                                     : stateValue,
-                                items:
-                                    const <String>[
-                                          'Gujarat',
-                                          'Maharashtra',
-                                          'Haryana',
-                                        ]
-                                        .map(
-                                          (String e) =>
-                                              DropdownMenuItem<String>(
-                                                value: e,
-                                                child: Text(e),
-                                              ),
-                                        )
-                                        .toList(),
-                                onChanged: (String? v) => setState(
-                                  () => stateValue = v ?? stateValue,
-                                ),
+                                items: _states
+                                    .map(
+                                      (StateMaster e) =>
+                                          DropdownMenuItem<String>(
+                                            value: e.name,
+                                            child: Text(e.name),
+                                          ),
+                                    )
+                                    .toList(),
+                                onChanged: (String? v) {
+                                  setState(() {
+                                    stateValue = v ?? stateValue;
+                                    cityValue = ''; // Reset city
+                                    location = ''; // Reset location
+                                    _cities.clear(); // Clear cities list
+                                    _locations.clear(); // Clear locations list
+                                  });
+                                  if (v != null) {
+                                    // Find the selected state and load its cities
+                                    final selectedState = _states.firstWhere(
+                                      (state) => state.name == v,
+                                    );
+                                    _loadCities(selectedState.id);
+                                  }
+                                },
                                 decoration: const InputDecoration(
                                   border: OutlineInputBorder(),
                                   hintText: 'Select',
@@ -6047,22 +6238,28 @@ class _CreatePropertyOptionScreenState
                                 initialValue: cityValue.isEmpty
                                     ? null
                                     : cityValue,
-                                items:
-                                    const <String>[
-                                          'Ahmedabad',
-                                          'Mumbai',
-                                          'Gurugram',
-                                        ]
-                                        .map(
-                                          (String e) =>
-                                              DropdownMenuItem<String>(
-                                                value: e,
-                                                child: Text(e),
-                                              ),
-                                        )
-                                        .toList(),
-                                onChanged: (String? v) =>
-                                    setState(() => cityValue = v ?? cityValue),
+                                items: _cities
+                                    .map(
+                                      (City e) => DropdownMenuItem<String>(
+                                        value: e.name,
+                                        child: Text(e.name),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (String? v) {
+                                  setState(() {
+                                    cityValue = v ?? cityValue;
+                                    location = ''; // Reset location
+                                    _locations.clear(); // Clear locations list
+                                  });
+                                  if (v != null) {
+                                    // Find the selected city and load its locations
+                                    final selectedCity = _cities.firstWhere(
+                                      (city) => city.name == v,
+                                    );
+                                    _loadLocations(selectedCity.id);
+                                  }
+                                },
                                 decoration: const InputDecoration(
                                   border: OutlineInputBorder(),
                                   hintText: 'Select',
@@ -6078,11 +6275,11 @@ class _CreatePropertyOptionScreenState
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       initialValue: location.isEmpty ? null : location,
-                      items: const <String>['Gift City', 'NH 48, Part 2']
+                      items: _locations
                           .map(
-                            (String e) => DropdownMenuItem<String>(
-                              value: e,
-                              child: Text(e),
+                            (Location e) => DropdownMenuItem<String>(
+                              value: e.name,
+                              child: Text(e.name),
                             ),
                           )
                           .toList(),
@@ -6229,44 +6426,8 @@ class _CreatePropertyOptionScreenState
   );
 
   Widget _buildProjectsList() {
-    // Use repository if available; for now build demo if empty
-    final List<Project> items = _projects.isNotEmpty
-        ? _projects
-        : <Project>[
-            Project(
-              id: 'p1',
-              name: '32 Milestone',
-              developerId: 'd1',
-              developerName: 'XYZ Dev',
-              type: ProjectType.residential,
-              status: ProjectStatus.planning,
-              city: 'Gurugram',
-              state: 'Haryana',
-              startingPrice: 15000,
-              priceUnit: 'Square Feet',
-              isActive: true,
-              createdBy: 'sys',
-              createdByName: 'System',
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            ),
-            Project(
-              id: 'p2',
-              name: '3B Homes Pataudi One',
-              developerId: 'd2',
-              developerName: 'ABC Dev',
-              type: ProjectType.residential,
-              status: ProjectStatus.planning,
-              city: 'Gurugram',
-              state: 'Haryana',
-              startingPrice: 0,
-              isActive: true,
-              createdBy: 'sys',
-              createdByName: 'System',
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            ),
-          ];
+    // Use fetched projects from database
+    final List<Project> items = _projectNames;
 
     return Scrollbar(
       child: ListView.separated(
@@ -6388,8 +6549,102 @@ class _CreatePropertyOptionScreenState
   }
 
   Widget _buildInventoriesList() {
-    // No inventories API wired yet; show empty list
-    return const Center(child: Text('No inventories'));
+    if (_inventories.isEmpty) {
+      return const Center(child: Text('No inventories available'));
+    }
+
+    return Scrollbar(
+      child: ListView.separated(
+        itemCount: _inventories.length,
+        separatorBuilder: (_, __) => const Divider(height: 16),
+        itemBuilder: (BuildContext context, int i) {
+          final Inventory inventory = _inventories[i];
+          final String priceText =
+              inventory.price != null && inventory.price! > 0
+              ? '₹ ${inventory.price!.toStringAsFixed(0)} / ${inventory.priceUnit ?? ''}'
+                    .trim()
+              : '-';
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Checkbox(
+                value: false, // You can add inventory selection logic here
+                onChanged: (bool? v) {
+                  // Handle inventory selection
+                },
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      inventory.name,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (inventory.unitNumber != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Unit: ${inventory.unitNumber}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    RichText(
+                      text: TextSpan(
+                        style: Theme.of(context).textTheme.bodySmall,
+                        children: <TextSpan>[
+                          const TextSpan(
+                            text: 'Price : ',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextSpan(
+                            text: priceText,
+                            style: const TextStyle(color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    RichText(
+                      text: TextSpan(
+                        style: Theme.of(context).textTheme.bodySmall,
+                        children: <TextSpan>[
+                          const TextSpan(
+                            text: 'Status : ',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextSpan(
+                            text: inventory.isAvailable
+                                ? 'Available'
+                                : 'Not Available',
+                            style: TextStyle(
+                              color: inventory.isAvailable
+                                  ? Colors.green
+                                  : Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -7713,7 +7968,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                             (Map<String, dynamic> e) => e['id'] == v,
                             orElse: () => <String, dynamic>{},
                           );
-                          selectedUserName = (user?['name'] ?? '-') as String;
+                          selectedUserName = (user['name'] ?? '-') as String;
                         },
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
@@ -8359,11 +8614,14 @@ class _TimelineCard extends StatelessWidget {
         for (final Map<String, dynamic> it in items) ...<Widget>[
           _TimelineItem(
             type: it['type'] as String?,
+            activityType: it['activity_type'] as String?,
             title: it['title'] as String?,
             description: it['notes'] as String? ?? it['description'] as String?,
             timestamp:
                 it['timestamp'] as String? ?? it['created_at'] as String?,
-            performedBy: it['performed_by_name'] as String?,
+            performedBy:
+                it['performed_by'] as String? ??
+                it['performed_by_name'] as String?,
             metadata: it['metadata'] as Map<String, dynamic>?,
           ),
           const Divider(height: 16),
@@ -8375,6 +8633,7 @@ class _TimelineCard extends StatelessWidget {
 
 class _TimelineItem extends StatelessWidget {
   final String? type;
+  final String? activityType;
   final String? title;
   final String? description;
   final String? timestamp;
@@ -8383,6 +8642,7 @@ class _TimelineItem extends StatelessWidget {
 
   const _TimelineItem({
     this.type,
+    this.activityType,
     this.title,
     this.description,
     this.timestamp,
@@ -8392,6 +8652,9 @@ class _TimelineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Use activityType if available, otherwise fall back to type
+    final String? displayType = activityType ?? type;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -8399,13 +8662,13 @@ class _TimelineItem extends StatelessWidget {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: _getIconColor(type).withOpacity(0.1),
+            color: _getIconColor(displayType).withOpacity(0.1),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Icon(
-            _getIconForType(type),
+            _getIconForType(displayType),
             size: 18,
-            color: _getIconColor(type),
+            color: _getIconColor(displayType),
           ),
         ),
         const SizedBox(width: 12),
@@ -8417,7 +8680,7 @@ class _TimelineItem extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      _getDisplayTitle(type, title),
+                      _getDisplayTitle(displayType, title),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -8479,14 +8742,20 @@ class _TimelineItem extends StatelessWidget {
     switch (type?.toLowerCase()) {
       case 'call':
       case 'phone_call':
+      case 'call_initiated':
         return Icons.phone;
       case 'email':
       case 'email_sent':
+      case 'email_initiated':
         return Icons.email;
       case 'message':
       case 'sms':
-      case 'whatsapp':
+      case 'message_initiated':
         return Icons.message;
+      case 'whatsapp':
+      case 'whatsapp_initiated':
+      case 'offline_whatsapp_initiated':
+        return Icons.chat;
       case 'site_visit':
       case 'site_visit_scheduled':
         return Icons.location_on;
@@ -8524,14 +8793,20 @@ class _TimelineItem extends StatelessWidget {
     switch (type?.toLowerCase()) {
       case 'call':
       case 'phone_call':
+      case 'call_initiated':
         return Colors.green;
       case 'email':
       case 'email_sent':
+      case 'email_initiated':
         return Colors.blue;
       case 'message':
       case 'sms':
-      case 'whatsapp':
+      case 'message_initiated':
         return Colors.orange;
+      case 'whatsapp':
+      case 'whatsapp_initiated':
+      case 'offline_whatsapp_initiated':
+        return Colors.green;
       case 'site_visit':
       case 'site_visit_scheduled':
         return Colors.teal;
@@ -8573,15 +8848,21 @@ class _TimelineItem extends StatelessWidget {
     switch (type?.toLowerCase()) {
       case 'call':
       case 'phone_call':
-        return 'Call Made';
+      case 'call_initiated':
+        return 'Call Initiated';
       case 'email':
       case 'email_sent':
-        return 'Email Sent';
+      case 'email_initiated':
+        return 'Email Initiated';
       case 'message':
       case 'sms':
-        return 'Message Sent';
+      case 'message_initiated':
+        return 'SMS Initiated';
       case 'whatsapp':
-        return 'WhatsApp Message';
+      case 'whatsapp_initiated':
+        return 'WhatsApp Initiated';
+      case 'offline_whatsapp_initiated':
+        return 'Offline WhatsApp Initiated';
       case 'site_visit':
       case 'site_visit_scheduled':
         return 'Site Visit Scheduled';
@@ -8759,6 +9040,16 @@ class _ActivityLogCard extends StatelessWidget {
         return const Icon(Icons.trending_up, color: Colors.green);
       case ActivityType.closed:
         return const Icon(Icons.close, color: Colors.red);
+      case ActivityType.callInitiated:
+        return const Icon(Icons.call, color: Colors.green);
+      case ActivityType.emailInitiated:
+        return const Icon(Icons.email, color: Colors.blue);
+      case ActivityType.messageInitiated:
+        return const Icon(Icons.message, color: Colors.orange);
+      case ActivityType.whatsappInitiated:
+        return const Icon(Icons.chat, color: Colors.green);
+      case ActivityType.offlineWhatsappInitiated:
+        return const Icon(Icons.chat_bubble_outline, color: Colors.green);
     }
   }
 

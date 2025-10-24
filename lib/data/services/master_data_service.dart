@@ -110,6 +110,141 @@ class MasterDataService {
     }
   }
 
+  // Option Types
+  static Future<List<OptionType>> getOptionTypes() async {
+    try {
+      final response = await _client
+          .from('option_types')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+
+      return (response as List)
+          .map((json) => OptionType.fromJson(json))
+          .toList();
+    } catch (e) {
+      // If table doesn't exist, return default option types
+      return const [
+        OptionType(id: '1', name: 'Fresh', isActive: true),
+        OptionType(id: '2', name: 'Resale', isActive: true),
+      ];
+    }
+  }
+
+  // States
+  static Future<List<StateMaster>> getStates({String? countryId}) async {
+    try {
+      var query = _client.from('states').select('*').eq('is_active', true);
+
+      if (countryId != null) {
+        query = query.eq('country_id', countryId);
+      }
+
+      final response = await query.order('name');
+      return (response as List)
+          .map((json) => StateMaster.fromJson(json))
+          .toList();
+    } catch (e) {
+      // If table doesn't exist, return default states
+      return const [
+        StateMaster(id: '1', name: 'Gujarat', countryId: '1', isActive: true),
+        StateMaster(
+          id: '2',
+          name: 'Maharashtra',
+          countryId: '1',
+          isActive: true,
+        ),
+        StateMaster(id: '3', name: 'Haryana', countryId: '1', isActive: true),
+        StateMaster(id: '4', name: 'Delhi', countryId: '1', isActive: true),
+        StateMaster(id: '5', name: 'Karnataka', countryId: '1', isActive: true),
+      ];
+    }
+  }
+
+  // Cities
+  static Future<List<City>> getCities({String? stateId}) async {
+    try {
+      var query = _client.from('cities').select('*').eq('is_active', true);
+
+      if (stateId != null) {
+        query = query.eq('state_id', stateId);
+      }
+
+      final response = await query.order('name');
+      return (response as List).map((json) => City.fromJson(json)).toList();
+    } catch (e) {
+      // If table doesn't exist, return default cities
+      return const [
+        City(id: '1', name: 'Ahmedabad', stateId: '1', isActive: true),
+        City(id: '2', name: 'Mumbai', stateId: '2', isActive: true),
+        City(id: '3', name: 'Gurugram', stateId: '3', isActive: true),
+        City(id: '4', name: 'New Delhi', stateId: '4', isActive: true),
+        City(id: '5', name: 'Bangalore', stateId: '5', isActive: true),
+      ];
+    }
+  }
+
+  // Locations
+  static Future<List<Location>> getLocations({String? cityId}) async {
+    try {
+      var query = _client.from('locations').select('*').eq('is_active', true);
+
+      if (cityId != null) {
+        query = query.eq('city_id', cityId);
+      }
+
+      final response = await query.order('name');
+      return (response as List).map((json) => Location.fromJson(json)).toList();
+    } catch (e) {
+      // If table doesn't exist, return default locations
+      return const [
+        Location(id: '1', name: 'Gift City', cityId: '1', isActive: true),
+        Location(id: '2', name: 'NH 48, Part 2', cityId: '1', isActive: true),
+        Location(
+          id: '3',
+          name: 'Bandra Kurla Complex',
+          cityId: '2',
+          isActive: true,
+        ),
+        Location(id: '4', name: 'Cyber City', cityId: '3', isActive: true),
+        Location(id: '5', name: 'Connaught Place', cityId: '4', isActive: true),
+      ];
+    }
+  }
+
+  // Projects
+  static Future<List<Project>> getProjects() async {
+    try {
+      final response = await _client
+          .from('projects')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+
+      return (response as List).map((json) => Project.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Failed to fetch projects: $e');
+    }
+  }
+
+  // Inventories
+  static Future<List<Inventory>> getInventories({String? projectId}) async {
+    try {
+      var query = _client.from('inventories').select('*').eq('is_active', true);
+
+      if (projectId != null) {
+        query = query.eq('project_id', projectId);
+      }
+
+      final response = await query.order('name');
+      return (response as List)
+          .map((json) => Inventory.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch inventories: $e');
+    }
+  }
+
   // Assignment Users
   static Future<List<AssignmentUser>> getAssignmentUsers() async {
     try {

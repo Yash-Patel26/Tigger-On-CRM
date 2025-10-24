@@ -279,4 +279,104 @@ class DatabaseServiceMasters {
       throw Exception('Failed to log task created: $e');
     }
   }
+
+  // Communication Activity Logging
+  static Future<void> logCallInitiated({
+    required String leadId,
+    required String phoneNumber,
+    required String performedBy,
+    required String performedByName,
+    String? recordingUrl,
+  }) async {
+    try {
+      await _client.from('lead_activities').insert({
+        'lead_id': leadId,
+        'type': 'call_initiated',
+        'action': 'call_initiated',
+        'description': 'Call initiated to $phoneNumber',
+        'performed_by': performedBy,
+        'performed_by_name': performedByName,
+        'metadata': {
+          'phone_number': phoneNumber,
+          if (recordingUrl != null) 'recording_url': recordingUrl,
+        },
+      });
+    } catch (e) {
+      throw Exception('Failed to log call initiated: $e');
+    }
+  }
+
+  static Future<void> logEmailInitiated({
+    required String leadId,
+    required String emailAddress,
+    required String performedBy,
+    required String performedByName,
+  }) async {
+    try {
+      await _client.from('lead_activities').insert({
+        'lead_id': leadId,
+        'type': 'email_initiated',
+        'action': 'email_initiated',
+        'description': 'Email initiated to $emailAddress',
+        'performed_by': performedBy,
+        'performed_by_name': performedByName,
+        'metadata': {'email_address': emailAddress},
+      });
+    } catch (e) {
+      throw Exception('Failed to log email initiated: $e');
+    }
+  }
+
+  static Future<void> logMessageInitiated({
+    required String leadId,
+    required String phoneNumber,
+    required String performedBy,
+    required String performedByName,
+  }) async {
+    try {
+      await _client.from('lead_activities').insert({
+        'lead_id': leadId,
+        'type': 'message_initiated',
+        'action': 'message_initiated',
+        'description': 'SMS initiated to $phoneNumber',
+        'performed_by': performedBy,
+        'performed_by_name': performedByName,
+        'metadata': {'phone_number': phoneNumber},
+      });
+    } catch (e) {
+      throw Exception('Failed to log message initiated: $e');
+    }
+  }
+
+  static Future<void> logWhatsAppInitiated({
+    required String leadId,
+    required String phoneNumber,
+    required String performedBy,
+    required String performedByName,
+    bool isOffline = false,
+  }) async {
+    try {
+      final type = isOffline
+          ? 'offline_whatsapp_initiated'
+          : 'whatsapp_initiated';
+      final action = isOffline
+          ? 'offline_whatsapp_initiated'
+          : 'whatsapp_initiated';
+      final description = isOffline
+          ? 'Offline WhatsApp initiated to $phoneNumber'
+          : 'WhatsApp initiated to $phoneNumber';
+
+      await _client.from('lead_activities').insert({
+        'lead_id': leadId,
+        'type': type,
+        'action': action,
+        'description': description,
+        'performed_by': performedBy,
+        'performed_by_name': performedByName,
+        'metadata': {'phone_number': phoneNumber, 'is_offline': isOffline},
+      });
+    } catch (e) {
+      throw Exception('Failed to log WhatsApp initiated: $e');
+    }
+  }
 }

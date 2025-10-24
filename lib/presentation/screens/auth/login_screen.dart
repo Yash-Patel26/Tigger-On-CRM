@@ -46,8 +46,9 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success && mounted) {
-      // AuthStateManager handles navigation automatically
-      // No need to manually navigate as the AuthWrapper will handle routing
+      // Pop the login screen and email login screen to return to AuthWrapper
+      // AuthWrapper will handle routing to HomeScreen
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

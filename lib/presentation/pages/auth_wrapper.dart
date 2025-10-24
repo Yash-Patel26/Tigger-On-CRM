@@ -5,6 +5,7 @@ import '../../presentation/pages/splash_screen.dart';
 import '../../presentation/screens/auth/email_login_screen.dart';
 import '../../presentation/screens/dashboard/home_screen.dart';
 import '../../core/utils/page_transitions.dart';
+import '../../data/services/follow_up_notification_service.dart';
 
 /// Wrapper widget that handles authentication state and routing
 class AuthWrapper extends StatefulWidget {
@@ -21,6 +22,19 @@ class _AuthWrapperState extends State<AuthWrapper> {
     // Initialize auth state when the wrapper is created
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthStateManager>().initialize();
+      // Start follow-up notification checks when user is authenticated
+      _checkAndStartFollowUpNotifications();
+    });
+  }
+
+  void _checkAndStartFollowUpNotifications() {
+    // Check periodically if user is authenticated and start follow-up notifications
+    Future.delayed(const Duration(seconds: 2), () {
+      final authManager = context.read<AuthStateManager>();
+      if (authManager.isAuthenticated) {
+        // Start periodic follow-up notification checks
+        FollowUpNotificationService.startPeriodicCheck();
+      }
     });
   }
 
@@ -28,22 +42,30 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Widget build(BuildContext context) {
     return Consumer<AuthStateManager>(
       builder: (context, authManager, child) {
-        // Show splash screen while initializing
-        if (!authManager.isInitialized || authManager.isLoading) {
-          return SplashScreen(
-            nextPageBuilder: (_) => const AuthWrapper(),
-          );
+        // Debug logging
+        debugPrint(
+          'AuthWrapper rebuild - isInitialized: ${authManager.isInitialized}, isAuthenticated: ${authManager.isAuthenticated}, isLoading: ${authManager.isLoading}',
+        );
+
+        // Show splash screen only during initial app load (checking for existing session)
+        // Not during login attempts
+        if (!authManager.isInitialized) {
+          debugPrint('AuthWrapper: Showing splash screen');
+          return SplashScreen(nextPageBuilder: (_) => const AuthWrapper());
         }
 
         // Show error screen if there's an error during initialization
         if (authManager.error != null && !authManager.isAuthenticated) {
+          debugPrint('AuthWrapper: Showing error screen');
           return _buildErrorScreen(context, authManager);
         }
 
         // Route based on authentication status
         if (authManager.isAuthenticated) {
+          debugPrint('AuthWrapper: Showing HomeScreen');
           return const HomeScreen();
         } else {
+          debugPrint('AuthWrapper: Showing EmailLoginScreen');
           return const EmailLoginScreen();
         }
       },

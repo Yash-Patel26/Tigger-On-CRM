@@ -129,14 +129,34 @@ class AuthStateManager extends ChangeNotifier {
       );
 
       if (success) {
-        _isAuthenticated = true;
-        _currentUser = _supabase.auth.currentUser;
-        debugPrint('Sign in successful: ${_currentUser?.email}');
+        // Get the current user and session after successful login
+        final supabase.User? user = _supabase.auth.currentUser;
+        final supabase.Session? session = _supabase.auth.currentSession;
+
+        debugPrint(
+          'Sign in successful - user: ${user?.email}, session: ${session != null}',
+        );
+
+        if (user != null && session != null) {
+          _isAuthenticated = true;
+          _currentUser = user;
+          debugPrint('Setting _isAuthenticated = true and notifying listeners');
+          // Notify listeners immediately after successful login
+          notifyListeners();
+        } else {
+          debugPrint('Sign in failed: No user session');
+          _setError('Sign in failed: No user session');
+        }
       } else {
+        debugPrint('Sign in failed: success = false');
         _setError('Sign in failed');
       }
 
+      debugPrint('Setting loading to false');
       _setLoading(false);
+      debugPrint(
+        'Final state - isAuthenticated: $_isAuthenticated, isLoading: $_isLoading',
+      );
       return success;
     } catch (e) {
       _setError('Sign in error: $e');

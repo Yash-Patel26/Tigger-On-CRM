@@ -11,6 +11,11 @@ enum ActivityType {
   followUpScheduled,
   converted,
   closed,
+  callInitiated,
+  emailInitiated,
+  messageInitiated,
+  whatsappInitiated,
+  offlineWhatsappInitiated,
 }
 
 class LeadActivity {
