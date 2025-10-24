@@ -332,7 +332,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                       // Removed Schedule Follow-up card per spec
                       _CollapsibleCard(
                         title: 'Timeline',
-                        child: _TimelineCompact(leadId: lead.id),
+                        child: _TabbedTimelineCard(leadId: lead.id),
                       ),
                       const SizedBox(height: 12),
                       _CollapsibleCard(
@@ -8602,6 +8602,862 @@ class _PreferencesCardState extends State<_PreferencesCard> {
 }
 
 // _MediaAttachmentsCard removed from Lead Detail tab
+
+class _TabbedTimelineCard extends StatefulWidget {
+  const _TabbedTimelineCard({required this.leadId});
+  final String leadId;
+
+  @override
+  State<_TabbedTimelineCard> createState() => _TabbedTimelineCardState();
+}
+
+class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  Map<String, List<Map<String, dynamic>>> _activitiesByType = {};
+  bool _isLoading = true;
+  supabase.RealtimeChannel? _timelineChannel;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 8, vsync: this);
+    _loadActivities();
+    _subscribeToTimelineUpdates();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _timelineChannel?.unsubscribe();
+    super.dispose();
+  }
+
+  Future<void> _loadActivities() async {
+    try {
+      print('Loading activities for lead: ${widget.leadId}');
+      final response = await LeadRepository().getLeadTimeline(widget.leadId);
+      final activities = response.data ?? [];
+      print('Found ${activities.length} activities');
+
+      // If no activities exist, populate sample data
+      if (activities.isEmpty) {
+        print('No activities found, populating sample data...');
+        try {
+          // Get lead details for sample data
+          final leadResponse = await LeadRepository().getLead(widget.leadId);
+          if (leadResponse.success && leadResponse.data != null) {
+            final lead = leadResponse.data!;
+            print(
+              'Lead details: ${lead.customerName}, ${lead.phone}, ${lead.email}',
+            );
+
+            await masters.DatabaseServiceMasters.ensureLeadHasActivities(
+              leadId: widget.leadId,
+              customerName: lead.customerName,
+              phoneNumber: lead.phone,
+              emailAddress: lead.email,
+            );
+            print('Sample data populated successfully');
+
+            // Reload activities after populating
+            final newResponse = await LeadRepository().getLeadTimeline(
+              widget.leadId,
+            );
+            print('Reloaded activities: ${newResponse.data?.length ?? 0}');
+
+            if (mounted) {
+              setState(() {
+                _activitiesByType = _categorizeActivities(
+                  newResponse.data ?? [],
+                );
+                _isLoading = false;
+              });
+            }
+            return;
+          } else {
+            print('Failed to get lead details: ${leadResponse.error}');
+          }
+        } catch (e) {
+          print('Error populating sample data: $e');
+        }
+      }
+
+      if (mounted) {
+        final categorized = _categorizeActivities(activities);
+        print('Categorized activities:');
+        categorized.forEach((key, value) {
+          print('  $key: ${value.length} activities');
+        });
+        setState(() {
+          _activitiesByType = categorized;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading activities: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Map<String, List<Map<String, dynamic>>> _categorizeActivities(
+    List<Map<String, dynamic>> activities,
+  ) {
+    final Map<String, List<Map<String, dynamic>>> categorized = {
+      'disposition': [],
+      'call': [],
+      'allocation': [],
+      'sms': [],
+      'email': [],
+      'whatsapp': [],
+      'visitor': [],
+      'offline': [],
+    };
+
+    for (final activity in activities) {
+      final type =
+          activity['activity_type'] as String? ?? activity['type'] as String?;
+
+      switch (type?.toLowerCase()) {
+        case 'disposition_change':
+          categorized['disposition']!.add(activity);
+          break;
+        case 'call_initiated':
+        case 'call':
+          categorized['call']!.add(activity);
+          break;
+        case 'assigned':
+        case 'assignment':
+          categorized['allocation']!.add(activity);
+          break;
+        case 'message_initiated':
+        case 'sms':
+        case 'message':
+          categorized['sms']!.add(activity);
+          break;
+        case 'email_initiated':
+        case 'email':
+        case 'email_sent':
+          categorized['email']!.add(activity);
+          break;
+        case 'whatsapp_initiated':
+        case 'whatsapp':
+          categorized['whatsapp']!.add(activity);
+          break;
+        case 'offline_whatsapp_initiated':
+          categorized['offline']!.add(activity);
+          break;
+        case 'site_visit':
+        case 'visitor':
+          categorized['visitor']!.add(activity);
+          break;
+        default:
+          // Add to a general category or skip
+          break;
+      }
+    }
+
+    return categorized;
+  }
+
+  void _subscribeToTimelineUpdates() {
+    final client = supabase.Supabase.instance.client;
+    _timelineChannel = client
+        .channel('tabbed_timeline_${widget.leadId}')
+        .onPostgresChanges(
+          event: supabase.PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'lead_activities',
+          filter: supabase.PostgresChangeFilter(
+            type: supabase.PostgresChangeFilterType.eq,
+            column: 'lead_id',
+            value: widget.leadId,
+          ),
+          callback: (supabase.PostgresChangePayload payload) {
+            _loadActivities();
+          },
+        )
+        .subscribe();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabs: const [
+            Tab(text: 'Disposition Log'),
+            Tab(text: 'Call Log'),
+            Tab(text: 'Allocation Log'),
+            Tab(text: 'SMS Log'),
+            Tab(text: 'Email Log'),
+            Tab(text: 'WhatsApp Log'),
+            Tab(text: 'Visitor Log'),
+            Tab(text: 'Offline Log'),
+          ],
+        ),
+        SizedBox(
+          height: 400,
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _DispositionLogTab(activities: _activitiesByType['disposition']!),
+              _CallLogTab(activities: _activitiesByType['call']!),
+              _AllocationLogTab(activities: _activitiesByType['allocation']!),
+              _SmsLogTab(activities: _activitiesByType['sms']!),
+              _EmailLogTab(activities: _activitiesByType['email']!),
+              _WhatsAppLogTab(activities: _activitiesByType['whatsapp']!),
+              _VisitorLogTab(activities: _activitiesByType['visitor']!),
+              _OfflineLogTab(activities: _activitiesByType['offline']!),
+            ],
+          ),
+        ),
+        // Debug button to manually populate data
+        if (_activitiesByType.values.every((list) => list.isEmpty))
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: ElevatedButton(
+              onPressed: () async {
+                print('Manual data population triggered');
+                await _loadActivities();
+              },
+              child: const Text('Populate Sample Data'),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// Individual tab widgets for each log type
+class _DispositionLogTab extends StatelessWidget {
+  const _DispositionLogTab({required this.activities});
+  final List<Map<String, dynamic>> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    if (activities.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('No disposition logs found'),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: activities.length,
+      itemBuilder: (context, index) {
+        final activity = activities[index];
+        final metadata = activity['metadata'] as Map<String, dynamic>? ?? {};
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildField(
+                  'Disposed At',
+                  _formatTimestamp(activity['created_at']),
+                ),
+                _buildField(
+                  'Disposed By',
+                  activity['performed_by_name'] ?? 'Unknown',
+                ),
+                _buildField(
+                  'Disposed From',
+                  metadata['old_values']?['sub_status'] ?? '-',
+                ),
+                _buildField(
+                  'Disposed To',
+                  metadata['new_values']?['sub_status'] ?? '-',
+                ),
+                _buildField('Remark', metadata['remarks'] ?? '-'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimestamp(String? timestamp) {
+    if (timestamp == null) return '-';
+    try {
+      final dateTime = DateTime.parse(timestamp);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return timestamp;
+    }
+  }
+}
+
+class _CallLogTab extends StatelessWidget {
+  const _CallLogTab({required this.activities});
+  final List<Map<String, dynamic>> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    if (activities.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('No call logs found'),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: activities.length,
+      itemBuilder: (context, index) {
+        final activity = activities[index];
+        final metadata = activity['metadata'] as Map<String, dynamic>? ?? {};
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildField('Phone', metadata['phone_number'] ?? '-'),
+                _buildField('Status', 'Initiated'),
+                _buildField(
+                  'Call Time',
+                  _formatTimestamp(activity['created_at']),
+                ),
+                _buildField('Duration', metadata['duration'] ?? '-'),
+                _buildField(
+                  'Called By',
+                  activity['performed_by_name'] ?? 'Unknown',
+                ),
+                _buildField('Recording URL', metadata['recording_url'] ?? '-'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimestamp(String? timestamp) {
+    if (timestamp == null) return '-';
+    try {
+      final dateTime = DateTime.parse(timestamp);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return timestamp;
+    }
+  }
+}
+
+class _AllocationLogTab extends StatelessWidget {
+  const _AllocationLogTab({required this.activities});
+  final List<Map<String, dynamic>> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    if (activities.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('No allocation logs found'),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: activities.length,
+      itemBuilder: (context, index) {
+        final activity = activities[index];
+        final metadata = activity['metadata'] as Map<String, dynamic>? ?? {};
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildField(
+                  'Assigned By',
+                  activity['performed_by_name'] ?? 'Unknown',
+                ),
+                _buildField('Assigned To', metadata['assigned_to_name'] ?? '-'),
+                _buildField(
+                  'Assigned At',
+                  _formatTimestamp(activity['created_at']),
+                ),
+                _buildField('Description', activity['description'] ?? '-'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimestamp(String? timestamp) {
+    if (timestamp == null) return '-';
+    try {
+      final dateTime = DateTime.parse(timestamp);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return timestamp;
+    }
+  }
+}
+
+class _SmsLogTab extends StatelessWidget {
+  const _SmsLogTab({required this.activities});
+  final List<Map<String, dynamic>> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    if (activities.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('No SMS logs found'),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: activities.length,
+      itemBuilder: (context, index) {
+        final activity = activities[index];
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildField('Message', activity['description'] ?? '-'),
+                _buildField(
+                  'Send By',
+                  activity['performed_by_name'] ?? 'Unknown',
+                ),
+                _buildField(
+                  'Date/Time',
+                  _formatTimestamp(activity['created_at']),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimestamp(String? timestamp) {
+    if (timestamp == null) return '-';
+    try {
+      final dateTime = DateTime.parse(timestamp);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return timestamp;
+    }
+  }
+}
+
+class _EmailLogTab extends StatelessWidget {
+  const _EmailLogTab({required this.activities});
+  final List<Map<String, dynamic>> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    if (activities.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('No email logs found'),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: activities.length,
+      itemBuilder: (context, index) {
+        final activity = activities[index];
+        final metadata = activity['metadata'] as Map<String, dynamic>? ?? {};
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildField('Subject', metadata['subject'] ?? '-'),
+                _buildField('Message', activity['description'] ?? '-'),
+                _buildField(
+                  'Sent By',
+                  activity['performed_by_name'] ?? 'Unknown',
+                ),
+                _buildField('Date', _formatTimestamp(activity['created_at'])),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimestamp(String? timestamp) {
+    if (timestamp == null) return '-';
+    try {
+      final dateTime = DateTime.parse(timestamp);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return timestamp;
+    }
+  }
+}
+
+class _WhatsAppLogTab extends StatelessWidget {
+  const _WhatsAppLogTab({required this.activities});
+  final List<Map<String, dynamic>> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    if (activities.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('No WhatsApp logs found'),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: activities.length,
+      itemBuilder: (context, index) {
+        final activity = activities[index];
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildField('Message', activity['description'] ?? '-'),
+                _buildField(
+                  'Send By',
+                  activity['performed_by_name'] ?? 'Unknown',
+                ),
+                _buildField(
+                  'Date/Time',
+                  _formatTimestamp(activity['created_at']),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimestamp(String? timestamp) {
+    if (timestamp == null) return '-';
+    try {
+      final dateTime = DateTime.parse(timestamp);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return timestamp;
+    }
+  }
+}
+
+class _VisitorLogTab extends StatelessWidget {
+  const _VisitorLogTab({required this.activities});
+  final List<Map<String, dynamic>> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    if (activities.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('No visitor logs found'),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: activities.length,
+      itemBuilder: (context, index) {
+        final activity = activities[index];
+        final metadata = activity['metadata'] as Map<String, dynamic>? ?? {};
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildField(
+                  'Visit Time',
+                  _formatTimestamp(activity['created_at']),
+                ),
+                _buildField('Name', metadata['visitor_name'] ?? '-'),
+                _buildField('Email', metadata['visitor_email'] ?? '-'),
+                _buildField('Project', metadata['project'] ?? '-'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimestamp(String? timestamp) {
+    if (timestamp == null) return '-';
+    try {
+      final dateTime = DateTime.parse(timestamp);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return timestamp;
+    }
+  }
+}
+
+class _OfflineLogTab extends StatelessWidget {
+  const _OfflineLogTab({required this.activities});
+  final List<Map<String, dynamic>> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    if (activities.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('No offline logs found'),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: activities.length,
+      itemBuilder: (context, index) {
+        final activity = activities[index];
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildField('Message', activity['description'] ?? '-'),
+                _buildField(
+                  'Send By',
+                  activity['performed_by_name'] ?? 'Unknown',
+                ),
+                _buildField(
+                  'Date/Time',
+                  _formatTimestamp(activity['created_at']),
+                ),
+                _buildField('Status', 'Offline'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimestamp(String? timestamp) {
+    if (timestamp == null) return '-';
+    try {
+      final dateTime = DateTime.parse(timestamp);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return timestamp;
+    }
+  }
+}
 
 class _TimelineCard extends StatelessWidget {
   const _TimelineCard({required this.items});

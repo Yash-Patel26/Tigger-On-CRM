@@ -267,10 +267,18 @@ class LeadService {
       );
 
       for (final activity in activities) {
+        // Convert camelCase enum to snake_case for database compatibility
+        String activityType = activity.type.toString().split('.').last;
+        // Convert camelCase to snake_case
+        activityType = activityType.replaceAllMapped(
+          RegExp(r'([A-Z])'),
+          (match) => '_${match.group(1)!.toLowerCase()}',
+        );
+
         timeline.add({
           'type': 'activity',
           'timestamp': activity.createdAt.toIso8601String(),
-          'activity_type': activity.type.toString().split('.').last,
+          'activity_type': activityType,
           'action': activity.action,
           'description': activity.description,
           'performed_by': activity.performedByName,
