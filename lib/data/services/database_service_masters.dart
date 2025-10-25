@@ -452,7 +452,7 @@ class DatabaseServiceMasters {
           'metadata': {
             'phone_number': phoneNumber ?? '+91-9876543210',
             'message':
-                'Hi ${customerName ?? 'Customer'}, this is ${userName} from Tigger. I wanted to follow up on our property discussion. Please call me back at your convenience.',
+                'Hi ${customerName ?? 'Customer'}, this is $userName from Tigger. I wanted to follow up on our property discussion. Please call me back at your convenience.',
           },
         },
         // WhatsApp activities

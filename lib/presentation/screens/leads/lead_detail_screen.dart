@@ -2865,7 +2865,7 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           _isLoadingMasterData
                               ? const CircularProgressIndicator()
                               : DropdownButtonFormField<String>(
-                                  value: _selectedGender.isEmpty
+                                  initialValue: _selectedGender.isEmpty
                                       ? null
                                       : _selectedGender,
                                   decoration: const InputDecoration(
@@ -2893,7 +2893,7 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                       _isLoadingMasterData
                           ? const CircularProgressIndicator()
                           : DropdownButtonFormField<String>(
-                              value: _selectedMaritalStatus.isEmpty
+                              initialValue: _selectedMaritalStatus.isEmpty
                                   ? null
                                   : _selectedMaritalStatus,
                               decoration: const InputDecoration(
@@ -2933,7 +2933,7 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           _isLoadingMasterData
                               ? const CircularProgressIndicator()
                               : DropdownButtonFormField<String>(
-                                  value: _selectedEmploymentType.isEmpty
+                                  initialValue: _selectedEmploymentType.isEmpty
                                       ? null
                                       : _selectedEmploymentType,
                                   decoration: const InputDecoration(
@@ -2959,7 +2959,7 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           _isLoadingMasterData
                               ? const CircularProgressIndicator()
                               : DropdownButtonFormField<String>(
-                                  value: _selectedItrStatus.isEmpty
+                                  initialValue: _selectedItrStatus.isEmpty
                                       ? null
                                       : _selectedItrStatus,
                                   decoration: const InputDecoration(

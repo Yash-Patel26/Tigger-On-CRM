@@ -3,11 +3,9 @@ import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../../../shared/utils/helpers.dart';
 import '../../../../core/utils/page_transitions.dart';
 import '../../../../data/repositories/lead_repository.dart';
-import '../../../../data/models/lead_model.dart';
 import 'create_lead_screen.dart';
 import 'lead_detail_screen.dart';
 import '../projects/add_site_visit_screen.dart';
-import '../../../../data/models/site_visit_model.dart';
 import '../../../../data/services/database_service.dart';
 import '../../../../data/models/models.dart';
 // assign dialog implemented locally in this file for lead list

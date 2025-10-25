@@ -756,7 +756,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
 
                   // Lead Source
                   DropdownButtonFormField<String>(
-                    value: _selectedLeadSource,
+                    initialValue: _selectedLeadSource,
                     decoration: InputDecoration(
                       labelText: 'Lead Source *',
                       prefixIcon: const Icon(Icons.source_outlined, size: 18),
@@ -871,7 +871,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
 
                   // Assign To
                   DropdownButtonFormField<String>(
-                    value: _selectedAssignTo,
+                    initialValue: _selectedAssignTo,
                     decoration: InputDecoration(
                       labelText: 'Assign To *',
                       prefixIcon: const Icon(
@@ -957,7 +957,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
 
                   // Project
                   DropdownButtonFormField<String>(
-                    value: _selectedProject,
+                    initialValue: _selectedProject,
                     decoration: InputDecoration(
                       labelText: 'Project *',
                       prefixIcon: const Icon(Icons.business_outlined, size: 18),
@@ -983,7 +983,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
 
                   // Category (prefilled from project)
                   DropdownButtonFormField<String>(
-                    value: _selectedProjectCategory,
+                    initialValue: _selectedProjectCategory,
                     decoration: InputDecoration(
                       labelText: 'Category',
                       prefixIcon: const Icon(Icons.category_outlined, size: 18),
@@ -1007,7 +1007,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
 
                   // Property Type
                   DropdownButtonFormField<String>(
-                    value: _selectedPropertyType,
+                    initialValue: _selectedPropertyType,
                     decoration: InputDecoration(
                       labelText: 'Property Type *',
                       prefixIcon: const Icon(Icons.home_outlined, size: 18),
@@ -1037,7 +1037,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
 
                   // State (prefilled from project)
                   DropdownButtonFormField<String>(
-                    value: _selectedState,
+                    initialValue: _selectedState,
                     decoration: InputDecoration(
                       labelText: 'State',
                       prefixIcon: const Icon(
@@ -1074,7 +1074,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
 
                   // City (prefilled from project)
                   DropdownButtonFormField<String>(
-                    value: _selectedCity,
+                    initialValue: _selectedCity,
                     decoration: InputDecoration(
                       labelText: 'City',
                       prefixIcon: const Icon(
@@ -1107,7 +1107,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
 
                   // Location (prefilled from project)
                   DropdownButtonFormField<String>(
-                    value: _selectedLocation,
+                    initialValue: _selectedLocation,
                     decoration: InputDecoration(
                       labelText: 'Location',
                       prefixIcon: const Icon(Icons.place_outlined, size: 18),
@@ -1146,7 +1146,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
 
                   // Purchase Plan Year
                   DropdownButtonFormField<String>(
-                    value: _selectedPurchaseYear,
+                    initialValue: _selectedPurchaseYear,
                     decoration: InputDecoration(
                       labelText: 'Purchase Plan Year *',
                       prefixIcon: const Icon(Icons.event_outlined, size: 18),
@@ -1176,7 +1176,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
 
                   // Purchase Plan Month
                   DropdownButtonFormField<String>(
-                    value: _selectedPurchaseMonth,
+                    initialValue: _selectedPurchaseMonth,
                     decoration: InputDecoration(
                       labelText: 'Purchase Plan Month *',
                       prefixIcon: const Icon(
@@ -1209,7 +1209,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
 
                   // Budget
                   DropdownButtonFormField<String>(
-                    value: _selectedBudget,
+                    initialValue: _selectedBudget,
                     decoration: InputDecoration(
                       labelText: 'Budget *',
                       prefixIcon: const Icon(
