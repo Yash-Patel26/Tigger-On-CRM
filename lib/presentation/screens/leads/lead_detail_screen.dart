@@ -161,7 +161,10 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             ),
             IconButton(
               tooltip: 'Dispose Lead',
-              icon: const Icon(Icons.delete_outline),
+              icon: Icon(
+                Icons.delete_outline,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               onPressed: () => _showDisposeDialog(context),
             ),
           ],
@@ -1906,13 +1909,13 @@ class _ContactCompact extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final DateTime requestAt = lead.createdAt;
-    // In a real app, read gender from customer data
-    const String gender = 'Male';
-    final IconData genderIcon = gender == 'Female'
-        ? Icons.female
-        : gender == 'Male'
-        ? Icons.male
-        : Icons.transgender;
+    // Read gender from lead data
+    final String gender = lead.gender ?? 'Unknown';
+    final IconData genderIcon = gender.toLowerCase() == 'female'
+        ? Icons.woman
+        : gender.toLowerCase() == 'male'
+        ? Icons.man
+        : Icons.person;
     return Column(
       children: <Widget>[
         // Header actions (badge + icons) on top row
@@ -1967,12 +1970,16 @@ class _ContactCompact extends StatelessWidget {
         Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            lead.customerName.isEmpty ? '-' : lead.customerName,
+            lead.customerName.isNotEmpty
+                ? lead.customerName
+                : 'Customer Name Not Available',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+              fontSize: 20,
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -2277,14 +2284,15 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
 }
 
 class _ViewCustomerDialog extends StatefulWidget {
-  const _ViewCustomerDialog();
+  const _ViewCustomerDialog({required this.lead});
+  final Lead lead;
   @override
   State<_ViewCustomerDialog> createState() => _ViewCustomerDialogState();
 }
 
 class _ViewCustomerDialogState extends State<_ViewCustomerDialog> {
-  String gender = 'Male';
-  String marital = 'Single';
+  String get gender => widget.lead.gender ?? 'Unknown';
+  String get marital => widget.lead.maritalStatus ?? 'Unknown';
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
