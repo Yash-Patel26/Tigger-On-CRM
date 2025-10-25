@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'vendor_profile_screen.dart';
+import '../../../../data/models/vendor_model.dart';
+import '../../../../data/services/vendor_service.dart';
+import '../../../../data/services/supabase_service.dart';
 
 class VendorScreen extends StatefulWidget {
   const VendorScreen({super.key});
@@ -12,12 +15,38 @@ class _VendorScreenState extends State<VendorScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _statusFilter = 0; // 0=All,1=Active,2=Inactive
 
-  late List<Developer> _developers;
+  List<VendorModel> _vendors = [];
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _developers = _initialDevelopers();
+    _loadVendors();
+  }
+
+  Future<void> _loadVendors() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final vendors = await VendorService.getAllVendors();
+      setState(() {
+        _vendors = vendors;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _refreshVendors() async {
+    await _loadVendors();
   }
 
   @override
@@ -28,22 +57,54 @@ class _VendorScreenState extends State<VendorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Developer> developers = _developers;
-    final int total = developers.length;
-    final int active = developers.where((Developer d) => d.isActive).length;
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+              const SizedBox(height: 16),
+              Text(
+                'Error loading vendors',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _refreshVendors,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final int total = _vendors.length;
+    final int active = _vendors.where((v) => v.isActive).length;
     final int inactive = total - active;
 
     final String query = _searchController.text.trim().toLowerCase();
-    final List<Developer> filtered = developers.where((Developer d) {
+    final List<VendorModel> filtered = _vendors.where((VendorModel v) {
       final bool matchesQuery =
           query.isEmpty ||
-          d.name.toLowerCase().contains(query) ||
-          (d.website?.toLowerCase().contains(query) ?? false) ||
-          d.city.toLowerCase().contains(query);
+          v.name.toLowerCase().contains(query) ||
+          (v.website?.toLowerCase().contains(query) ?? false) ||
+          v.city.toLowerCase().contains(query);
       final bool matchesStatus =
           _statusFilter == 0 ||
-          (_statusFilter == 1 && d.isActive) ||
-          (_statusFilter == 2 && !d.isActive);
+          (_statusFilter == 1 && v.isActive) ||
+          (_statusFilter == 2 && !v.isActive);
       return matchesQuery && matchesStatus;
     }).toList();
 
@@ -83,7 +144,12 @@ class _VendorScreenState extends State<VendorScreen> {
                 onAddVendor: _startDeveloperWizard,
               ),
               const SizedBox(height: 12),
-              Expanded(child: _DeveloperList(developers: filtered)),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _refreshVendors,
+                  child: _VendorList(vendors: filtered),
+                ),
+              ),
             ],
           ),
         ),
@@ -91,94 +157,51 @@ class _VendorScreenState extends State<VendorScreen> {
     );
   }
 
-  List<Developer> _initialDevelopers() {
-    return <Developer>[
-      const Developer(
-        name: 'Skyline Builders',
-        website: 'https://skyline.example',
-        logoUrl: null,
-        address: 'Sector 21',
-        state: 'Maharashtra',
-        district: 'Mumbai Suburban',
-        city: 'Mumbai',
-        pincode: '400053',
-        contacts: <DevContact>[
-          DevContact(
-            name: 'Amit Shah',
-            mobile: '+91 98765 11111',
-            designation: 'Director',
-            email: 'amit@skyline.com',
-          ),
-        ],
-        companyType: 'Pvt Ltd',
-        isReraRegistered: true,
-        gstin: '27ABCDE1234F1Z5',
-        gstinFilePath: null,
-        pan: 'ABCDE1234F',
-        panFilePath: null,
-        isActive: true,
-      ),
-      const Developer(
-        name: 'GreenHomes',
-        website: 'https://greenhomes.example',
-        logoUrl: null,
-        address: 'MG Road',
-        state: 'Karnataka',
-        district: 'Bengaluru Urban',
-        city: 'Bengaluru',
-        pincode: '560001',
-        contacts: <DevContact>[
-          DevContact(
-            name: 'Priya Iyer',
-            mobile: '+91 98765 22222',
-            designation: 'Sales Head',
-            email: 'priya@greenhomes.com',
-          ),
-        ],
-        companyType: 'LLP',
-        isReraRegistered: false,
-        gstin: '',
-        gstinFilePath: null,
-        pan: 'PQRSX6789Z',
-        panFilePath: null,
-        isActive: false,
-      ),
-    ];
-  }
-
   Future<void> _startDeveloperWizard() async {
-    final Developer? newDev = await _showCreateDeveloperWizard(context);
-    if (newDev == null) return;
-    setState(() => _developers = <Developer>[newDev, ..._developers]);
+    final VendorModel? newVendor = await _showCreateVendorWizard(context);
+    if (newVendor == null) return;
+    setState(() => _vendors = [newVendor, ..._vendors]);
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('${newDev.name} created')));
+    ).showSnackBar(SnackBar(content: Text('${newVendor.name} created')));
   }
-
-  // String _todayString() { // unused helper retained for potential reuse
-  //   final DateTime now = DateTime.now();
-  //   const List<String> months = <String>[
-  //     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  //     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  //   ];
-  //   return '${now.day.toString().padLeft(2, '0')} ${months[now.month - 1]} ${now.year}';
-  // }
 }
 
-class _DeveloperList extends StatelessWidget {
-  const _DeveloperList({required this.developers});
+class _VendorList extends StatelessWidget {
+  const _VendorList({required this.vendors});
 
-  final List<Developer> developers;
+  final List<VendorModel> vendors;
 
   @override
   Widget build(BuildContext context) {
+    if (vendors.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.business_outlined, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'No vendors found',
+              style: TextStyle(fontSize: 18, color: Colors.grey),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Add your first vendor to get started',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ListView.separated(
-      itemCount: developers.length,
+      itemCount: vendors.length,
       separatorBuilder: (BuildContext context, int index) =>
           Divider(color: _panelBorderColor(context)),
       itemBuilder: (BuildContext context, int index) {
-        final Developer d = developers[index];
-        return _VendorCard(vendor: d);
+        final VendorModel vendor = vendors[index];
+        return _VendorCard(vendor: vendor);
       },
     );
   }
@@ -187,7 +210,7 @@ class _DeveloperList extends StatelessWidget {
 class _VendorCard extends StatelessWidget {
   const _VendorCard({required this.vendor});
 
-  final Developer vendor;
+  final VendorModel vendor;
 
   String _monthName(int month) {
     const List<String> names = <String>[
@@ -210,16 +233,10 @@ class _VendorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Generate a vendor ID based on name or use a pattern
-    final String vendorId =
-        'VEN-${vendor.name.substring(0, 3).toUpperCase()}-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
-    final String contactNumber = vendor.contacts.isNotEmpty
-        ? vendor.contacts.first.mobile
-        : 'N/A';
-    final String createdBy = 'Admin'; // Mock data
-    final DateTime createdDate = DateTime.now().subtract(
-      Duration(days: vendor.name.length % 30),
-    );
+    final String vendorId = vendor.id;
+    final String contactNumber = 'N/A'; // Will be loaded from contacts
+    final String createdBy = vendor.createdByName;
+    final DateTime createdDate = vendor.createdAt;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -255,7 +272,7 @@ class _VendorCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'ID: $vendorId',
+                      'ID: ${vendorId.substring(0, 8)}...',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.grey[600],
                         fontWeight: FontWeight.w500,
@@ -320,50 +337,38 @@ class _VendorCard extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    final String vendorId =
-                        'VEN-${vendor.name.substring(0, 3).toUpperCase()}-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
-                    final String contactNumber = vendor.contacts.isNotEmpty
-                        ? vendor.contacts.first.mobile
-                        : 'N/A';
-                    final String email = vendor.contacts.isNotEmpty
-                        ? vendor.contacts.first.email
-                        : 'N/A';
-                    final String commenceDate =
-                        '${DateTime.now().day}-${_monthName(DateTime.now().month)}-${DateTime.now().year} ${TimeOfDay.now().format(context)}';
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (BuildContext ctx) => VendorProfileScreen(
                           vendorId: vendorId,
                           name: vendor.name,
                           contactNumber: contactNumber,
-                          email: email,
+                          email: 'N/A', // Will be loaded from contacts
                           type: vendor.companyType,
-                          commenceDate: commenceDate,
-                          country: 'India',
+                          commenceDate:
+                              '${createdDate.day}-${_monthName(createdDate.month)}-${createdDate.year}',
+                          country: vendor.country,
                           state: vendor.state,
                           city: vendor.city,
-                          aadhar: '-',
+                          aadhar: vendor.aadhar ?? '-',
                           address: vendor.address,
                           pincode: vendor.pincode,
                           companyName: vendor.name,
-                          contactName: vendor.contacts.isNotEmpty
-                              ? vendor.contacts.first.name
-                              : 'N/A',
+                          contactName: 'N/A', // Will be loaded from contacts
                           panCard: vendor.pan,
                           orgContactNumber: contactNumber,
                           gstin: vendor.gstin,
-                          contactEmail: email,
-                          designation: vendor.contacts.isNotEmpty
-                              ? vendor.contacts.first.designation
-                              : 'N/A',
+                          contactEmail: 'N/A', // Will be loaded from contacts
+                          designation: 'N/A', // Will be loaded from contacts
                           services: const <String>['Consulting', 'Support'],
                           bankCategory: 'Business',
-                          bankName: 'HDFC Bank',
+                          bankName: 'N/A', // Will be loaded from bank details
                           accountType: 'Current',
-                          ifscCode: 'HDFC0000123',
-                          branchName: 'Andheri West',
+                          ifscCode: 'N/A', // Will be loaded from bank details
+                          branchName: 'N/A', // Will be loaded from bank details
                           accountHolderName: vendor.name,
-                          accountNumber: '123456789012',
+                          accountNumber:
+                              'N/A', // Will be loaded from bank details
                           isActive: vendor.isActive,
                         ),
                       ),
@@ -448,60 +453,8 @@ class _VendorDetailRow extends StatelessWidget {
   }
 }
 
-class Developer {
-  const Developer({
-    required this.name,
-    this.website,
-    this.logoUrl,
-    required this.address,
-    required this.state,
-    required this.district,
-    required this.city,
-    required this.pincode,
-    required this.contacts,
-    required this.companyType,
-    required this.isReraRegistered,
-    required this.gstin,
-    this.gstinFilePath,
-    required this.pan,
-    this.panFilePath,
-    required this.isActive,
-  });
-
-  final String name;
-  final String? website;
-  final String? logoUrl;
-  final String address;
-  final String state;
-  final String district;
-  final String city;
-  final String pincode;
-  final List<DevContact> contacts;
-  final String companyType;
-  final bool isReraRegistered;
-  final String gstin;
-  final String? gstinFilePath;
-  final String pan;
-  final String? panFilePath;
-  final bool isActive;
-}
-
-class DevContact {
-  const DevContact({
-    required this.name,
-    required this.mobile,
-    required this.designation,
-    required this.email,
-  });
-
-  final String name;
-  final String mobile;
-  final String designation;
-  final String email;
-}
-
-Future<Developer?> _showCreateDeveloperWizard(BuildContext context) async {
-  return showModalBottomSheet<Developer>(
+Future<VendorModel?> _showCreateVendorWizard(BuildContext context) async {
+  return showModalBottomSheet<VendorModel>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Theme.of(context).dialogTheme.backgroundColor,
@@ -509,17 +462,17 @@ Future<Developer?> _showCreateDeveloperWizard(BuildContext context) async {
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
     builder: (BuildContext ctx) {
-      return _DeveloperWizard();
+      return _VendorWizard();
     },
   );
 }
 
-class _DeveloperWizard extends StatefulWidget {
+class _VendorWizard extends StatefulWidget {
   @override
-  State<_DeveloperWizard> createState() => _DeveloperWizardState();
+  State<_VendorWizard> createState() => _VendorWizardState();
 }
 
-class _DeveloperWizardState extends State<_DeveloperWizard> {
+class _VendorWizardState extends State<_VendorWizard> {
   int _step = 0;
 
   // Step 1
@@ -533,7 +486,7 @@ class _DeveloperWizardState extends State<_DeveloperWizard> {
   final TextEditingController pincodeCtrl = TextEditingController();
 
   // Step 2 - contacts
-  final List<DevContact> contacts = <DevContact>[];
+  final List<Map<String, String>> contacts = <Map<String, String>>[];
   final TextEditingController cName = TextEditingController();
   final TextEditingController cMobile = TextEditingController();
   final TextEditingController cDesignation = TextEditingController();
@@ -583,37 +536,69 @@ class _DeveloperWizardState extends State<_DeveloperWizard> {
                 return Row(
                   children: <Widget>[
                     FilledButton(
-                      onPressed: () {
+                      onPressed: () async {
                         if (_step < 2) {
                           setState(() => _step += 1);
                         } else {
-                          final Developer dev = Developer(
-                            name: nameCtrl.text.trim(),
-                            website: websiteCtrl.text.trim().isEmpty
-                                ? null
-                                : websiteCtrl.text.trim(),
-                            logoUrl: logoCtrl.text.trim().isEmpty
-                                ? null
-                                : logoCtrl.text.trim(),
-                            address: addressCtrl.text.trim(),
-                            state: stateCtrl.text.trim(),
-                            district: districtCtrl.text.trim(),
-                            city: cityCtrl.text.trim(),
-                            pincode: pincodeCtrl.text.trim(),
-                            contacts: contacts,
-                            companyType: companyType,
-                            isReraRegistered: reraYes,
-                            gstin: gstinCtrl.text.trim(),
-                            gstinFilePath: gstinFileCtrl.text.trim().isEmpty
-                                ? null
-                                : gstinFileCtrl.text.trim(),
-                            pan: panCtrl.text.trim(),
-                            panFilePath: panFileCtrl.text.trim().isEmpty
-                                ? null
-                                : panFileCtrl.text.trim(),
-                            isActive: isActive,
-                          );
-                          Navigator.of(context).pop(dev);
+                          try {
+                            // Get current user info
+                            final currentUser = SupabaseService.currentUser;
+                            if (currentUser == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('User not authenticated'),
+                                ),
+                              );
+                              return;
+                            }
+
+                            final vendor = await VendorService.createVendor(
+                              name: nameCtrl.text.trim(),
+                              website: websiteCtrl.text.trim().isEmpty
+                                  ? null
+                                  : websiteCtrl.text.trim(),
+                              logoUrl: logoCtrl.text.trim().isEmpty
+                                  ? null
+                                  : logoCtrl.text.trim(),
+                              address: addressCtrl.text.trim(),
+                              state: stateCtrl.text.trim(),
+                              district: districtCtrl.text.trim(),
+                              city: cityCtrl.text.trim(),
+                              pincode: pincodeCtrl.text.trim(),
+                              companyType: companyType,
+                              isReraRegistered: reraYes,
+                              gstin: gstinCtrl.text.trim(),
+                              gstinFilePath: gstinFileCtrl.text.trim().isEmpty
+                                  ? null
+                                  : gstinFileCtrl.text.trim(),
+                              pan: panCtrl.text.trim(),
+                              panFilePath: panFileCtrl.text.trim().isEmpty
+                                  ? null
+                                  : panFileCtrl.text.trim(),
+                              isActive: isActive,
+                              createdBy: currentUser.id,
+                              createdByName: currentUser.email ?? 'Unknown',
+                            );
+
+                            // Create contacts if any
+                            for (final contact in contacts) {
+                              await VendorService.createVendorContact(
+                                vendorId: vendor.id,
+                                name: contact['name']!,
+                                mobile: contact['mobile']!,
+                                designation: contact['designation']!,
+                                email: contact['email']!,
+                              );
+                            }
+
+                            Navigator.of(context).pop(vendor);
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error creating vendor: $e'),
+                              ),
+                            );
+                          }
                         }
                       },
                       child: Text(_step < 2 ? 'Next' : 'Create'),
@@ -687,14 +672,12 @@ class _DeveloperWizardState extends State<_DeveloperWizard> {
                           onPressed: () {
                             if (cName.text.trim().isEmpty) return;
                             setState(() {
-                              contacts.add(
-                                DevContact(
-                                  name: cName.text.trim(),
-                                  mobile: cMobile.text.trim(),
-                                  designation: cDesignation.text.trim(),
-                                  email: cEmail.text.trim(),
-                                ),
-                              );
+                              contacts.add({
+                                'name': cName.text.trim(),
+                                'mobile': cMobile.text.trim(),
+                                'designation': cDesignation.text.trim(),
+                                'email': cEmail.text.trim(),
+                              });
                               cName.clear();
                               cMobile.clear();
                               cDesignation.clear();
@@ -718,12 +701,12 @@ class _DeveloperWizardState extends State<_DeveloperWizard> {
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             itemBuilder: (BuildContext context, int index) {
-                              final DevContact c = contacts[index];
+                              final contact = contacts[index];
                               return ListTile(
                                 dense: true,
-                                title: Text(c.name),
+                                title: Text(contact['name']!),
                                 subtitle: Text(
-                                  '${c.designation} • ${c.mobile} • ${c.email}',
+                                  '${contact['designation']} • ${contact['mobile']} • ${contact['email']}',
                                 ),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.delete_outline),
@@ -978,70 +961,6 @@ class _StatusChip extends StatelessWidget {
       ),
     );
   }
-}
-
-class Vendor {
-  const Vendor({
-    required this.vendorId,
-    required this.name,
-    required this.contactNumber,
-    required this.email,
-    required this.type,
-    required this.createdBy,
-    required this.commenceDate,
-    required this.country,
-    required this.state,
-    required this.city,
-    required this.aadhar,
-    required this.address,
-    required this.pincode,
-    required this.companyName,
-    required this.contactName,
-    required this.panCard,
-    required this.orgContactNumber,
-    required this.gstin,
-    required this.contactEmail,
-    required this.designation,
-    required this.services,
-    required this.bankCategory,
-    required this.bankName,
-    required this.accountType,
-    required this.ifscCode,
-    required this.branchName,
-    required this.accountHolderName,
-    required this.accountNumber,
-    required this.isActive,
-  });
-
-  final String vendorId;
-  final String name;
-  final String contactNumber;
-  final String email;
-  final String type;
-  final String createdBy;
-  final String commenceDate;
-  final String country;
-  final String state;
-  final String city;
-  final String aadhar;
-  final String address;
-  final String pincode;
-  final String companyName;
-  final String contactName;
-  final String panCard;
-  final String orgContactNumber;
-  final String gstin;
-  final String contactEmail;
-  final String designation;
-  final List<String> services;
-  final String bankCategory;
-  final String bankName;
-  final String accountType;
-  final String ifscCode;
-  final String branchName;
-  final String accountHolderName;
-  final String accountNumber;
-  final bool isActive;
 }
 
 Color _panelColor(BuildContext context) {

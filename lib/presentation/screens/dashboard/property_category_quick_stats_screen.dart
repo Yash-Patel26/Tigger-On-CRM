@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/config/supabase_config.dart';
 
 class PropertyCategoryQuickStatsScreen extends StatefulWidget {
   const PropertyCategoryQuickStatsScreen({super.key});
@@ -13,14 +14,15 @@ class _PropertyCategoryQuickStatsScreenState
   final TextEditingController _searchController = TextEditingController();
   int _statusFilter = 0; // 0=All, 1=Active, 2=Inactive
 
-  // Mock data - replace with real data source
-  final List<PropertyCategory> _categories = <PropertyCategory>[
-    const PropertyCategory(name: 'Residential', isActive: true),
-    const PropertyCategory(name: 'Commercial', isActive: true),
-    const PropertyCategory(name: 'Industrial', isActive: true),
-    const PropertyCategory(name: 'Agricultural', isActive: false),
-    const PropertyCategory(name: 'Mixed Use', isActive: false),
-  ];
+  List<PropertyCategory> _categories = <PropertyCategory>[];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPropertyCategories();
+  }
 
   @override
   void dispose() {
@@ -28,8 +30,73 @@ class _PropertyCategoryQuickStatsScreenState
     super.dispose();
   }
 
+  Future<void> _loadPropertyCategories() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      // Fetch property categories from Supabase
+      final response = await SupabaseConfig.client
+          .from('property_categories')
+          .select('''
+            id,
+            name,
+            is_active
+          ''')
+          .order('name');
+
+      final List<PropertyCategory> categories = (response as List).map((json) {
+        return PropertyCategory(
+          id: json['id'] as String,
+          name: json['name'] as String,
+          isActive: json['is_active'] as bool? ?? true,
+        );
+      }).toList();
+
+      setState(() {
+        _categories = categories;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load property categories: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Property Categories'), elevation: 0),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Property Categories'), elevation: 0),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(_error!, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadPropertyCategories,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final int total = _categories.length;
     final int active = _categories
         .where((PropertyCategory c) => c.isActive)
@@ -319,8 +386,13 @@ class _PropertyCategoryQuickStatsScreenState
 }
 
 class PropertyCategory {
-  const PropertyCategory({required this.name, required this.isActive});
+  const PropertyCategory({
+    required this.id,
+    required this.name,
+    required this.isActive,
+  });
 
-  final String name;
+  final String id; // property category id
+  final String name; // property category name
   final bool isActive;
 }

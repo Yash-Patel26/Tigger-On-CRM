@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/config/supabase_config.dart';
 
 class PropertyTypeQuickStatsScreen extends StatefulWidget {
   const PropertyTypeQuickStatsScreen({super.key});
@@ -13,44 +14,15 @@ class _PropertyTypeQuickStatsScreenState
   final TextEditingController _searchController = TextEditingController();
   int _statusFilter = 0; // 0=All, 1=Active, 2=Inactive
 
-  // Mock data - replace with real data source
-  final List<PropertyTypeItem> _types = <PropertyTypeItem>[
-    const PropertyTypeItem(
-      name: 'Apartment',
-      category: 'Residential',
-      isActive: true,
-    ),
-    const PropertyTypeItem(
-      name: 'Villa',
-      category: 'Residential',
-      isActive: true,
-    ),
-    const PropertyTypeItem(
-      name: 'Office Space',
-      category: 'Commercial',
-      isActive: true,
-    ),
-    const PropertyTypeItem(
-      name: 'Retail Shop',
-      category: 'Commercial',
-      isActive: false,
-    ),
-    const PropertyTypeItem(
-      name: 'Warehouse',
-      category: 'Industrial',
-      isActive: true,
-    ),
-    const PropertyTypeItem(
-      name: 'Factory',
-      category: 'Industrial',
-      isActive: false,
-    ),
-    const PropertyTypeItem(
-      name: 'Farmland',
-      category: 'Agricultural',
-      isActive: true,
-    ),
-  ];
+  List<PropertyTypeItem> _types = <PropertyTypeItem>[];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPropertyTypes();
+  }
 
   @override
   void dispose() {
@@ -58,8 +30,75 @@ class _PropertyTypeQuickStatsScreenState
     super.dispose();
   }
 
+  Future<void> _loadPropertyTypes() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      // Fetch property types from Supabase
+      final response = await SupabaseConfig.client
+          .from('property_types')
+          .select('''
+            id,
+            name,
+            category,
+            is_active
+          ''')
+          .order('name');
+
+      final List<PropertyTypeItem> types = (response as List).map((json) {
+        return PropertyTypeItem(
+          id: json['id'] as String,
+          name: json['name'] as String,
+          category: json['category'] as String,
+          isActive: json['is_active'] as bool? ?? true,
+        );
+      }).toList();
+
+      setState(() {
+        _types = types;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load property types: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Property Types'), elevation: 0),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Property Types'), elevation: 0),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(_error!, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadPropertyTypes,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final int total = _types.length;
     final int active = _types.where((PropertyTypeItem t) => t.isActive).length;
     final int inactive = total - active;
@@ -378,12 +417,14 @@ class _PropertyTypeQuickStatsScreenState
 
 class PropertyTypeItem {
   const PropertyTypeItem({
+    required this.id,
     required this.name,
     required this.category,
     required this.isActive,
   });
 
-  final String name;
-  final String category;
+  final String id; // property type id
+  final String name; // property type name
+  final String category; // property category
   final bool isActive;
 }
