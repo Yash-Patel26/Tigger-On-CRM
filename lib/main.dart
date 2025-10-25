@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
-import 'services/auth_service.dart';
-import 'utils/constants.dart';
-import 'splash/splash_screen.dart';
-import 'onboarding/email_login_screen.dart';
-import 'state/notification_store.dart';
+import 'data/services/auth_service.dart';
+import 'core/constants/constants.dart';
+import 'presentation/pages/auth_wrapper.dart';
+import 'shared/managers/notification_store.dart';
+import 'shared/managers/auth_state_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +25,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: <ChangeNotifierProvider<dynamic>>[
+        ChangeNotifierProvider<AuthStateManager>(
+          create: (_) => AuthStateManager(),
+        ),
         ChangeNotifierProvider<AuthService>(create: (_) => AuthService()),
         ChangeNotifierProvider<NotificationStore>(
           create: (_) => NotificationStore(),
@@ -281,7 +284,7 @@ class MyApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: SplashScreen(nextPageBuilder: (_) => const EmailLoginScreen()),
+      home: const AuthWrapper(),
     );
   }
 }

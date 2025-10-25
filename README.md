@@ -1,8 +1,15 @@
 # 🏢 TiggerOn CRM - Real Estate Management System
 
-A comprehensive Flutter-based Customer Relationship Management (CRM) system designed specifically for real estate businesses. Features advanced call recording capabilities, cloud storage integration, and a modern Material Design interface.
+A comprehensive Flutter-based Customer Relationship Management (CRM) system designed specifically for real estate businesses. Features advanced call recording capabilities, cloud storage integration, persistent user sessions, and a modern Material Design interface.
 
 ## 🌟 Key Features
+
+### 🔐 **Advanced Authentication & Session Management**
+- **Persistent User Sessions**: Users stay logged in between app sessions with automatic session restoration
+- **Smart Session Validation**: Automatically validates and refreshes expired tokens
+- **Secure Authentication**: Built on Supabase Auth with enterprise-grade security
+- **Offline Resilience**: Graceful handling of network issues with retry mechanisms
+- **Reactive State Management**: Real-time authentication state updates across the app
 
 ### 📞 **Advanced Call Recording System**
 - **Automatic Call Recording**: Records calls automatically when connected (OFFHOOK state)
@@ -13,7 +20,7 @@ A comprehensive Flutter-based Customer Relationship Management (CRM) system desi
 - **Permission Management**: Handles microphone, phone, and notification permissions seamlessly
 
 ### 🏠 **Real Estate CRM Features**
-- **Lead Management**: Complete lead lifecycle from creation to conversion
+- **Lead Management**: Complete lead lifecycle from creation to conversion with advanced filtering
 - **Customer Management**: Comprehensive customer profiles and interaction tracking
 - **Vendor Management**: Vendor onboarding, KYC, and service information management
 - **Project Management**: Track active projects, pricing logs, and project statistics
@@ -21,12 +28,14 @@ A comprehensive Flutter-based Customer Relationship Management (CRM) system desi
 - **Booking Management**: Handle property bookings and reservations
 - **Ticket System**: Support ticket management and tracking
 - **Developer Management**: Manage real estate developers and their projects
+- **Property Finder**: Advanced property search and filtering capabilities
 
 ### 📊 **Analytics & Reporting**
-- **Dashboard Analytics**: Comprehensive dashboard with key metrics
+- **Dashboard Analytics**: Comprehensive dashboard with key metrics and real-time updates
 - **Quick Stats**: City-wise, location-wise, and property type statistics
 - **Call Statistics**: Detailed call analytics and performance metrics
 - **Project Management Stats**: Project progress and performance tracking
+- **Real-time Notifications**: Live updates for leads, tasks, tickets, and bookings
 
 ### 🎨 **Modern UI/UX**
 - **Material Design 3**: Modern Material Design implementation
@@ -34,6 +43,7 @@ A comprehensive Flutter-based Customer Relationship Management (CRM) system desi
 - **Responsive Design**: Optimized for various screen sizes
 - **Lottie Animations**: Engaging animations for better user experience
 - **Smooth Transitions**: Custom page transitions for better navigation
+- **Adaptive Text Scaling**: Automatic text scaling for different screen sizes
 
 ## 🛠️ Technical Stack
 
@@ -41,11 +51,13 @@ A comprehensive Flutter-based Customer Relationship Management (CRM) system desi
 - **Flutter**: Cross-platform mobile development framework
 - **Dart**: Programming language (SDK ^3.9.0)
 - **Material Design 3**: Modern UI components and theming
+- **Provider**: State management and dependency injection
 
 ### **Backend Integration**
-- **Supabase**: Backend-as-a-Service for authentication and storage
+- **Supabase**: Backend-as-a-Service for authentication, database, and storage
 - **REST API**: Custom API integration (`https://api.tiggeron.com/v1`)
 - **HTTP Client**: Robust HTTP client with retry mechanisms
+- **Real-time Subscriptions**: Live data updates using Supabase Realtime
 
 ### **Native Android Integration**
 - **Kotlin**: Android native development
@@ -58,25 +70,79 @@ A comprehensive Flutter-based Customer Relationship Management (CRM) system desi
 ```yaml
 dependencies:
   flutter_svg: ^2.2.1          # SVG support
+  provider: ^6.1.2             # State management
+  supabase_flutter: ^2.6.0     # Backend services
   lottie: ^3.1.2               # Animations
   url_launcher: ^6.3.1         # External app launching
-  permission_handler: ^12.0.1  # Permission management
-  connectivity_plus: ^7.0.0   # Network connectivity
-  supabase_flutter: ^2.6.0     # Backend services
+  permission_handler: ^12.0.1   # Permission management
+  connectivity_plus: ^7.0.0    # Network connectivity
   infinite_scroll_pagination: ^5.1.1  # Pagination
   shared_preferences: ^2.2.3   # Local storage
   audioplayers: ^6.1.0         # Audio playback
+  geolocator: ^14.0.2          # Location services
+  file_picker: ^10.0.0         # File selection
+  intl: ^0.20.2                # Internationalization
   http: ^1.2.2                 # HTTP requests
 ```
 
-## 📱 Screenshots
+## 🏗️ Project Architecture
 
-### Main Features
-- **Dashboard**: Overview of key metrics and quick actions
-- **Lead Management**: Lead creation, editing, and tracking
-- **Call Recording**: Automatic recording with cloud upload
-- **Project Management**: Project tracking and analytics
-- **Vendor Management**: Vendor onboarding and management
+### **Clean Architecture Structure**
+```
+lib/
+├── core/                      # Core application layer
+│   ├── config/               # Configuration files
+│   ├── constants/            # App constants
+│   ├── errors/               # Error handling
+│   ├── theme/                # Theme configuration
+│   ├── utils/                # Core utilities
+│   └── widgets/              # Core widgets
+├── data/                     # Data layer
+│   ├── api/                  # API DTOs and helpers
+│   ├── datasources/          # Data sources
+│   ├── models/               # Data models
+│   ├── repositories/         # Repository implementations
+│   └── services/             # Business logic services
+├── presentation/             # Presentation layer
+│   ├── pages/                # Page-level widgets
+│   │   ├── auth_wrapper.dart # Authentication routing
+│   │   └── splash_screen.dart
+│   └── screens/              # Feature screens
+│       ├── auth/             # Authentication screens
+│       ├── dashboard/        # Dashboard and analytics
+│       ├── leads/            # Lead management
+│       ├── bookings/         # Booking management
+│       ├── projects/         # Project management
+│       ├── vendors/          # Vendor management
+│       ├── profile/          # User profile
+│       └── notifications/    # Notification system
+├── shared/                   # Shared utilities
+│   ├── extensions/           # Dart extensions
+│   ├── helpers/              # Helper functions
+│   ├── managers/             # State managers
+│   ├── utils/                # Utility functions
+│   └── widgets/              # Reusable widgets
+└── main.dart                 # Application entry point
+```
+
+### **Key Architectural Components**
+
+#### **Authentication System**
+- **AuthStateManager**: Centralized authentication state management
+- **AuthWrapper**: Smart routing based on authentication status
+- **Session Persistence**: Automatic session restoration and validation
+- **Reactive Updates**: Real-time authentication state changes
+
+#### **Data Layer**
+- **Repository Pattern**: Clean separation of data access logic
+- **Service Layer**: Business logic and API integration
+- **Model Classes**: Type-safe data models with validation
+- **DTOs**: Data transfer objects for API communication
+
+#### **State Management**
+- **Provider Pattern**: Reactive state management throughout the app
+- **ChangeNotifier**: Efficient UI updates and state synchronization
+- **Dependency Injection**: Clean dependency management
 
 ## 🚀 Getting Started
 
@@ -84,7 +150,7 @@ dependencies:
 - Flutter SDK (^3.9.0)
 - Android Studio / VS Code
 - Android device/emulator (API level 21+)
-- Supabase account for cloud storage
+- Supabase account for backend services
 
 ### Installation
 
@@ -100,17 +166,22 @@ dependencies:
    ```
 
 3. **Configure Supabase**
-   - Update `lib/utils/constants.dart` with your Supabase credentials:
+   - Update `lib/core/constants/constants.dart` with your Supabase credentials:
    ```dart
    static const String supabaseUrl = 'YOUR_SUPABASE_URL';
    static const String supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
    ```
 
-4. **Create Supabase Storage Bucket**
+4. **Database Setup**
+   - Follow the `database_setup_guide.md` for complete database schema setup
+   - Create required tables: users, profiles, leads, customers, projects, etc.
+   - Set up Row Level Security (RLS) policies
+
+5. **Create Supabase Storage Bucket**
    - Create a bucket named `recordings` in your Supabase project
    - Set appropriate RLS policies for upload access
 
-5. **Run the application**
+6. **Run the application**
    ```bash
    flutter run
    ```
@@ -124,31 +195,23 @@ The app requires the following permissions (automatically requested):
 - `FOREGROUND_SERVICE`: For background recording service
 - `FOREGROUND_SERVICE_MICROPHONE`: For microphone access in background
 - `FOREGROUND_SERVICE_PHONE_CALL`: For phone call service
+- `ACCESS_FINE_LOCATION`: For location-based features
+- `READ_EXTERNAL_STORAGE`: For file picker functionality
 
-## 🏗️ Project Structure
+## 🔐 Authentication & Session Management
 
-```
-lib/
-├── api_helper/           # API helper utilities
-├── api_modal/           # API data transfer objects
-├── api_network/         # Network layer
-├── features/           # Feature-specific modules
-├── models/              # Data models
-├── onboarding/          # Authentication screens
-├── repositories/        # Data repositories
-├── screens/             # UI screens
-├── services/            # Business logic services
-├── splash/              # Splash screen
-├── utils/               # Utility functions and constants
-└── main.dart           # Application entry point
-```
+### How It Works
+1. **App Startup**: AuthStateManager automatically checks for existing Supabase sessions
+2. **Session Validation**: Validates session expiry and refreshes tokens if needed
+3. **Smart Routing**: AuthWrapper routes users to appropriate screens based on auth status
+4. **State Synchronization**: All authentication changes are reflected across the app
+5. **Offline Handling**: Graceful degradation when network is unavailable
 
-### Key Files
-- `lib/main.dart`: App initialization and theme configuration
-- `lib/utils/helpers.dart`: Call recording and utility functions
-- `lib/services/supabase_service.dart`: Supabase integration
-- `android/app/src/main/kotlin/com/example/tigger/CallRecorderService.kt`: Android recording service
-- `android/app/src/main/kotlin/com/example/tigger/MainActivity.kt`: Android native integration
+### Key Features
+- **Persistent Sessions**: Users stay logged in between app sessions
+- **Automatic Token Refresh**: Seamless token renewal without user intervention
+- **Network Resilience**: Handles connectivity issues with retry mechanisms
+- **Secure Storage**: Leverages Supabase's built-in secure session storage
 
 ## 📞 Call Recording System
 
@@ -167,19 +230,49 @@ lib/
 - **Storage**: Local Android storage → Supabase cloud storage
 - **Fallback**: 5-second timeout if OFFHOOK not detected
 
+## 📊 Database Schema
+
+### Core Tables
+- **users**: System users (admins, managers, sales executives)
+- **profiles**: Extended user profile information
+- **leads**: Lead management and tracking
+- **customers**: Customer profiles and interactions
+- **projects**: Real estate project management
+- **bookings**: Property booking management
+- **site_visits**: Site visit scheduling and tracking
+- **tickets**: Support ticket system
+- **vendors**: Vendor management and KYC
+- **developers**: Real estate developer management
+- **tasks**: Task management and assignment
+
+### Key Features
+- **UUID Primary Keys**: Scalable and distributed-friendly
+- **JSONB Fields**: Flexible metadata storage
+- **Audit Trails**: Created/updated timestamps and user tracking
+- **Row Level Security**: Secure data access with RLS policies
+- **Real-time Subscriptions**: Live data updates
+
 ## 🔧 Configuration
 
 ### Supabase Setup
 1. Create a new Supabase project
-2. Create a storage bucket named `recordings`
-3. Set RLS policies for upload access
-4. Update credentials in `lib/utils/constants.dart`
+2. Set up database schema using provided migration files
+3. Create storage bucket named `recordings`
+4. Configure RLS policies for data security
+5. Update credentials in `lib/core/constants/constants.dart`
 
 ### API Configuration
-- Update `baseUrl` in `lib/utils/constants.dart` if using custom API
+- Update `baseUrl` in constants if using custom API
 - Configure timeout and retry settings as needed
+- Set up proper error handling and logging
 
 ## 🧪 Testing
+
+### Session Persistence Test
+1. Login to the application
+2. Close the app completely
+3. Reopen the app
+4. Verify user is automatically logged in
 
 ### Call Recording Test
 1. Grant all required permissions
@@ -191,7 +284,8 @@ lib/
 ### Debug Information
 - Check Logcat for `CallRecorderService` logs
 - Monitor console for Supabase connectivity status
-- Verify file existence in Android storage: `Android/data/<package>/files/Music/calls/`
+- Verify authentication state in debug console
+- Check file existence in Android storage: `Android/data/<package>/files/Music/calls/`
 
 ## 🚨 Known Limitations
 
@@ -200,10 +294,30 @@ lib/
 - **Device Compatibility**: Recording quality varies across devices
 - **Network Dependency**: Requires internet for cloud upload
 
+### Session Management
+- **Token Expiry**: Sessions expire based on Supabase configuration
+- **Network Dependency**: Requires internet for session validation
+
 ### Recommendations
 - Test on multiple devices for compatibility
 - Consider VoIP SDK for guaranteed two-way audio recording
 - Implement local storage backup for offline scenarios
+- Monitor session expiry and implement appropriate refresh strategies
+
+## 🔄 Recent Updates
+
+### Session Persistence Implementation
+- ✅ **AuthStateManager**: Centralized authentication state management
+- ✅ **AuthWrapper**: Smart routing based on authentication status
+- ✅ **Session Restoration**: Automatic session validation and refresh
+- ✅ **Reactive UI**: Real-time authentication state updates
+- ✅ **Error Handling**: Graceful handling of network and auth issues
+
+### Architecture Improvements
+- ✅ **Clean Architecture**: Proper separation of concerns
+- ✅ **Repository Pattern**: Clean data access layer
+- ✅ **Provider State Management**: Reactive state management
+- ✅ **Type Safety**: Comprehensive model classes and validation
 
 ## 🤝 Contributing
 
@@ -226,10 +340,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - Flutter team for the amazing framework
-- Supabase for backend services
+- Supabase for backend services and authentication
 - Material Design team for UI guidelines
 - Android team for native integration capabilities
+- Provider package for state management
 
 ---
 
-**Note**: This is a real estate CRM system with advanced call recording capabilities. Ensure compliance with local laws regarding call recording and data privacy when deploying in production.
+**Note**: This is a real estate CRM system with advanced call recording capabilities and persistent user sessions. Ensure compliance with local laws regarding call recording, data privacy, and session management when deploying in production.
