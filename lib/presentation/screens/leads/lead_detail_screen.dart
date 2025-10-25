@@ -9709,24 +9709,13 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
                       : Colors.grey.withOpacity(0.3),
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _isRealtimeConnected ? Icons.wifi : Icons.wifi_off,
-                    size: 12,
-                    color: _isRealtimeConnected ? Colors.green : Colors.grey,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _isRealtimeConnected ? 'Live' : 'Offline',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: _isRealtimeConnected ? Colors.green : Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+              child: Text(
+                _isRealtimeConnected ? 'Live' : 'Offline',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: _isRealtimeConnected ? Colors.green : Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
