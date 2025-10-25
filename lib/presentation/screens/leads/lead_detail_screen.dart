@@ -151,29 +151,6 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             ],
           ),
           actions: <Widget>[
-            // Real-time connection indicator
-            Container(
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _isRealtimeConnected ? Icons.wifi : Icons.wifi_off,
-                    size: 16,
-                    color: _isRealtimeConnected ? Colors.green : Colors.red,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _isRealtimeConnected ? 'Live' : 'Offline',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _isRealtimeConnected ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
             IconButton(
               tooltip: 'Assign',
               icon: Icon(
