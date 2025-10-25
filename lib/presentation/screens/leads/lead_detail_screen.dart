@@ -9611,29 +9611,23 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
 
     return Column(
       children: [
-        ClipRect(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(left: -12, right: -12),
-              child: TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                padding: EdgeInsets.zero,
-                labelPadding: EdgeInsets.zero,
-                tabs: const [
-                  Tab(text: 'Disposition Log'),
-                  Tab(text: 'Call Log'),
-                  Tab(text: 'Allocation Log'),
-                  Tab(text: 'SMS Log'),
-                  Tab(text: 'Email Log'),
-                  Tab(text: 'WhatsApp Log'),
-                  Tab(text: 'Visitor Log'),
-                  Tab(text: 'Offline Log'),
-                ],
-              ),
-            ),
+        Padding(
+          padding: const EdgeInsets.only(left: -12, right: -12),
+          child: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            padding: EdgeInsets.zero,
+            labelPadding: EdgeInsets.zero,
+            tabs: const [
+              Tab(text: 'Disposition Log'),
+              Tab(text: 'Call Log'),
+              Tab(text: 'Allocation Log'),
+              Tab(text: 'SMS Log'),
+              Tab(text: 'Email Log'),
+              Tab(text: 'WhatsApp Log'),
+              Tab(text: 'Visitor Log'),
+              Tab(text: 'Offline Log'),
+            ],
           ),
         ),
         SizedBox(
