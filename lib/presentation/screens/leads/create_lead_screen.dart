@@ -281,12 +281,15 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                       color: Colors.grey.shade600,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'Created on: $istDateTime',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w500,
+                    Expanded(
+                      child: Text(
+                        'Created on: $istDateTime',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -511,7 +514,8 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
         budgetRange: _selectedBudget,
         requirements: _remarkController.text.trim(),
         notes: _remarkController.text.trim(),
-        assignedTo: _selectedAssignTo ?? '',
+        assignedTo:
+            _selectedAssignTo ?? '', // This will be handled by the service
         assignedToName: assignedToName,
         createdBy: '', // Will be set by service
         createdByName: '', // Will be set by service
@@ -777,7 +781,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                           SizedBox(width: 8),
-                          Text('Checking for duplicates...'),
+                          Expanded(child: Text('Checking for duplicates...')),
                         ],
                       ),
                     ),

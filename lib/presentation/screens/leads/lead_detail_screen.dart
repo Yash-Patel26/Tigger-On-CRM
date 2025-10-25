@@ -25,6 +25,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 
   late Future<Lead> _leadFuture;
   RealtimeChannel? _leadRealtimeChannel;
+  bool _isRealtimeConnected = false;
 
   @override
   void initState() {
@@ -52,6 +53,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     // Listen for updates to this lead and refresh UI in realtime
     final client = supabase.Supabase.instance.client;
     _leadRealtimeChannel = client.channel('public:leads:${widget.leadId}');
+
     _leadRealtimeChannel!
         .onPostgresChanges(
           event: supabase.PostgresChangeEvent.update,
@@ -64,12 +66,55 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
           ),
           callback: (PostgresChangePayload payload) {
             if (!mounted) return;
+            print('Real-time update received for lead: ${widget.leadId}');
+            print(
+              'Payload event: ${payload.eventType}, old: ${payload.oldRecord}, new: ${payload.newRecord}',
+            );
+
+            // Refresh the lead data
+            setState(() {
+              _leadFuture = _fetchLead();
+            });
+
+            // Show a subtle notification that the data was updated
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Lead information updated'),
+                  duration: Duration(seconds: 2),
+                  backgroundColor: Colors.blue,
+                ),
+              );
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: supabase.PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'leads',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: widget.leadId,
+          ),
+          callback: (PostgresChangePayload payload) {
+            if (!mounted) return;
+            print('Real-time insert received for lead: ${widget.leadId}');
             setState(() {
               _leadFuture = _fetchLead();
             });
           },
         )
         .subscribe();
+
+    // Set connection status after subscription
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) {
+        setState(() {
+          _isRealtimeConnected = true;
+        });
+      }
+    });
   }
 
   @override
@@ -102,6 +147,29 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             ],
           ),
           actions: <Widget>[
+            // Real-time connection indicator
+            Container(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _isRealtimeConnected ? Icons.wifi : Icons.wifi_off,
+                    size: 16,
+                    color: _isRealtimeConnected ? Colors.green : Colors.red,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _isRealtimeConnected ? 'Live' : 'Offline',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _isRealtimeConnected ? Colors.green : Colors.red,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             IconButton(
               tooltip: 'Assign',
               icon: Icon(
@@ -329,7 +397,6 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Removed Schedule Follow-up card per spec
                       _CollapsibleCard(
                         title: 'Timeline',
                         child: _TabbedTimelineCard(leadId: lead.id),
@@ -454,7 +521,6 @@ class _SectionCard extends StatelessWidget {
             ],
           ),
         ),
-        // Removed left accent bar
       ],
     );
   }
@@ -1317,7 +1383,6 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
             ],
           ),
         ),
-        // Removed left accent bar
       ],
     );
   }
@@ -1737,9 +1802,23 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                           Navigator.of(ctx).pop();
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text(
-                                'Cross sell and linked lead created',
+                              content: Row(
+                                children: [
+                                  Icon(Icons.check_circle, color: Colors.white),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '✅ Cross sell created successfully! A new lead has been linked.',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 4),
+                              behavior: SnackBarBehavior.floating,
                             ),
                           );
                         } catch (e) {
@@ -1839,7 +1918,6 @@ class _ContactCompact extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        // Contact numbers and email removed as requested
         _LeadInfoKeyValues(lead: lead),
       ],
     );
@@ -1859,8 +1937,6 @@ void _openEditCustomer(BuildContext context, Lead lead) {
     builder: (BuildContext context) => _EditCustomerDialog(lead: lead),
   );
 }
-
-// Removed _openViewCustomer; view dialog not used from header anymore
 
 class _EditCustomerDialog extends StatefulWidget {
   const _EditCustomerDialog({required this.lead});
@@ -1902,8 +1978,6 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
     _alternatePhoneController.dispose();
     super.dispose();
   }
-
-  // Removed async loading; we seed from constructor
 
   void _populateFields(Lead lead) {
     // Parse the customer name into parts
@@ -3107,17 +3181,28 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
       );
 
       if (mounted) {
+        // Trigger immediate refresh of lead data for real-time update
+        final _LeadDetailScreenState? parent = context
+            .findAncestorStateOfType<_LeadDetailScreenState>();
+        if (parent != null) {
+          parent.refreshLead();
+        }
+
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Personal information updated successfully'),
+            backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating information: $e')),
+          SnackBar(
+            content: Text('Error updating information: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -3640,8 +3725,6 @@ class _PermanentAddressCardState extends State<_PermanentAddressCard> {
   }
 }
 
-// Removed _AllocationCompact; allocation is now shown within Contact card
-
 class _FollowUpInline extends StatefulWidget {
   @override
   State<_FollowUpInline> createState() => _FollowUpInlineState();
@@ -3711,8 +3794,6 @@ class _FollowUpInlineState extends State<_FollowUpInline> {
     );
   }
 }
-
-// Removed _PreferencesCompact per request
 
 class _TimelineCompact extends StatefulWidget {
   const _TimelineCompact({required this.leadId});
@@ -3854,10 +3935,6 @@ class _ActivityCompactState extends State<_ActivityCompact> {
   }
 }
 
-// Removed bottom sticky quick actions; moved to AppBar bottom
-
-// (Removed unused _LottieAction implementation)
-
 class _IconAction extends StatelessWidget {
   const _IconAction({
     required this.assetPng,
@@ -3892,8 +3969,6 @@ class _IconAction extends StatelessWidget {
     );
   }
 }
-
-// Removed unused _showEditBeforeCallDialog
 
 Future<String?> _promptPhone(BuildContext context, {String? initial}) async {
   final TextEditingController controller = TextEditingController(
@@ -4564,7 +4639,23 @@ class _ReferenceTabState extends State<_ReferenceTab> {
                         Navigator.of(ctx).pop();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Reference and linked lead created'),
+                            content: Row(
+                              children: [
+                                Icon(Icons.people, color: Colors.white),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '✅ Reference created successfully! A new lead has been linked.',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            backgroundColor: Colors.green,
+                            duration: Duration(seconds: 4),
+                            behavior: SnackBarBehavior.floating,
                           ),
                         );
                       } catch (e) {
@@ -5157,7 +5248,25 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                           });
                           Navigator.of(ctx).pop();
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Site visit created')),
+                            const SnackBar(
+                              content: Row(
+                                children: [
+                                  Icon(Icons.location_on, color: Colors.white),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '✅ Site visit created successfully! Visit has been scheduled.',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 4),
+                              behavior: SnackBarBehavior.floating,
+                            ),
                           );
                         } catch (e) {
                           if (!mounted) return;
@@ -5519,7 +5628,23 @@ class _TaskTabState extends State<_TaskTab> {
                       });
                       Navigator.of(ctx).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Task created')),
+                        const SnackBar(
+                          content: Row(
+                            children: [
+                              Icon(Icons.task_alt, color: Colors.white),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '✅ Task created successfully! Task has been assigned.',
+                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 4),
+                          behavior: SnackBarBehavior.floating,
+                        ),
                       );
                     } catch (e) {
                       if (!mounted) return;
@@ -5538,153 +5663,6 @@ class _TaskTabState extends State<_TaskTab> {
       },
     );
   }
-
-  // Removed unused dialog per linter
-  /* void _openChangeStatusDialog(int index) {
-    final List<String> statuses = <String>[
-      'Open',
-      'In Progress',
-      'Completed',
-      'Cancelled',
-    ];
-    String selected = 'Open';
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext ctx) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setStateDialog) {
-            return AlertDialog(
-              title: const Text('Change Status'),
-              content: DropdownButtonFormField<String>(
-                initialValue: selected,
-                items: statuses
-                    .map(
-                      (String s) =>
-                          DropdownMenuItem<String>(value: s, child: Text(s)),
-                    )
-                    .toList(),
-                onChanged: (String? v) =>
-                    setStateDialog(() => selected = v ?? selected),
-                decoration: const InputDecoration(border: OutlineInputBorder()),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    // Implement update via DatabaseService if needed
-                    Navigator.of(ctx).pop();
-                  },
-                  child: const Text('Update'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  } */
-
-  // Removed unused dialog per linter
-  /* void _openEditTaskDialog(int index) {
-    final TextEditingController titleCtrl = TextEditingController();
-    final TextEditingController descCtrl = TextEditingController();
-    String assignTo = 'Me';
-    String priority = 'Medium';
-    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext ctx) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModal) {
-            return AlertDialog(
-              title: const Text('Edit Task'),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      TextFormField(
-                        controller: titleCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Title *',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (String? v) =>
-                            (v == null || v.trim().isEmpty) ? 'Required' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: assignTo,
-                        items: const <String>['Me', 'Anita', 'Chetan']
-                            .map(
-                              (String e) => DropdownMenuItem<String>(
-                                value: e,
-                                child: Text(e),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (String? v) =>
-                            setModal(() => assignTo = v ?? assignTo),
-                        decoration: const InputDecoration(
-                          labelText: 'Assign To *',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: priority,
-                        items: const <String>['Low', 'Medium', 'High']
-                            .map(
-                              (String e) => DropdownMenuItem<String>(
-                                value: e,
-                                child: Text(e),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (String? v) =>
-                            setModal(() => priority = v ?? priority),
-                        decoration: const InputDecoration(
-                          labelText: 'Priority *',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: descCtrl,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'Description',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    if (!(formKey.currentState?.validate() ?? false)) return;
-                    // Implement update via DatabaseService if needed
-                    Navigator.of(ctx).pop();
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  } */
 }
 
 class _QuestionTab extends StatefulWidget {
@@ -5694,7 +5672,6 @@ class _QuestionTab extends StatefulWidget {
 }
 
 class _QuestionTabState extends State<_QuestionTab> {
-  // Local placeholder list replaced with empty list; can be wired to Supabase later
   final List<Map<String, String>> _items = <Map<String, String>>[];
 
   @override
@@ -5841,7 +5818,23 @@ class _QuestionTabState extends State<_QuestionTab> {
                       });
                       Navigator.of(ctx).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Question created')),
+                        const SnackBar(
+                          content: Row(
+                            children: [
+                              Icon(Icons.quiz, color: Colors.white),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '✅ Question created successfully! Question has been added.',
+                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 4),
+                          behavior: SnackBarBehavior.floating,
+                        ),
                       );
                     } catch (e) {
                       if (!mounted) return;
@@ -5869,10 +5862,7 @@ class _PropertyOptionTab extends StatefulWidget {
 }
 
 class _PropertyOptionTabState extends State<_PropertyOptionTab> {
-  // Removed: previously used with dummy items; not needed now
-  // final Map<int, String> _selectedProjectByIndex = <int, String>{};
   List<Project> _projects = <Project>[];
-  // Dummy items removed; now using fetched projects list only
 
   @override
   void initState() {
@@ -5887,9 +5877,7 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
       setState(() {
         _projects = res;
       });
-    } catch (_) {
-      // On failure, show empty state; no dummy data
-    }
+    } catch (_) {}
   }
 
   @override
@@ -6040,9 +6028,25 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
     );
     if (result != null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Property option created')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.home, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '✅ Property option created successfully! Property has been added.',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 }
@@ -7038,9 +7042,6 @@ class _TicketTabState extends State<_TicketTab> {
     );
   }
 
-  // Removed unused method per linter
-  // void _openEditTicketSheet(int index) {}
-
   void _openCreateTicketSheet() {
     final TextEditingController registeredMobileCtrl = TextEditingController();
     final TextEditingController contactNameCtrl = TextEditingController();
@@ -7630,8 +7631,26 @@ class _TicketTabState extends State<_TicketTab> {
                           Navigator.of(ctx).pop();
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Ticket created successfully'),
+                              content: Row(
+                                children: [
+                                  Icon(
+                                    Icons.support_agent,
+                                    color: Colors.white,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '✅ Ticket created successfully! Support ticket has been submitted.',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                               backgroundColor: Colors.green,
+                              duration: Duration(seconds: 4),
+                              behavior: SnackBarBehavior.floating,
                             ),
                           );
                         } catch (e) {
@@ -9023,8 +9042,6 @@ class _PreferencesCardState extends State<_PreferencesCard> {
   }
 }
 
-// _MediaAttachmentsCard removed from Lead Detail tab
-
 class _TabbedTimelineCard extends StatefulWidget {
   const _TabbedTimelineCard({required this.leadId});
   final String leadId;
@@ -10232,8 +10249,6 @@ class _TimelineItem extends StatelessWidget {
     return Wrap(children: metadataWidgets);
   }
 }
-
-// _TimelineItem model removed; using API result instead
 
 class _ActivityLogCard extends StatelessWidget {
   const _ActivityLogCard({required this.activitiesFuture});

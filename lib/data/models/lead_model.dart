@@ -110,8 +110,29 @@ class Lead {
         s(j, a, b) ?? fallback;
     String? opt(Map<String, dynamic> j, String a, String b) =>
         j[a] as String? ?? j[b] as String?;
-    int? inti(Map<String, dynamic> j, String a, String b) =>
-        (j[a] as int?) ?? (j[b] as int?);
+    int? inti(Map<String, dynamic> j, String a, String b) {
+      // Try to get the value from either field
+      dynamic value = j[a] ?? j[b];
+
+      // Handle null values
+      if (value == null) return null;
+
+      // If it's already an int, return it
+      if (value is int) return value;
+
+      // If it's a string, try to parse it as int
+      if (value is String) {
+        if (value.isEmpty) return null;
+        return int.tryParse(value);
+      }
+
+      // If it's a double, convert to int
+      if (value is double) return value.toInt();
+
+      // For any other type, return null
+      return null;
+    }
+
     bool b(Map<String, dynamic> j, String a, String b, bool d) =>
         (j[a] as bool?) ?? (j[b] as bool?) ?? d;
     DateTime dt(Map<String, dynamic> j, String a, String b) =>
@@ -190,53 +211,88 @@ class Lead {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'lead_id': leadId,
-      'customer_name': customerName,
-      'email': email,
-      'phone': phone,
-      'alternate_phone': alternatePhone,
-      'address': address,
-      'city': city,
-      'state': state,
-      'pincode': pincode,
-      // Personal Information
-      'name': name,
-      'dob': dob?.toIso8601String(),
-      'age': age,
-      'gender': gender,
-      'marital_status': maritalStatus,
-      'employment_type': employmentType,
-      'itr_filing_status': itrFilingStatus,
-      'occupation': occupation,
-      'country': country,
-      'state_name': stateName,
-      'location': location,
-      'status': status.toString().split('.').last,
-      'sub_status': subStatus.toString().split('.').last,
-      'source': source.toString().split('.').last,
-      'property_type': propertyType.toString().split('.').last,
-      'category_type': categoryType.toString().split('.').last,
-      'project_id': projectId,
-      'project_name': projectName,
-      'budget_range': budgetRange,
-      'requirements': requirements,
-      'notes': notes,
-      'assigned_to': assignedTo,
-      'assigned_to_name': assignedToName,
-      'created_by': createdBy,
-      'created_by_name': createdByName,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
-      'last_follow_up_date': lastFollowUpDate?.toIso8601String(),
-      'next_follow_up_date': nextFollowUpDate?.toIso8601String(),
-      'has_site_visit': hasSiteVisit,
-      'follow_up_count': followUpCount,
-      'site_visit_count': siteVisitCount,
-      'is_duplicate': isDuplicate,
-      'custom_fields': customFields,
-    };
+    final Map<String, dynamic> json = {};
+
+    // Only include id if it's not empty (for updates)
+    if (id.isNotEmpty) {
+      json['id'] = id;
+    }
+
+    // Only include lead_id if it's not empty (for updates)
+    if (leadId.isNotEmpty) {
+      json['lead_id'] = leadId;
+    }
+
+    json['customer_name'] = customerName;
+    json['email'] = email;
+    json['phone'] = phone;
+    json['alternate_phone'] = alternatePhone;
+    json['address'] = address;
+    json['city'] = city;
+    json['state'] = state;
+    json['pincode'] = pincode;
+
+    // Personal Information
+    json['name'] = name;
+    json['dob'] = dob?.toIso8601String();
+    json['age'] = age;
+    json['gender'] = gender;
+    json['marital_status'] = maritalStatus;
+    json['employment_type'] = employmentType;
+    json['itr_filing_status'] = itrFilingStatus;
+    json['occupation'] = occupation;
+    json['country'] = country;
+    json['state_name'] = stateName;
+    json['location'] = location;
+    json['status'] = status.toString().split('.').last;
+    json['sub_status'] = subStatus.toString().split('.').last;
+    json['source'] = source.toString().split('.').last;
+    json['property_type'] = propertyType.toString().split('.').last;
+    json['category_type'] = categoryType.toString().split('.').last;
+    json['project_id'] = projectId;
+    json['project_name'] = projectName;
+    json['budget_range'] = budgetRange;
+    json['requirements'] = requirements;
+    json['notes'] = notes;
+
+    // Only include assigned_to if it's not empty
+    if (assignedTo.isNotEmpty) {
+      json['assigned_to'] = assignedTo;
+    } else {
+      json['assigned_to'] = null;
+    }
+
+    // Only include assigned_to_name if it's not empty
+    if (assignedToName.isNotEmpty) {
+      json['assigned_to_name'] = assignedToName;
+    } else {
+      json['assigned_to_name'] = null;
+    }
+
+    // Only include created_by if it's not empty
+    if (createdBy.isNotEmpty) {
+      json['created_by'] = createdBy;
+    } else {
+      json['created_by'] = null;
+    }
+
+    // Only include created_by_name if it's not empty
+    if (createdByName.isNotEmpty) {
+      json['created_by_name'] = createdByName;
+    } else {
+      json['created_by_name'] = null;
+    }
+    json['created_at'] = createdAt.toIso8601String();
+    json['updated_at'] = updatedAt.toIso8601String();
+    json['last_follow_up_date'] = lastFollowUpDate?.toIso8601String();
+    json['next_follow_up_date'] = nextFollowUpDate?.toIso8601String();
+    json['has_site_visit'] = hasSiteVisit;
+    json['follow_up_count'] = followUpCount;
+    json['site_visit_count'] = siteVisitCount;
+    json['is_duplicate'] = isDuplicate;
+    json['custom_fields'] = customFields;
+
+    return json;
   }
 
   Lead copyWith({

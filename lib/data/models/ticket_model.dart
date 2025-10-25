@@ -163,7 +163,7 @@ class Ticket {
       final String? v = s(a, b);
       if (v == null) return fallback;
       return values.firstWhere(
-        (e) => (e as dynamic).name == v,
+        (e) => e.toString().split('.').last == v,
         orElse: () => fallback,
       );
     }

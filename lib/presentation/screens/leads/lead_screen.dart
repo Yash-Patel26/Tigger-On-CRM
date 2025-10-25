@@ -112,6 +112,7 @@ class _LeadScreenState extends State<LeadScreen> {
 
   // Realtime subscription for lead updates
   supabase.RealtimeChannel? _leadsRealtimeChannel;
+  bool _isRealtimeConnected = false;
 
   @override
   void initState() {
@@ -263,6 +264,11 @@ class _LeadScreenState extends State<LeadScreen> {
           table: 'leads',
           callback: (supabase.PostgresChangePayload payload) {
             if (!mounted) return;
+            print('Real-time lead update received in lead list');
+            print(
+              'Payload event: ${payload.eventType}, old: ${payload.oldRecord}, new: ${payload.newRecord}',
+            );
+
             // Refresh the current page and stats when any lead is updated
             _loadPage(_currentPage);
             _loadStats();
@@ -274,12 +280,42 @@ class _LeadScreenState extends State<LeadScreen> {
           table: 'leads',
           callback: (supabase.PostgresChangePayload payload) {
             if (!mounted) return;
+            print('Real-time lead insert received in lead list');
+            print(
+              'Payload event: ${payload.eventType}, old: ${payload.oldRecord}, new: ${payload.newRecord}',
+            );
+
             // Refresh the current page and stats when a new lead is created
             _loadPage(_currentPage);
             _loadStats();
           },
         )
+        .onPostgresChanges(
+          event: supabase.PostgresChangeEvent.delete,
+          schema: 'public',
+          table: 'leads',
+          callback: (supabase.PostgresChangePayload payload) {
+            if (!mounted) return;
+            print('Real-time lead delete received in lead list');
+            print(
+              'Payload event: ${payload.eventType}, old: ${payload.oldRecord}, new: ${payload.newRecord}',
+            );
+
+            // Refresh the current page and stats when a lead is deleted
+            _loadPage(_currentPage);
+            _loadStats();
+          },
+        )
         .subscribe();
+
+    // Set connection status after subscription
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) {
+        setState(() {
+          _isRealtimeConnected = true;
+        });
+      }
+    });
   }
 
   @override
@@ -288,6 +324,29 @@ class _LeadScreenState extends State<LeadScreen> {
       appBar: AppBar(
         title: const Text('Leads'),
         actions: <Widget>[
+          // Real-time connection indicator
+          Container(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _isRealtimeConnected ? Icons.wifi : Icons.wifi_off,
+                  size: 16,
+                  color: _isRealtimeConnected ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _isRealtimeConnected ? 'Live' : 'Offline',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _isRealtimeConnected ? Colors.green : Colors.red,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
           IconButton(
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),

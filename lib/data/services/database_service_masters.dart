@@ -5,6 +5,24 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class DatabaseServiceMasters {
   static SupabaseClient get _client => SupabaseConfig.client;
 
+  // Helper function to convert performedBy to UUID
+  static String _convertToUuid(String performedBy) {
+    if (performedBy == 'system') {
+      return '00000000-0000-0000-0000-000000000000';
+    }
+
+    // Validate that performedBy is a valid UUID
+    final uuidRegex = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    );
+    if (uuidRegex.hasMatch(performedBy)) {
+      return performedBy;
+    } else {
+      // If not a valid UUID, use system UUID
+      return '00000000-0000-0000-0000-000000000000';
+    }
+  }
+
   // Lead Status Methods
   static Future<List<Map<String, dynamic>>> getLeadStatuses() async {
     try {
@@ -271,7 +289,7 @@ class DatabaseServiceMasters {
         'type': 'task',
         'action': 'task_created',
         'description': 'Task created: $taskTitle',
-        'performed_by': performedBy,
+        'performed_by': _convertToUuid(performedBy),
         'performed_by_name': performedByName,
         'metadata': {'task_id': taskId, 'task_title': taskTitle},
       });
@@ -294,7 +312,7 @@ class DatabaseServiceMasters {
         'type': 'call_initiated',
         'action': 'call_initiated',
         'description': 'Call initiated to $phoneNumber',
-        'performed_by': performedBy,
+        'performed_by': _convertToUuid(performedBy),
         'performed_by_name': performedByName,
         'metadata': {
           'phone_number': phoneNumber,
@@ -318,7 +336,7 @@ class DatabaseServiceMasters {
         'type': 'email_initiated',
         'action': 'email_initiated',
         'description': 'Email initiated to $emailAddress',
-        'performed_by': performedBy,
+        'performed_by': _convertToUuid(performedBy),
         'performed_by_name': performedByName,
         'metadata': {'email_address': emailAddress},
       });
@@ -339,7 +357,7 @@ class DatabaseServiceMasters {
         'type': 'message_initiated',
         'action': 'message_initiated',
         'description': 'SMS initiated to $phoneNumber',
-        'performed_by': performedBy,
+        'performed_by': _convertToUuid(performedBy),
         'performed_by_name': performedByName,
         'metadata': {'phone_number': phoneNumber},
       });
@@ -371,7 +389,7 @@ class DatabaseServiceMasters {
         'type': type,
         'action': action,
         'description': description,
-        'performed_by': performedBy,
+        'performed_by': _convertToUuid(performedBy),
         'performed_by_name': performedByName,
         'metadata': {'phone_number': phoneNumber, 'is_offline': isOffline},
       });
@@ -394,7 +412,7 @@ class DatabaseServiceMasters {
       );
 
       final currentUser = _client.auth.currentUser;
-      final String userId = currentUser?.id ?? 'system';
+      final String userId = _convertToUuid(currentUser?.id ?? 'system');
       final String userName =
           (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
 
