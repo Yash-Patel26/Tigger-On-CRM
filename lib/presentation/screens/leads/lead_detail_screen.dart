@@ -6,6 +6,10 @@ import 'dart:math' as math;
 import '../../../../shared/utils/helpers.dart';
 import '../projects/site_visit_detail_screen.dart';
 import '../../../../data/repositories/lead_repository.dart';
+import '../../../../data/repositories/site_visit_repository.dart';
+import '../../../../data/repositories/task_repository.dart';
+import '../../../../data/repositories/ticket_repository.dart';
+import '../../../../data/services/api_service.dart' as api;
 import '../../../../data/services/database_service.dart';
 import '../../../../data/services/database_service_masters.dart' as masters;
 import '../../../../data/services/master_data_service.dart';
@@ -379,9 +383,10 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                         children: <Widget>[_ContactCompact(lead: lead)],
                       ),
                       const SizedBox(height: 12),
-                      _CollapsibleCard(
+                      _LazyCollapsibleCard(
                         title: 'Preferred Project & Location',
-                        child: _ProjectLocationCompact(lead: lead),
+                        childBuilder: () =>
+                            _LazyProjectLocationCompact(leadId: lead.id),
                       ),
                       const SizedBox(height: 12),
 
@@ -537,6 +542,82 @@ class _CollapsibleCard extends StatefulWidget {
   final Widget? action;
   @override
   State<_CollapsibleCard> createState() => _CollapsibleCardState();
+}
+
+class _LazyCollapsibleCard extends StatefulWidget {
+  const _LazyCollapsibleCard({required this.title, required this.childBuilder});
+  final String title;
+  final Widget Function() childBuilder;
+  @override
+  State<_LazyCollapsibleCard> createState() => _LazyCollapsibleCardState();
+}
+
+class _LazyCollapsibleCardState extends State<_LazyCollapsibleCard> {
+  late bool expanded = false;
+  Widget? _cachedChild;
+  bool _hasLoaded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color primary = Theme.of(context).colorScheme.primary;
+    return Stack(
+      children: <Widget>[
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: <Widget>[
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    expanded = !expanded;
+                    if (expanded && !_hasLoaded) {
+                      _cachedChild = widget.childBuilder();
+                      _hasLoaded = true;
+                    }
+                  });
+                },
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    Icon(
+                      expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                    ),
+                  ],
+                ),
+              ),
+              if (expanded) ...<Widget>[
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 12),
+                  child: Divider(color: primary.withOpacity(0.15), height: 1),
+                ),
+                _cachedChild ?? const SizedBox.shrink(),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _DisposeLeadDialog extends StatefulWidget {
@@ -2588,6 +2669,109 @@ class _ProjectLocationCompact extends StatelessWidget {
   }
 }
 
+class _LazyProjectLocationCompact extends StatefulWidget {
+  const _LazyProjectLocationCompact({required this.leadId});
+  final String leadId;
+
+  @override
+  State<_LazyProjectLocationCompact> createState() =>
+      _LazyProjectLocationCompactState();
+}
+
+class _LazyProjectLocationCompactState
+    extends State<_LazyProjectLocationCompact> {
+  late Future<ApiResponse<Lead>> _leadFuture;
+  bool _hasLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Don't load data immediately
+  }
+
+  void _loadData() {
+    if (!_hasLoaded) {
+      setState(() {
+        _leadFuture = LeadRepository().getLead(widget.leadId);
+        _hasLoaded = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_hasLoaded) {
+      return Column(
+        children: [
+          const SizedBox(height: 20),
+          Center(
+            child: TextButton.icon(
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Load Project & Location Details'),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      );
+    }
+
+    return FutureBuilder<ApiResponse<Lead>>(
+      future: _leadFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  const Icon(Icons.error, color: Colors.red, size: 48),
+                  const SizedBox(height: 8),
+                  Text('Failed to load data: ${snapshot.error}'),
+                  const SizedBox(height: 8),
+                  TextButton(onPressed: _loadData, child: const Text('Retry')),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final response = snapshot.data!;
+        if (!response.success || response.data == null) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  const Icon(Icons.error, color: Colors.red, size: 48),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Failed to load data: ${response.message ?? 'Unknown error'}',
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(onPressed: _loadData, child: const Text('Retry')),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final lead = response.data!;
+        return _ProjectLocationCompact(lead: lead);
+      },
+    );
+  }
+}
+
 class _PersonalInfoCard extends StatefulWidget {
   final Lead lead;
 
@@ -3921,6 +4105,8 @@ class _ActivityCompactState extends State<_ActivityCompact> {
       children: <Widget>[
         _ActivityLogCard(activitiesFuture: _activitiesFuture),
         const SizedBox(height: 8),
+        _EnhancedActivitySections(leadId: widget.leadId),
+        const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton(
@@ -3932,6 +4118,195 @@ class _ActivityCompactState extends State<_ActivityCompact> {
         ),
       ],
     );
+  }
+}
+
+class _EnhancedActivitySections extends StatefulWidget {
+  const _EnhancedActivitySections({required this.leadId});
+  final String leadId;
+
+  @override
+  State<_EnhancedActivitySections> createState() =>
+      _EnhancedActivitySectionsState();
+}
+
+class _EnhancedActivitySectionsState extends State<_EnhancedActivitySections> {
+  late Future<List<Map<String, dynamic>>> _crossSellsFuture;
+  late Future<List<Map<String, dynamic>>> _referencesFuture;
+  late Future<api.ApiResponse<List<SiteVisit>>> _siteVisitsFuture;
+  late Future<api.ApiResponse<List<Task>>> _tasksFuture;
+  late Future<api.ApiResponse<List<Ticket>>> _ticketsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _crossSellsFuture = DatabaseService.getLeadCrossSells(
+      leadId: widget.leadId,
+    );
+    _referencesFuture = DatabaseService.getLeadReferences(
+      leadId: widget.leadId,
+    );
+    _siteVisitsFuture = SiteVisitRepository().getSiteVisitsByLead(
+      widget.leadId,
+    );
+    _tasksFuture = TaskRepository().getTasksByLead(widget.leadId);
+    _ticketsFuture = TicketRepository().getTicketsByLead(widget.leadId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionCard(
+          title: 'Cross Sell',
+          icon: Icons.sell,
+          color: Colors.blue,
+          future: _crossSellsFuture,
+          onTap: () => _navigateToTab(1), // Cross Sell tab index
+        ),
+        const SizedBox(height: 8),
+        _buildSectionCard(
+          title: 'Reference',
+          icon: Icons.people,
+          color: Colors.green,
+          future: _referencesFuture,
+          onTap: () => _navigateToTab(2), // Reference tab index
+        ),
+        const SizedBox(height: 8),
+        _buildSectionCard(
+          title: 'Site Visit',
+          icon: Icons.location_on,
+          color: Colors.orange,
+          future: _siteVisitsFuture,
+          onTap: () => _navigateToTab(3), // Site Visit tab index
+        ),
+        const SizedBox(height: 8),
+        _buildSectionCard(
+          title: 'Task',
+          icon: Icons.task,
+          color: Colors.purple,
+          future: _tasksFuture,
+          onTap: () => _navigateToTab(4), // Task tab index
+        ),
+        const SizedBox(height: 8),
+        _buildSectionCard(
+          title: 'Question',
+          icon: Icons.help,
+          color: Colors.teal,
+          future: Future.value([]), // Questions are static for now
+          onTap: () => _navigateToTab(5), // Question tab index
+        ),
+        const SizedBox(height: 8),
+        _buildSectionCard(
+          title: 'Property Option',
+          icon: Icons.home,
+          color: Colors.indigo,
+          future: Future.value([]), // Property options are static for now
+          onTap: () => _navigateToTab(6), // Property Option tab index
+        ),
+        const SizedBox(height: 8),
+        _buildSectionCard(
+          title: 'Ticket',
+          icon: Icons.support_agent,
+          color: Colors.red,
+          future: _ticketsFuture,
+          onTap: () => _navigateToTab(7), // Ticket tab index
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required Future future,
+    required VoidCallback onTap,
+  }) {
+    return FutureBuilder(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink(); // Don't show loading for individual sections
+        }
+
+        final bool hasData =
+            snapshot.hasData &&
+            snapshot.data != null &&
+            (snapshot.data is api.ApiResponse
+                ? (snapshot.data as api.ApiResponse).data != null &&
+                      (snapshot.data as api.ApiResponse).data!.isNotEmpty
+                : (snapshot.data as List).isNotEmpty);
+
+        if (!hasData) {
+          return const SizedBox.shrink(); // Don't show sections with no data
+        }
+
+        return InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: color.withOpacity(0.3)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        'Tap to view details',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: Colors.grey[400],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _navigateToTab(int tabIndex) {
+    // Find the DefaultTabController and navigate to the specific tab
+    final tabController = DefaultTabController.of(context);
+    tabController.animateTo(tabIndex);
   }
 }
 
@@ -9228,7 +9603,7 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
     if (_isLoading) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: EdgeInsets.all(16),
           child: CircularProgressIndicator(),
         ),
       );
@@ -9293,14 +9668,13 @@ class _DispositionLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: EdgeInsets.all(16),
           child: Text('No disposition logs found'),
         ),
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
       itemCount: activities.length,
       itemBuilder: (context, index) {
         final activity = activities[index];
@@ -9377,7 +9751,7 @@ class _CallLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: EdgeInsets.all(16),
           child: Text('No call logs found'),
         ),
       );
@@ -9456,7 +9830,7 @@ class _AllocationLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: EdgeInsets.all(16),
           child: Text('No allocation logs found'),
         ),
       );
@@ -9533,7 +9907,7 @@ class _SmsLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: EdgeInsets.all(16),
           child: Text('No SMS logs found'),
         ),
       );
@@ -9608,7 +9982,7 @@ class _EmailLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: EdgeInsets.all(16),
           child: Text('No email logs found'),
         ),
       );
@@ -9682,7 +10056,7 @@ class _WhatsAppLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: EdgeInsets.all(16),
           child: Text('No WhatsApp logs found'),
         ),
       );
@@ -9757,7 +10131,7 @@ class _VisitorLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: EdgeInsets.all(16),
           child: Text('No visitor logs found'),
         ),
       );
@@ -9831,7 +10205,7 @@ class _OfflineLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: EdgeInsets.all(16),
           child: Text('No offline logs found'),
         ),
       );
