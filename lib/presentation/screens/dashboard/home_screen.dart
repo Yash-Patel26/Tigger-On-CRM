@@ -61,6 +61,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _teamMembersCount = 0;
   bool _isLoadingStats = true;
 
+  // Search functionality
+  bool _isSearching = false;
+  List<Map<String, dynamic>> _searchResults = [];
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -306,7 +311,345 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _notifChannel?.unsubscribe();
     _statsChannel?.unsubscribe();
+    _homeSearchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _performSearch(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _searchQuery = '';
+        _isSearching = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+      _searchQuery = query.trim();
+    });
+
+    try {
+      final List<Map<String, dynamic>> results = [];
+
+      // Search leads
+      try {
+        final List<Lead> leads = await DatabaseService.getLeads(
+          search: query,
+          limit: 5,
+        );
+        for (final lead in leads) {
+          results.add({
+            'type': 'lead',
+            'id': lead.id,
+            'title': lead.customerName,
+            'subtitle': 'Lead ID: ${lead.leadId}',
+            'description': lead.projectName,
+            'icon': Icons.person_search,
+            'data': lead,
+          });
+        }
+      } catch (e) {
+        // Continue with other searches even if leads fail
+      }
+
+      // Search customers
+      try {
+        final List<Customer> customers = await DatabaseService.getCustomers(
+          search: query,
+          limit: 5,
+        );
+        for (final customer in customers) {
+          results.add({
+            'type': 'customer',
+            'id': customer.id,
+            'title': customer.name,
+            'subtitle': customer.email,
+            'description': customer.phone,
+            'icon': Icons.person,
+            'data': customer,
+          });
+        }
+      } catch (e) {
+        // Continue with other searches even if customers fail
+      }
+
+      // Search projects
+      try {
+        final List<Project> projects = await DatabaseService.getProjects(
+          search: query,
+          limit: 5,
+        );
+        for (final project in projects) {
+          results.add({
+            'type': 'project',
+            'id': project.id,
+            'title': project.name,
+            'subtitle': project.type.name,
+            'description': project.description,
+            'icon': Icons.business,
+            'data': project,
+          });
+        }
+      } catch (e) {
+        // Continue with other searches even if projects fail
+      }
+
+      // Search bookings
+      try {
+        final List<Booking> bookings = await DatabaseService.getBookings(
+          search: query,
+          limit: 5,
+        );
+        for (final booking in bookings) {
+          results.add({
+            'type': 'booking',
+            'id': booking.id,
+            'title': booking.customerName,
+            'subtitle': 'SR No: ${booking.srNo}',
+            'description': booking.projectName,
+            'icon': Icons.confirmation_number,
+            'data': booking,
+          });
+        }
+      } catch (e) {
+        // Continue with other searches even if bookings fail
+      }
+
+      // Search site visits
+      try {
+        final List<SiteVisit> siteVisits = await DatabaseService.getSiteVisits(
+          search: query,
+          limit: 5,
+        );
+        for (final siteVisit in siteVisits) {
+          results.add({
+            'type': 'site_visit',
+            'id': siteVisit.id,
+            'title': siteVisit.customerName,
+            'subtitle': 'Site Visit',
+            'description': siteVisit.projectName,
+            'icon': Icons.location_on,
+            'data': siteVisit,
+          });
+        }
+      } catch (e) {
+        // Continue with other searches even if site visits fail
+      }
+
+      // Search tasks
+      try {
+        final List<Task> tasks = await DatabaseService.getTasks(
+          search: query,
+          limit: 5,
+        );
+        for (final task in tasks) {
+          results.add({
+            'type': 'task',
+            'id': task.id,
+            'title': task.title,
+            'subtitle': task.status.name,
+            'description': task.description,
+            'icon': Icons.task,
+            'data': task,
+          });
+        }
+      } catch (e) {
+        // Continue with other searches even if tasks fail
+      }
+
+      if (mounted) {
+        setState(() {
+          _searchResults = results;
+          _isSearching = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _isSearching = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildSearchResults() {
+    return Column(
+      children: [
+        // Search header
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardTheme.color,
+            border: Border(
+              bottom: BorderSide(
+                color: Theme.of(context).dividerColor.withOpacity(0.3),
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Search results for "$_searchQuery"',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  _homeSearchController.clear();
+                  setState(() {
+                    _searchQuery = '';
+                    _searchResults = [];
+                  });
+                },
+                icon: const Icon(Icons.close, size: 18),
+                label: const Text('Clear'),
+              ),
+            ],
+          ),
+        ),
+        // Search results
+        Expanded(
+          child: _isSearching
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Searching...'),
+                    ],
+                  ),
+                )
+              : _searchResults.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No results found',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Try searching with different keywords',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _searchResults.length,
+                  itemBuilder: (context, index) {
+                    final result = _searchResults[index];
+                    return _buildSearchResultItem(result);
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchResultItem(Map<String, dynamic> result) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            result['icon'] as IconData,
+            color: Theme.of(context).colorScheme.primary,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          result['title'] as String,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(result['subtitle'] as String),
+            if (result['description'] != null)
+              Text(
+                result['description'] as String,
+                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              ),
+          ],
+        ),
+        trailing: Icon(
+          Icons.arrow_forward_ios,
+          size: 16,
+          color: Colors.grey[400],
+        ),
+        onTap: () => _navigateToSearchResult(result),
+      ),
+    );
+  }
+
+  void _navigateToSearchResult(Map<String, dynamic> result) {
+    final String type = result['type'] as String;
+
+    switch (type) {
+      case 'lead':
+        // Navigate to lead detail or lead screen
+        Navigator.of(context).push(
+          SmoothPageTransitions.slideFromRight<void>(child: const LeadScreen()),
+        );
+        break;
+      case 'customer':
+        // Navigate to customer detail or customer screen
+        // For now, just show a snackbar
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Customer: ${result['title']}')));
+        break;
+      case 'project':
+        // Navigate to project detail
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Project: ${result['title']}')));
+        break;
+      case 'booking':
+        // Navigate to booking screen
+        Navigator.of(context).push(
+          SmoothPageTransitions.slideFromRight<void>(
+            child: const BookingScreen(),
+          ),
+        );
+        break;
+      case 'site_visit':
+        // Navigate to site visit screen
+        Navigator.of(context).push(
+          SmoothPageTransitions.slideFromRight<void>(
+            child: const SiteVisitScreen(),
+          ),
+        );
+        break;
+      case 'task':
+        // Navigate to task detail
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Task: ${result['title']}')));
+        break;
+    }
   }
 
   late final List<Widget> _screens = <Widget>[
@@ -366,7 +709,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: TextField(
                         controller: _homeSearchController,
-                        onChanged: (_) => setState(() {}),
+                        onChanged: (String value) {
+                          setState(() {});
+                          // Debounce search
+                          Future.delayed(const Duration(milliseconds: 500), () {
+                            if (_homeSearchController.text == value) {
+                              _performSearch(value);
+                            }
+                          });
+                        },
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 14,
@@ -395,7 +746,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               : null,
                         ),
                         onSubmitted: (String value) {
-                          // TODO: Implement search functionality
+                          _performSearch(value);
                         },
                       ),
                     ),
@@ -548,7 +899,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      body: _screens[_selectedIndex],
+      body: _searchQuery.isNotEmpty
+          ? _buildSearchResults()
+          : _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex >= 2 ? _selectedIndex + 1 : _selectedIndex,
         type: BottomNavigationBarType.fixed,

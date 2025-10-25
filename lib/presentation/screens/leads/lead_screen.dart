@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'dart:async';
 import '../../../../shared/utils/helpers.dart';
 import '../../../../core/utils/page_transitions.dart';
 import '../../../../data/repositories/lead_repository.dart';
@@ -100,6 +101,11 @@ class _LeadScreenState extends State<LeadScreen> {
   bool? _filterWithVisits; // true | false | null
   final FollowUpFilter _followUpFilter = FollowUpFilter.all;
 
+  // Search debouncing
+  Timer? _searchDebounceTimer;
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
+
   // Pagination (explicit page navigation)
   int _pageSize = 8;
   int _currentPage = 1; // 1-based
@@ -125,6 +131,8 @@ class _LeadScreenState extends State<LeadScreen> {
   @override
   void dispose() {
     _leadsRealtimeChannel?.unsubscribe();
+    _searchDebounceTimer?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -228,6 +236,7 @@ class _LeadScreenState extends State<LeadScreen> {
           _pageItems = leadDataList;
           _currentPage = page;
           _isLoading = false;
+          _isSearching = false;
           // Calculate total pages (this would come from API response in real implementation)
           _totalPages = (totalLead / _pageSize).ceil();
         });
@@ -235,12 +244,14 @@ class _LeadScreenState extends State<LeadScreen> {
         setState(() {
           _error = response.message ?? response.error ?? 'Failed to load leads';
           _isLoading = false;
+          _isSearching = false;
         });
       }
     } catch (e) {
       setState(() {
         _error = 'Error loading leads: $e';
         _isLoading = false;
+        _isSearching = false;
       });
     }
   }
@@ -248,8 +259,25 @@ class _LeadScreenState extends State<LeadScreen> {
   void _onSearchChanged(String value) {
     setState(() {
       _search = value;
+      _isSearching = value.isNotEmpty;
     });
-    _loadPage(1); // Reset to first page when searching
+
+    // Cancel previous timer
+    _searchDebounceTimer?.cancel();
+
+    // Set new timer for debounced search
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _loadPage(1); // Reset to first page when searching
+    });
+  }
+
+  void _clearSearch() {
+    setState(() {
+      _search = '';
+      _isSearching = false;
+    });
+    _searchController.clear();
+    _loadPage(1);
   }
 
   void _subscribeToLeadUpdates() {
@@ -419,10 +447,34 @@ class _LeadScreenState extends State<LeadScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: TextField(
+                    controller: _searchController,
                     onChanged: _onSearchChanged,
                     decoration: InputDecoration(
                       hintText: 'Search leads by name, id, project...',
                       prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _search.isNotEmpty
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_isSearching && _search.isNotEmpty)
+                                  const Padding(
+                                    padding: EdgeInsets.all(12.0),
+                                    child: SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                                IconButton(
+                                  icon: const Icon(Icons.clear_rounded),
+                                  onPressed: _clearSearch,
+                                  tooltip: 'Clear search',
+                                ),
+                              ],
+                            )
+                          : null,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: Colors.grey.shade300),
@@ -554,13 +606,17 @@ class _LeadScreenState extends State<LeadScreen> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  // Count display
+                  // Count display with search indicator
                   Text(
-                    'Count : ${_pageItems.length}',
-                    style: const TextStyle(
+                    _search.isNotEmpty
+                        ? 'Search results: ${_pageItems.length}'
+                        : 'Count: ${_pageItems.length}',
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: Colors.black,
+                      color: _search.isNotEmpty
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.black,
                     ),
                   ),
                 ],
@@ -648,25 +704,39 @@ class _LeadScreenState extends State<LeadScreen> {
     }
 
     if (_pageItems.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
+            Icon(
+              _search.isNotEmpty ? Icons.search_off : Icons.inbox_outlined,
+              size: 64,
+              color: Colors.grey,
+            ),
+            const SizedBox(height: 16),
             Text(
-              'No leads found',
-              style: TextStyle(
+              _search.isNotEmpty ? 'No search results found' : 'No leads found',
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
                 color: Colors.grey,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
-              'Try adjusting your search or filters',
-              style: TextStyle(color: Colors.grey),
+              _search.isNotEmpty
+                  ? 'Try different search terms or clear the search'
+                  : 'Try adjusting your filters',
+              style: const TextStyle(color: Colors.grey),
             ),
+            if (_search.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _clearSearch,
+                icon: const Icon(Icons.clear),
+                label: const Text('Clear Search'),
+              ),
+            ],
           ],
         ),
       );
