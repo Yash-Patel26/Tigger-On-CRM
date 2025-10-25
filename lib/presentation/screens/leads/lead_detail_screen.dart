@@ -9430,6 +9430,7 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
   late TabController _tabController;
   Map<String, List<Map<String, dynamic>>> _activitiesByType = {};
   bool _isLoading = true;
+  bool _isRealtimeConnected = false;
   supabase.RealtimeChannel? _timelineChannel;
 
   @override
@@ -9532,12 +9533,15 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
       'offline': [],
     };
 
+    print('Categorizing ${activities.length} activities:');
     for (final activity in activities) {
-      // Use type field which contains the actual activity type
-      final type = activity['type'] as String?;
+      // Use activity_type field which contains the actual activity type
+      final type = activity['activity_type'] as String?;
+      print('Activity type: "$type", action: "${activity['action']}"');
 
       switch (type?.toLowerCase()) {
         case 'disposition_change':
+          print('Adding to disposition category');
           categorized['disposition']!.add(activity);
           break;
         case 'call_initiated':
@@ -9570,10 +9574,16 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
           categorized['visitor']!.add(activity);
           break;
         default:
+          print('Unknown activity type: "$type" - skipping');
           // Add to a general category or skip
           break;
       }
     }
+
+    print('Final categorization:');
+    categorized.forEach((key, value) {
+      print('  $key: ${value.length} activities');
+    });
 
     return categorized;
   }
@@ -9592,10 +9602,65 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
             value: widget.leadId,
           ),
           callback: (supabase.PostgresChangePayload payload) {
+            print('Real-time timeline update received: ${payload.eventType}');
+            print(
+              'Activity type: ${payload.newRecord['type']}, Action: ${payload.newRecord['action']}',
+            );
+
+            if (!mounted) return;
+
+            // Reload activities with real-time update
+            _loadActivities();
+
+            // Show subtle notification for new activities
+            if (payload.eventType == 'INSERT') {
+              final activityType = payload.newRecord['type'] as String?;
+
+              if (activityType == 'disposition_change') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('New disposition activity added'),
+                    duration: Duration(seconds: 2),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } else if (activityType != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('New $activityType activity added'),
+                    duration: const Duration(seconds: 2),
+                    backgroundColor: Colors.blue,
+                  ),
+                );
+              }
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: supabase.PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'leads',
+          filter: supabase.PostgresChangeFilter(
+            type: supabase.PostgresChangeFilterType.eq,
+            column: 'id',
+            value: widget.leadId,
+          ),
+          callback: (supabase.PostgresChangePayload payload) {
+            print('Real-time lead update received for timeline');
+            if (!mounted) return;
             _loadActivities();
           },
         )
         .subscribe();
+
+    // Set connection status after subscription
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) {
+        setState(() {
+          _isRealtimeConnected = true;
+        });
+      }
+    });
   }
 
   @override
@@ -9603,7 +9668,7 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
     if (_isLoading) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: CircularProgressIndicator(),
         ),
       );
@@ -9611,18 +9676,59 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
 
     return Column(
       children: [
-        TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabs: const [
-            Tab(text: 'Disposition Log'),
-            Tab(text: 'Call Log'),
-            Tab(text: 'Allocation Log'),
-            Tab(text: 'SMS Log'),
-            Tab(text: 'Email Log'),
-            Tab(text: 'WhatsApp Log'),
-            Tab(text: 'Visitor Log'),
-            Tab(text: 'Offline Log'),
+        Row(
+          children: [
+            Expanded(
+              child: TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabs: const [
+                  Tab(text: 'Disposition Log'),
+                  Tab(text: 'Call Log'),
+                  Tab(text: 'Allocation Log'),
+                  Tab(text: 'SMS Log'),
+                  Tab(text: 'Email Log'),
+                  Tab(text: 'WhatsApp Log'),
+                  Tab(text: 'Visitor Log'),
+                  Tab(text: 'Offline Log'),
+                ],
+              ),
+            ),
+            // Real-time connection indicator
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: _isRealtimeConnected
+                    ? Colors.green.withOpacity(0.1)
+                    : Colors.grey.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _isRealtimeConnected
+                      ? Colors.green.withOpacity(0.3)
+                      : Colors.grey.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _isRealtimeConnected ? Icons.wifi : Icons.wifi_off,
+                    size: 12,
+                    color: _isRealtimeConnected ? Colors.green : Colors.grey,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _isRealtimeConnected ? 'Live' : 'Offline',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: _isRealtimeConnected ? Colors.green : Colors.grey,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         SizedBox(
@@ -9668,7 +9774,7 @@ class _DispositionLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No disposition logs found'),
         ),
       );
@@ -9751,7 +9857,7 @@ class _CallLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No call logs found'),
         ),
       );
@@ -9830,7 +9936,7 @@ class _AllocationLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No allocation logs found'),
         ),
       );
@@ -9907,7 +10013,7 @@ class _SmsLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No SMS logs found'),
         ),
       );
@@ -9982,7 +10088,7 @@ class _EmailLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No email logs found'),
         ),
       );
@@ -10056,7 +10162,7 @@ class _WhatsAppLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No WhatsApp logs found'),
         ),
       );
@@ -10131,7 +10237,7 @@ class _VisitorLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No visitor logs found'),
         ),
       );
@@ -10205,7 +10311,7 @@ class _OfflineLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No offline logs found'),
         ),
       );
