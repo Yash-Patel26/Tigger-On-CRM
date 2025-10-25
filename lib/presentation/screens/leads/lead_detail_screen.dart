@@ -9532,12 +9532,15 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
       'offline': [],
     };
 
+    print('Categorizing ${activities.length} activities:');
     for (final activity in activities) {
-      // Use type field which contains the actual activity type
-      final type = activity['type'] as String?;
+      // Use activity_type field which contains the actual activity type
+      final type = activity['activity_type'] as String?;
+      print('Activity type: "$type", action: "${activity['action']}"');
 
       switch (type?.toLowerCase()) {
         case 'disposition_change':
+          print('Adding to disposition category');
           categorized['disposition']!.add(activity);
           break;
         case 'call_initiated':
@@ -9570,10 +9573,16 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
           categorized['visitor']!.add(activity);
           break;
         default:
+          print('Unknown activity type: "$type" - skipping');
           // Add to a general category or skip
           break;
       }
     }
+
+    print('Final categorization:');
+    categorized.forEach((key, value) {
+      print('  $key: ${value.length} activities');
+    });
 
     return categorized;
   }
