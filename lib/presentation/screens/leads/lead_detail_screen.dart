@@ -9603,7 +9603,7 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
     if (_isLoading) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: CircularProgressIndicator(),
         ),
       );
@@ -9611,24 +9611,19 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
 
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: -12, right: -12),
-          child: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            padding: EdgeInsets.zero,
-            labelPadding: EdgeInsets.zero,
-            tabs: const [
-              Tab(text: 'Disposition Log'),
-              Tab(text: 'Call Log'),
-              Tab(text: 'Allocation Log'),
-              Tab(text: 'SMS Log'),
-              Tab(text: 'Email Log'),
-              Tab(text: 'WhatsApp Log'),
-              Tab(text: 'Visitor Log'),
-              Tab(text: 'Offline Log'),
-            ],
-          ),
+        TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabs: const [
+            Tab(text: 'Disposition Log'),
+            Tab(text: 'Call Log'),
+            Tab(text: 'Allocation Log'),
+            Tab(text: 'SMS Log'),
+            Tab(text: 'Email Log'),
+            Tab(text: 'WhatsApp Log'),
+            Tab(text: 'Visitor Log'),
+            Tab(text: 'Offline Log'),
+          ],
         ),
         SizedBox(
           height: 400,
@@ -9673,7 +9668,7 @@ class _DispositionLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No disposition logs found'),
         ),
       );
@@ -9756,7 +9751,7 @@ class _CallLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No call logs found'),
         ),
       );
@@ -9835,7 +9830,7 @@ class _AllocationLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No allocation logs found'),
         ),
       );
@@ -9912,7 +9907,7 @@ class _SmsLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No SMS logs found'),
         ),
       );
@@ -9987,7 +9982,7 @@ class _EmailLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No email logs found'),
         ),
       );
@@ -10061,7 +10056,7 @@ class _WhatsAppLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No WhatsApp logs found'),
         ),
       );
@@ -10136,7 +10131,7 @@ class _VisitorLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No visitor logs found'),
         ),
       );
@@ -10210,7 +10205,7 @@ class _OfflineLogTab extends StatelessWidget {
     if (activities.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(32),
           child: Text('No offline logs found'),
         ),
       );
