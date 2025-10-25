@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/utils/page_transitions.dart';
 import '../../../presentation/screens/developer_management_screen.dart';
+import '../../../data/services/database_service.dart';
+import '../../../data/models/developer_model.dart' as models;
 
 class DeveloperQuickStatsScreen extends StatefulWidget {
   const DeveloperQuickStatsScreen({super.key});
@@ -14,108 +16,37 @@ class _DeveloperQuickStatsScreenState extends State<DeveloperQuickStatsScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _statusFilter = 0; // 0=All, 1=Active, 2=Inactive
 
-  // Mock data - replace with real data source
-  final List<Developer> _developers = [
-    const Developer(
-      name: 'Skyline Builders',
-      website: 'https://skyline.example',
-      logoUrl: null,
-      address: 'Sector 21',
-      state: 'Maharashtra',
-      district: 'Mumbai Suburban',
-      city: 'Mumbai',
-      pincode: '400053',
-      contacts: [
-        DevContact(
-          name: 'Amit Shah',
-          mobile: '+91 98765 11111',
-          designation: 'Director',
-          email: 'amit@skyline.com',
-        ),
-      ],
-      companyType: 'Pvt Ltd',
-      isReraRegistered: true,
-      reraNumber: 'MH/RERA/123456',
-      gstin: '27ABCDE1234F1Z5',
-      gstinFilePath: null,
-      pan: 'ABCDE1234F',
-      panFilePath: null,
-      bankCategory: 'Savings',
-      bankName: 'State Bank of India',
-      accountType: 'Current',
-      ifscCode: 'SBIN0001234',
-      branchName: 'Mumbai Central',
-      accountHolderName: 'Skyline Builders Pvt Ltd',
-      accountNumber: '1234567890123456',
-      isActive: true,
-    ),
-    const Developer(
-      name: 'GreenHomes',
-      website: 'https://greenhomes.example',
-      logoUrl: null,
-      address: 'MG Road',
-      state: 'Karnataka',
-      district: 'Bengaluru Urban',
-      city: 'Bengaluru',
-      pincode: '560001',
-      contacts: [
-        DevContact(
-          name: 'Priya Iyer',
-          mobile: '+91 98765 22222',
-          designation: 'Sales Head',
-          email: 'priya@greenhomes.com',
-        ),
-      ],
-      companyType: 'LLP',
-      isReraRegistered: false,
-      reraNumber: '',
-      gstin: '',
-      gstinFilePath: null,
-      pan: 'PQRSX6789Z',
-      panFilePath: null,
-      bankCategory: 'Current',
-      bankName: 'HDFC Bank',
-      accountType: 'Savings',
-      ifscCode: 'HDFC0005678',
-      branchName: 'Koramangala',
-      accountHolderName: 'GreenHomes LLP',
-      accountNumber: '9876543210987654',
-      isActive: false,
-    ),
-    const Developer(
-      name: 'Metro Developers',
-      website: 'https://metrodev.example',
-      logoUrl: null,
-      address: 'Connaught Place',
-      state: 'Delhi',
-      district: 'New Delhi',
-      city: 'New Delhi',
-      pincode: '110001',
-      contacts: [
-        DevContact(
-          name: 'Rajesh Kumar',
-          mobile: '+91 98765 33333',
-          designation: 'Managing Director',
-          email: 'rajesh@metrodev.com',
-        ),
-      ],
-      companyType: 'Pvt Ltd',
-      isReraRegistered: true,
-      reraNumber: 'DL/RERA/789012',
-      gstin: '07FGHIJ5678K9L0',
-      gstinFilePath: null,
-      pan: 'FGHIJ5678K',
-      panFilePath: null,
-      bankCategory: 'Savings',
-      bankName: 'ICICI Bank',
-      accountType: 'Current',
-      ifscCode: 'ICIC0009012',
-      branchName: 'Connaught Place',
-      accountHolderName: 'Metro Developers Pvt Ltd',
-      accountNumber: '5555666677778888',
-      isActive: true,
-    ),
-  ];
+  // Real data from database
+  List<models.Developer> _developers = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDevelopers();
+  }
+
+  Future<void> _loadDevelopers() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final List<models.Developer> developers =
+          await DatabaseService.getDevelopers();
+      setState(() {
+        _developers = developers;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -125,12 +56,65 @@ class _DeveloperQuickStatsScreenState extends State<DeveloperQuickStatsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Developer'), elevation: 0),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading developers...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Developer'), elevation: 0),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+              const SizedBox(height: 16),
+              Text(
+                'Error loading developers',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadDevelopers,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final int total = _developers.length;
-    final int active = _developers.where((Developer d) => d.isActive).length;
+    final int active = _developers
+        .where((models.Developer d) => d.isActive)
+        .length;
     final int inactive = total - active;
 
     final String query = _searchController.text.trim().toLowerCase();
-    final List<Developer> filtered = _developers.where((Developer d) {
+    final List<models.Developer> filtered = _developers.where((
+      models.Developer d,
+    ) {
       final bool matchesQuery =
           query.isEmpty ||
           d.name.toLowerCase().contains(query) ||
@@ -256,7 +240,7 @@ class _DeveloperQuickStatsScreenState extends State<DeveloperQuickStatsScreen> {
                     separatorBuilder: (context, index) =>
                         Divider(color: _panelBorderColor(context), height: 1),
                     itemBuilder: (context, index) {
-                      final Developer developer = filtered[index];
+                      final models.Developer developer = filtered[index];
                       return _buildDeveloperCard(context, developer);
                     },
                   ),
@@ -320,7 +304,7 @@ class _DeveloperQuickStatsScreenState extends State<DeveloperQuickStatsScreen> {
     );
   }
 
-  Widget _buildDeveloperCard(BuildContext context, Developer developer) {
+  Widget _buildDeveloperCard(BuildContext context, models.Developer developer) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.all(16),
@@ -463,73 +447,4 @@ class _DeveloperQuickStatsScreenState extends State<DeveloperQuickStatsScreen> {
         ? Colors.white.withValues(alpha: 0.12)
         : const Color(0x22000000);
   }
-}
-
-// Developer model classes
-class Developer {
-  const Developer({
-    required this.name,
-    this.website,
-    this.logoUrl,
-    required this.address,
-    required this.state,
-    required this.district,
-    required this.city,
-    required this.pincode,
-    required this.contacts,
-    required this.companyType,
-    required this.isReraRegistered,
-    required this.reraNumber,
-    required this.gstin,
-    this.gstinFilePath,
-    required this.pan,
-    this.panFilePath,
-    required this.bankCategory,
-    required this.bankName,
-    required this.accountType,
-    required this.ifscCode,
-    required this.branchName,
-    required this.accountHolderName,
-    required this.accountNumber,
-    required this.isActive,
-  });
-
-  final String name;
-  final String? website;
-  final String? logoUrl;
-  final String address;
-  final String state;
-  final String district;
-  final String city;
-  final String pincode;
-  final List<DevContact> contacts;
-  final String companyType;
-  final bool isReraRegistered;
-  final String reraNumber;
-  final String gstin;
-  final String? gstinFilePath;
-  final String pan;
-  final String? panFilePath;
-  final String bankCategory;
-  final String bankName;
-  final String accountType;
-  final String ifscCode;
-  final String branchName;
-  final String accountHolderName;
-  final String accountNumber;
-  final bool isActive;
-}
-
-class DevContact {
-  const DevContact({
-    required this.name,
-    required this.mobile,
-    required this.designation,
-    required this.email,
-  });
-
-  final String name;
-  final String mobile;
-  final String designation;
-  final String email;
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../projects/project_detail_screen.dart';
 import '../projects/project_price_logs_screen.dart';
+import '../../../core/config/supabase_config.dart';
 
 class ProjectManagementStatsScreen extends StatefulWidget {
   const ProjectManagementStatsScreen({super.key});
@@ -21,21 +22,15 @@ class _ProjectManagementStatsScreenState
   String? _selectedLocation;
   String? _selectedDeveloper;
 
-  // Mock data
-  final List<Map<String, dynamic>> _properties =
-      List<Map<String, dynamic>>.generate(10, (int index) {
-        return <String, dynamic>{
-          'projectId': 'PRJ-${1000 + index}',
-          'name': 'Sunrise Residency ${index + 1}',
-          'acre99Id': '99A-${5000 + index}',
-          'reraNo': index % 2 == 0 ? 'RERA-${200 + index}' : null,
-          'logo': null,
-          'price': '₹ ${35 + index} L',
-          'address': '123, Main Street',
-          'location': 'Sector ${10 + index}',
-          'status': index % 3 == 0 ? 'Active' : 'Inactive',
-        };
-      });
+  List<Map<String, dynamic>> _properties = <Map<String, dynamic>>[];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProjects();
+  }
 
   @override
   void dispose() {
@@ -43,8 +38,104 @@ class _ProjectManagementStatsScreenState
     super.dispose();
   }
 
+  Future<void> _loadProjects() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      // Fetch projects from Supabase
+      final response = await SupabaseConfig.client
+          .from('projects')
+          .select('''
+            id,
+            name,
+            acre99_id,
+            rera_no,
+            logo_url,
+            price,
+            address,
+            location,
+            status,
+            property_category,
+            property_type,
+            developer_id,
+            city_id,
+            state_id,
+            is_active
+          ''')
+          .order('created_at', ascending: false);
+
+      final List<Map<String, dynamic>> projects = (response as List).map((
+        json,
+      ) {
+        return <String, dynamic>{
+          'projectId': json['id'] as String,
+          'name': json['name'] as String,
+          'acre99Id': json['acre99_id'] as String?,
+          'reraNo': json['rera_no'] as String?,
+          'logo': json['logo_url'] as String?,
+          'price': '₹ ${json['price']} L',
+          'address': json['address'] as String?,
+          'location': json['location'] as String?,
+          'status': json['is_active'] == true ? 'Active' : 'Inactive',
+          'propertyCategory': json['property_category'] as String?,
+          'propertyType': json['property_type'] as String?,
+          'developerId': json['developer_id'] as String?,
+          'cityId': json['city_id'] as String?,
+          'stateId': json['state_id'] as String?,
+        };
+      }).toList();
+
+      setState(() {
+        _properties = projects;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load projects: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Project Management Stats'),
+          elevation: 0,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Project Management Stats'),
+          elevation: 0,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(_error!, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadProjects,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Project Management Stats'),

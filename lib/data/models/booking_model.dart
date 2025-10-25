@@ -78,98 +78,126 @@ class Booking {
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
+    // Helper function to get string value with fallback
+    String getString(String key, [String fallback = '']) {
+      return json[key] as String? ?? fallback;
+    }
+
+    // Helper function to get nullable string
+    String? getNullableString(String key) {
+      return json[key] as String?;
+    }
+
+    // Helper function to get double value
+    double getDouble(String key, [double fallback = 0.0]) {
+      final value = json[key];
+      if (value == null) return fallback;
+      return (value as num).toDouble();
+    }
+
+    // Helper function to get nullable double
+    double? getNullableDouble(String key) {
+      final value = json[key];
+      if (value == null) return null;
+      return (value as num).toDouble();
+    }
+
+    // Helper function to get DateTime
+    DateTime getDateTime(String key) {
+      return DateTime.parse(json[key] as String);
+    }
+
+    // Helper function to get nullable DateTime
+    DateTime? getNullableDateTime(String key) {
+      final value = json[key];
+      if (value == null) return null;
+      return DateTime.parse(value as String);
+    }
+
     return Booking(
-      id: json['id'] as String,
-      srNo: json['srNo'] as String,
-      customerId: json['customerId'] as String,
-      customerName: json['customerName'] as String,
-      customerEmail: json['customerEmail'] as String,
-      customerPhone: json['customerPhone'] as String,
-      leadId: json['leadId'] as String,
-      projectId: json['projectId'] as String,
-      projectName: json['projectName'] as String,
-      propertyType: json['propertyType'] as String,
-      category: json['category'] as String,
-      unitNo: json['unitNo'] as String,
-      unitDetails: json['unitDetails'] as String,
-      bookingAmount: (json['bookingAmount'] as num).toDouble(),
-      advanceAmount: json['advanceAmount'] != null
-          ? (json['advanceAmount'] as num).toDouble()
-          : null,
-      balanceAmount: json['balanceAmount'] != null
-          ? (json['balanceAmount'] as num).toDouble()
-          : null,
+      id: getString('id'),
+      srNo: getString('sr_no'),
+      customerId: getString('customer_id'),
+      customerName: getString('customer_name'),
+      customerEmail: getString('customer_email'),
+      customerPhone: getString('customer_phone'),
+      leadId: getString('lead_id'),
+      projectId: getString('project_id'),
+      projectName: getString('project_name'),
+      propertyType: getString('property_type'),
+      category: getString('category'),
+      unitNo: getString('unit_no'),
+      unitDetails: getString('unit_details'),
+      bookingAmount: getDouble('booking_amount'),
+      advanceAmount: getNullableDouble('advance_amount'),
+      balanceAmount: getNullableDouble('balance_amount'),
       paymentMode: PaymentMode.values.firstWhere(
-        (e) => e.name == json['paymentMode'],
+        (e) => e.name == getString('payment_mode'),
         orElse: () => PaymentMode.cash,
       ),
-      paymentReference: json['paymentReference'] as String?,
-      salesExecutiveId: json['salesExecutiveId'] as String,
-      salesExecutiveName: json['salesExecutiveName'] as String,
-      commission: (json['commission'] as num).toDouble(),
-      approvedBy: json['approvedBy'] as String,
-      approvedById: json['approvedById'] as String?,
-      approvedAt: json['approvedAt'] != null
-          ? DateTime.parse(json['approvedAt'] as String)
-          : null,
+      paymentReference: getNullableString('payment_reference'),
+      salesExecutiveId: getString('sales_executive_id'),
+      salesExecutiveName: getString('sales_executive_name'),
+      commission: getDouble('commission'),
+      approvedBy: getString('approved_by'),
+      approvedById: getNullableString('approved_by_id'),
+      approvedAt: getNullableDateTime('approved_at'),
       status: BookingStatus.values.firstWhere(
-        (e) => e.name == json['status'],
+        (e) => e.name == getString('status'),
         orElse: () => BookingStatus.pending,
       ),
-      bookingDate: DateTime.parse(json['bookingDate'] as String),
-      possessionDate: json['possessionDate'] != null
-          ? DateTime.parse(json['possessionDate'] as String)
-          : null,
-      notes: json['notes'] as String?,
-      termsAndConditions: json['termsAndConditions'] as String?,
+      bookingDate: getDateTime('booking_date'),
+      possessionDate: getNullableDateTime('possession_date'),
+      notes: getNullableString('notes'),
+      termsAndConditions: getNullableString('terms_and_conditions'),
       documents: json['documents'] != null
           ? List<String>.from(json['documents'] as List)
           : null,
-      createdBy: json['createdBy'] as String,
-      createdByName: json['createdByName'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      customFields: json['customFields'] as Map<String, dynamic>?,
+      createdBy: getString('created_by'),
+      createdByName: getString('created_by_name'),
+      createdAt: getDateTime('created_at'),
+      updatedAt: getDateTime('updated_at'),
+      customFields: json['custom_fields'] as Map<String, dynamic>?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'srNo': srNo,
-      'customerId': customerId,
-      'customerName': customerName,
-      'customerEmail': customerEmail,
-      'customerPhone': customerPhone,
-      'leadId': leadId,
-      'projectId': projectId,
-      'projectName': projectName,
-      'propertyType': propertyType,
+      'sr_no': srNo,
+      'customer_id': customerId,
+      'customer_name': customerName,
+      'customer_email': customerEmail,
+      'customer_phone': customerPhone,
+      'lead_id': leadId,
+      'project_id': projectId,
+      'project_name': projectName,
+      'property_type': propertyType,
       'category': category,
-      'unitNo': unitNo,
-      'unitDetails': unitDetails,
-      'bookingAmount': bookingAmount,
-      'advanceAmount': advanceAmount,
-      'balanceAmount': balanceAmount,
-      'paymentMode': paymentMode.name,
-      'paymentReference': paymentReference,
-      'salesExecutiveId': salesExecutiveId,
-      'salesExecutiveName': salesExecutiveName,
+      'unit_no': unitNo,
+      'unit_details': unitDetails,
+      'booking_amount': bookingAmount,
+      'advance_amount': advanceAmount,
+      'balance_amount': balanceAmount,
+      'payment_mode': paymentMode.name,
+      'payment_reference': paymentReference,
+      'sales_executive_id': salesExecutiveId,
+      'sales_executive_name': salesExecutiveName,
       'commission': commission,
-      'approvedBy': approvedBy,
-      'approvedById': approvedById,
-      'approvedAt': approvedAt?.toIso8601String(),
+      'approved_by': approvedBy,
+      'approved_by_id': approvedById,
+      'approved_at': approvedAt?.toIso8601String(),
       'status': status.name,
-      'bookingDate': bookingDate.toIso8601String(),
-      'possessionDate': possessionDate?.toIso8601String(),
+      'booking_date': bookingDate.toIso8601String(),
+      'possession_date': possessionDate?.toIso8601String(),
       'notes': notes,
-      'termsAndConditions': termsAndConditions,
+      'terms_and_conditions': termsAndConditions,
       'documents': documents,
-      'createdBy': createdBy,
-      'createdByName': createdByName,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-      'customFields': customFields,
+      'created_by': createdBy,
+      'created_by_name': createdByName,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+      'custom_fields': customFields,
     };
   }
 

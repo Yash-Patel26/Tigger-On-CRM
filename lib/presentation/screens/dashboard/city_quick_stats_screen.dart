@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../data/models/city_model.dart';
+import '../../../data/services/city_service.dart';
 
 class CityQuickStatsScreen extends StatefulWidget {
   const CityQuickStatsScreen({super.key});
@@ -11,27 +13,16 @@ class _CityQuickStatsScreenState extends State<CityQuickStatsScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _statusFilter = 0; // 0=All, 1=Active, 2=Inactive
 
-  // Mock data - replace with real data source
-  final List<City> _cities = [
-    const City(name: 'Mumbai', state: 'Maharashtra', isActive: true),
-    const City(name: 'Delhi', state: 'Delhi', isActive: true),
-    const City(name: 'Bangalore', state: 'Karnataka', isActive: true),
-    const City(name: 'Chennai', state: 'Tamil Nadu', isActive: true),
-    const City(name: 'Kolkata', state: 'West Bengal', isActive: false),
-    const City(name: 'Hyderabad', state: 'Telangana', isActive: true),
-    const City(name: 'Pune', state: 'Maharashtra', isActive: true),
-    const City(name: 'Ahmedabad', state: 'Gujarat', isActive: false),
-    const City(name: 'Jaipur', state: 'Rajasthan', isActive: true),
-    const City(name: 'Surat', state: 'Gujarat', isActive: false),
-    const City(name: 'Lucknow', state: 'Uttar Pradesh', isActive: true),
-    const City(name: 'Kanpur', state: 'Uttar Pradesh', isActive: false),
-    const City(name: 'Nagpur', state: 'Maharashtra', isActive: true),
-    const City(name: 'Indore', state: 'Madhya Pradesh', isActive: false),
-    const City(name: 'Thane', state: 'Maharashtra', isActive: true),
-    const City(name: 'Bhopal', state: 'Madhya Pradesh', isActive: false),
-    const City(name: 'Visakhapatnam', state: 'Andhra Pradesh', isActive: true),
-    const City(name: 'Pimpri-Chinchwad', state: 'Maharashtra', isActive: false),
-  ];
+  // Real data from database
+  List<City> _cities = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCities();
+  }
 
   @override
   void dispose() {
@@ -39,8 +30,77 @@ class _CityQuickStatsScreenState extends State<CityQuickStatsScreen> {
     super.dispose();
   }
 
+  Future<void> _loadCities() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final List<City> cities = await CityService.getCities();
+      setState(() {
+        _cities = cities;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('City'), elevation: 0),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading cities...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('City'), elevation: 0),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+              const SizedBox(height: 16),
+              Text(
+                'Error loading cities',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadCities,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final int total = _cities.length;
     final int active = _cities.where((City c) => c.isActive).length;
     final int inactive = total - active;
@@ -48,9 +108,7 @@ class _CityQuickStatsScreenState extends State<CityQuickStatsScreen> {
     final String query = _searchController.text.trim().toLowerCase();
     final List<City> filtered = _cities.where((City c) {
       final bool matchesQuery =
-          query.isEmpty ||
-          c.name.toLowerCase().contains(query) ||
-          c.state.toLowerCase().contains(query);
+          query.isEmpty || c.name.toLowerCase().contains(query);
       final bool matchesStatus =
           _statusFilter == 0 ||
           (_statusFilter == 1 && c.isActive) ||
@@ -257,7 +315,7 @@ class _CityQuickStatsScreenState extends State<CityQuickStatsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  city.state,
+                  'State ID: ${city.stateId}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(
                       context,
@@ -339,13 +397,4 @@ class _CityQuickStatsScreenState extends State<CityQuickStatsScreen> {
         ? Colors.white.withValues(alpha: 0.12)
         : const Color(0x22000000);
   }
-}
-
-// City model class
-class City {
-  const City({required this.name, required this.state, required this.isActive});
-
-  final String name;
-  final String state;
-  final bool isActive;
 }

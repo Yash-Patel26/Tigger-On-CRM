@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'booking_filters_sheet.dart';
+import 'package:tigger/data/repositories/booking_repository.dart';
+import 'package:tigger/data/models/models.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -10,9 +12,13 @@ class BookingScreen extends StatefulWidget {
 }
 
 class _BookingScreenState extends State<BookingScreen> {
-  // Demo counts; replace with real data
-  int totalBookings = 156;
-  int todaysBookings = 8;
+  // Real data from Supabase
+  int totalBookings = 0;
+  int todaysBookings = 0;
+  List<Booking> _bookings = [];
+  bool _isLoading = true;
+  String? _error;
+  final BookingRepository _bookingRepository = BookingRepository();
 
   String _search = '';
 
@@ -24,6 +30,12 @@ class _BookingScreenState extends State<BookingScreen> {
   String _selectedProject = '';
   String _selectedAging = '';
   DateTime? _selectedLastUpdatedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBookings();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,24 +51,33 @@ class _BookingScreenState extends State<BookingScreen> {
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadBookings,
+          ),
+          IconButton(
             tooltip: 'Filters',
             icon: const Icon(Icons.tune_rounded),
             onPressed: () => _showFilters(context),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Metrics Row
-          _buildMetricsRow(),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? _buildErrorWidget()
+          : Column(
+              children: [
+                // Metrics Row
+                _buildMetricsRow(),
 
-          // Search Bar
-          _buildSearchBar(),
+                // Search Bar
+                _buildSearchBar(),
 
-          // Bookings List
-          Expanded(child: _buildBookingsList()),
-        ],
-      ),
+                // Bookings List
+                Expanded(child: _buildBookingsList()),
+              ],
+            ),
     );
   }
 
@@ -162,6 +183,34 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
+  Widget _buildErrorWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
+          const SizedBox(height: 16),
+          Text(
+            'Error loading bookings',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _error ?? 'Unknown error occurred',
+            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(onPressed: _loadBookings, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBookingsList() {
     final filteredBookings = _getFilteredBookings();
 
@@ -200,7 +249,7 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  Widget _buildBookingCard(Map<String, dynamic> booking) {
+  Widget _buildBookingCard(Booking booking) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -223,8 +272,8 @@ class _BookingScreenState extends State<BookingScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  _getStatusColor(booking['status']).withOpacity(0.1),
-                  _getStatusColor(booking['status']).withOpacity(0.05),
+                  _getStatusColor(booking.status.name).withOpacity(0.1),
+                  _getStatusColor(booking.status.name).withOpacity(0.05),
                 ],
               ),
               borderRadius: const BorderRadius.only(
@@ -235,7 +284,7 @@ class _BookingScreenState extends State<BookingScreen> {
             child: Row(
               children: [
                 Text(
-                  'SR No: ${booking['srNo']}',
+                  'SR No: ${booking.srNo}',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -248,13 +297,15 @@ class _BookingScreenState extends State<BookingScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(booking['status']).withOpacity(0.2),
+                    color: _getStatusColor(
+                      booking.status.name,
+                    ).withOpacity(0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    booking['status'],
+                    booking.status.name.toUpperCase(),
                     style: TextStyle(
-                      color: _getStatusColor(booking['status']),
+                      color: _getStatusColor(booking.status.name),
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
                     ),
@@ -271,37 +322,49 @@ class _BookingScreenState extends State<BookingScreen> {
               children: [
                 // Booking Info
                 _buildInfoSection('Booking Info', Icons.book_online, [
-                  _buildInfoRow('Booking Date', booking['bookingDate']),
-                  _buildInfoRow('Booking Amount', booking['bookingAmount']),
-                  _buildInfoRow('Payment Mode', booking['paymentMode']),
+                  _buildInfoRow(
+                    'Booking Date',
+                    _formatDate(booking.bookingDate),
+                  ),
+                  _buildInfoRow(
+                    'Booking Amount',
+                    '₹${_formatAmount(booking.bookingAmount)}',
+                  ),
+                  _buildInfoRow(
+                    'Payment Mode',
+                    booking.paymentMode.name.toUpperCase(),
+                  ),
                 ]),
 
                 const SizedBox(height: 16),
 
                 // Customer Info
                 _buildInfoSection('Customer Info', Icons.person, [
-                  _buildInfoRow('Customer Name', booking['customerName']),
-                  _buildInfoRow('Contact', booking['contact']),
-                  _buildInfoRow('Email', booking['email']),
+                  _buildInfoRow('Customer Name', booking.customerName),
+                  _buildInfoRow('Contact', booking.customerPhone),
+                  _buildInfoRow('Email', booking.customerEmail),
                 ]),
 
                 const SizedBox(height: 16),
 
                 // Sale Info
                 _buildInfoSection('Sale Info', Icons.sell, [
-                  _buildInfoRow('Sales Executive', booking['salesExecutive']),
-                  _buildInfoRow('Commission', booking['commission']),
-                  _buildInfoRow('Approved By', booking['approvedBy']),
+                  _buildInfoRow('Sales Executive', booking.salesExecutiveName),
+                  _buildInfoRow(
+                    'Commission',
+                    '₹${_formatAmount(booking.commission)}',
+                  ),
+                  _buildInfoRow('Approved By', booking.approvedBy),
                 ]),
 
                 const SizedBox(height: 16),
 
                 // Property Info
                 _buildInfoSection('Property Info', Icons.home, [
-                  _buildInfoRow('Property Type', booking['propertyType']),
-                  _buildInfoRow('Category', booking['category']),
-                  _buildInfoRow('Project', booking['project']),
-                  _buildInfoRow('Unit No', booking['unitNo']),
+                  _buildInfoRow('Property Type', booking.propertyType),
+                  _buildInfoRow('Category', booking.category),
+                  _buildInfoRow('Project', booking.projectName),
+                  _buildInfoRow('Unit No', booking.unitNo),
                 ]),
 
                 const SizedBox(height: 16),
@@ -417,45 +480,43 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  List<Map<String, dynamic>> _getFilteredBookings() {
-    final bookings = _getMockBookings();
-
-    return bookings.where((booking) {
+  List<Booking> _getFilteredBookings() {
+    return _bookings.where((booking) {
       // Search filter
       if (_search.isNotEmpty) {
         final searchLower = _search.toLowerCase();
-        if (!booking['srNo'].toLowerCase().contains(searchLower) &&
-            !booking['customerName'].toLowerCase().contains(searchLower) &&
-            !booking['project'].toLowerCase().contains(searchLower)) {
+        if (!booking.srNo.toLowerCase().contains(searchLower) &&
+            !booking.customerName.toLowerCase().contains(searchLower) &&
+            !booking.projectName.toLowerCase().contains(searchLower)) {
           return false;
         }
       }
 
       // Other filters
       if (_selectedCustomerName.isNotEmpty &&
-          !booking['customerName'].toLowerCase().contains(
+          !booking.customerName.toLowerCase().contains(
             _selectedCustomerName.toLowerCase(),
           )) {
         return false;
       }
 
       if (_selectedPropertyType.isNotEmpty &&
-          booking['propertyType'] != _selectedPropertyType) {
+          booking.propertyType != _selectedPropertyType) {
         return false;
       }
 
       if (_selectedCategoryType.isNotEmpty &&
-          booking['category'] != _selectedCategoryType) {
+          booking.category != _selectedCategoryType) {
         return false;
       }
 
       if (_selectedApprovedBy.isNotEmpty &&
-          booking['approvedBy'] != _selectedApprovedBy) {
+          booking.approvedBy != _selectedApprovedBy) {
         return false;
       }
 
       if (_selectedProject.isNotEmpty &&
-          booking['project'] != _selectedProject) {
+          booking.projectName != _selectedProject) {
         return false;
       }
 
@@ -473,60 +534,36 @@ class _BookingScreenState extends State<BookingScreen> {
     }).toList();
   }
 
-  List<Map<String, dynamic>> _getMockBookings() {
-    return [
-      {
-        'srNo': 'BK001',
-        'status': 'Confirmed',
-        'bookingDate': '15 Dec 2024',
-        'bookingAmount': '₹25,00,000',
-        'paymentMode': 'Cheque',
-        'customerName': 'Rajesh Kumar',
-        'contact': '+91 98765 43210',
-        'email': 'rajesh.kumar@email.com',
-        'salesExecutive': 'Sarah Wilson',
-        'commission': '₹1,25,000',
-        'approvedBy': 'Manager Name',
-        'propertyType': '2 BHK Apartment',
-        'category': 'Residential',
-        'project': 'Project Alpha',
-        'unitNo': 'A-101',
-      },
-      {
-        'srNo': 'BK002',
-        'status': 'Pending',
-        'bookingDate': '14 Dec 2024',
-        'bookingAmount': '₹18,50,000',
-        'paymentMode': 'Online',
-        'customerName': 'Priya Sharma',
-        'contact': '+91 87654 32109',
-        'email': 'priya.sharma@email.com',
-        'salesExecutive': 'John Doe',
-        'commission': '₹92,500',
-        'approvedBy': 'Manager Name',
-        'propertyType': '1 BHK Apartment',
-        'category': 'Residential',
-        'project': 'Project Beta',
-        'unitNo': 'B-205',
-      },
-      {
-        'srNo': 'BK003',
-        'status': 'Cancelled',
-        'bookingDate': '13 Dec 2024',
-        'bookingAmount': '₹32,00,000',
-        'paymentMode': 'Cash',
-        'customerName': 'Amit Patel',
-        'contact': '+91 76543 21098',
-        'email': 'amit.patel@email.com',
-        'salesExecutive': 'Sarah Wilson',
-        'commission': '₹0',
-        'approvedBy': 'Manager Name',
-        'propertyType': '3 BHK Apartment',
-        'category': 'Residential',
-        'project': 'Project Alpha',
-        'unitNo': 'C-301',
-      },
-    ];
+  Future<void> _loadBookings() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // Load bookings and statistics in parallel
+      final futures = await Future.wait([
+        _bookingRepository.getBookings(),
+        _bookingRepository.getBookingStats(),
+        _bookingRepository.getTodaysBookingsCount(),
+      ]);
+
+      final bookings = futures[0] as List<Booking>;
+      final stats = futures[1] as Map<String, int>;
+      final todaysCount = futures[2] as int;
+
+      setState(() {
+        _bookings = bookings;
+        totalBookings = stats['total'] ?? 0;
+        todaysBookings = todaysCount;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
   Color _getStatusColor(String status) {
@@ -542,26 +579,56 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  void _viewBooking(Map<String, dynamic> booking) {
+  void _viewBooking(Booking booking) {
     // TODO: Navigate to booking detail screen
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Viewing booking ${booking['srNo']}'),
+        content: Text('Viewing booking ${booking.srNo}'),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
 
-  void _editBooking(Map<String, dynamic> booking) {
+  void _editBooking(Booking booking) {
     // TODO: Navigate to edit booking screen
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Editing booking ${booking['srNo']}'),
+        content: Text('Editing booking ${booking.srNo}'),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  String _formatAmount(double amount) {
+    if (amount >= 10000000) {
+      return '${(amount / 10000000).toStringAsFixed(1)}Cr';
+    } else if (amount >= 100000) {
+      return '${(amount / 100000).toStringAsFixed(1)}L';
+    } else if (amount >= 1000) {
+      return '${(amount / 1000).toStringAsFixed(1)}K';
+    } else {
+      return amount.toStringAsFixed(0);
+    }
   }
 
   void _showFilters(BuildContext context) {

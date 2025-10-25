@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/config/supabase_config.dart';
 
 class LocationQuickStatsScreen extends StatefulWidget {
   const LocationQuickStatsScreen({super.key});
@@ -12,93 +13,15 @@ class _LocationQuickStatsScreenState extends State<LocationQuickStatsScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _statusFilter = 0; // 0=All, 1=Active, 2=Inactive
 
-  // Mock data - replace with real data source
-  final List<LocationItem> _locations = <LocationItem>[
-    const LocationItem(
-      name: 'Andheri East',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      isActive: true,
-    ),
-    const LocationItem(
-      name: 'Bandra West',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      isActive: true,
-    ),
-    const LocationItem(
-      name: 'Koramangala',
-      city: 'Bangalore',
-      state: 'Karnataka',
-      isActive: true,
-    ),
-    const LocationItem(
-      name: 'Indiranagar',
-      city: 'Bangalore',
-      state: 'Karnataka',
-      isActive: false,
-    ),
-    const LocationItem(
-      name: 'Connaught Place',
-      city: 'Delhi',
-      state: 'Delhi',
-      isActive: true,
-    ),
-    const LocationItem(
-      name: 'Hauz Khas',
-      city: 'Delhi',
-      state: 'Delhi',
-      isActive: false,
-    ),
-    const LocationItem(
-      name: 'Gachibowli',
-      city: 'Hyderabad',
-      state: 'Telangana',
-      isActive: true,
-    ),
-    const LocationItem(
-      name: 'Banjara Hills',
-      city: 'Hyderabad',
-      state: 'Telangana',
-      isActive: true,
-    ),
-    const LocationItem(
-      name: 'Anna Nagar',
-      city: 'Chennai',
-      state: 'Tamil Nadu',
-      isActive: true,
-    ),
-    const LocationItem(
-      name: 'Velachery',
-      city: 'Chennai',
-      state: 'Tamil Nadu',
-      isActive: false,
-    ),
-    const LocationItem(
-      name: 'Salt Lake',
-      city: 'Kolkata',
-      state: 'West Bengal',
-      isActive: false,
-    ),
-    const LocationItem(
-      name: 'Viman Nagar',
-      city: 'Pune',
-      state: 'Maharashtra',
-      isActive: true,
-    ),
-    const LocationItem(
-      name: 'Aundh',
-      city: 'Pune',
-      state: 'Maharashtra',
-      isActive: true,
-    ),
-    const LocationItem(
-      name: 'Vastrapur',
-      city: 'Ahmedabad',
-      state: 'Gujarat',
-      isActive: false,
-    ),
-  ];
+  List<LocationItem> _locations = <LocationItem>[];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocations();
+  }
 
   @override
   void dispose() {
@@ -106,8 +29,87 @@ class _LocationQuickStatsScreenState extends State<LocationQuickStatsScreen> {
     super.dispose();
   }
 
+  Future<void> _loadLocations() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      // Fetch locations from Supabase
+      final response = await SupabaseConfig.client
+          .from('locations')
+          .select('''
+            id,
+            name,
+            is_active,
+            cities!inner(
+              id,
+              name,
+              states!inner(
+                id,
+                name
+              )
+            )
+          ''')
+          .eq('is_active', true)
+          .order('name');
+
+      final List<LocationItem> locations = (response as List).map((json) {
+        final city = json['cities'] as Map<String, dynamic>;
+        final state = city['states'] as Map<String, dynamic>;
+
+        return LocationItem(
+          id: json['id'] as String,
+          name: json['name'] as String,
+          city: city['name'] as String,
+          state: state['name'] as String,
+          isActive: json['is_active'] as bool? ?? true,
+        );
+      }).toList();
+
+      setState(() {
+        _locations = locations;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load locations: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Location'), elevation: 0),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Location'), elevation: 0),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(_error!, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadLocations,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final int total = _locations.length;
     final int active = _locations.where((LocationItem l) => l.isActive).length;
     final int inactive = total - active;
@@ -425,12 +427,14 @@ class _LocationQuickStatsScreenState extends State<LocationQuickStatsScreen> {
 
 class LocationItem {
   const LocationItem({
+    required this.id,
     required this.name,
     required this.city,
     required this.state,
     required this.isActive,
   });
 
+  final String id; // location id
   final String name; // location name
   final String city; // city name
   final String state; // state name
