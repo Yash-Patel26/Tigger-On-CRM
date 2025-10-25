@@ -50,12 +50,12 @@ class _HomeScreenState extends State<HomeScreen> {
       'https://via.placeholder.com/150/6366f1/ffffff?text=User';
   final TextEditingController _homeSearchController = TextEditingController();
 
-  // Session/user summary values (replace with real data source later)
+  // Session/user summary values
   final DateTime _loginTime = DateTime.now();
-  final int _leadsCount = 12;
-  final int _meetingsToday = 3;
 
   // Real data from database
+  int _leadsCount = 0;
+  int _meetingsToday = 0;
   int _activeProjectsCount = 0;
   int _activeTasksCount = 0;
   int _teamMembersCount = 0;
@@ -79,6 +79,29 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
+      // Load leads count
+      final List<Lead> leads = await DatabaseService.getLeads();
+      final int leadsCount = leads.length;
+
+      // Load meetings today (site visits and bookings)
+      final List<SiteVisit> siteVisits = await DatabaseService.getSiteVisits();
+      final List<Booking> bookings = await DatabaseService.getBookings();
+
+      final DateTime today = DateTime.now();
+      final DateTime startOfDay = DateTime(today.year, today.month, today.day);
+      final DateTime endOfDay = startOfDay.add(const Duration(days: 1));
+
+      final int meetingsToday =
+          siteVisits.where((sv) {
+            if (sv.meetingFrom == null) return false;
+            return sv.meetingFrom!.isAfter(startOfDay) &&
+                sv.meetingFrom!.isBefore(endOfDay);
+          }).length +
+          bookings.where((b) {
+            return b.bookingDate.isAfter(startOfDay) &&
+                b.bookingDate.isBefore(endOfDay);
+          }).length;
+
       // Load active projects
       final List<Project> projects = await DatabaseService.getProjects();
       final int activeProjects = projects
@@ -102,6 +125,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (mounted) {
         setState(() {
+          _leadsCount = leadsCount;
+          _meetingsToday = meetingsToday;
           _activeProjectsCount = activeProjects;
           _activeTasksCount = activeTasks;
           _teamMembersCount = teamMembers;

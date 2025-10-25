@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../data/models/lead_activity_model.dart';
+import '../../../data/models/lead_model.dart';
+import '../../../data/services/database_service.dart';
+import '../../../data/services/database_service_masters.dart' as masters;
 
 class CallStatsDetailScreen extends StatefulWidget {
   const CallStatsDetailScreen({super.key, required this.summary});
@@ -16,25 +20,132 @@ class _CallStatsDetailScreenState extends State<CallStatsDetailScreen> {
   String _selectedStatus = 'Any';
   String _selectedRange = 'Today';
 
-  final List<Map<String, String>> _callRows =
-      List<Map<String, String>>.generate(12, (int i) {
-        return <String, String>{
-          'name': 'Contact ${i + 1}',
-          'status': i % 3 == 0
-              ? 'Connected'
-              : (i % 3 == 1 ? 'Not connected' : 'Missed'),
-          'response': i % 2 == 0 ? 'Interested' : 'Callback later',
-          'phone': '+91-98${7600 + i}1234',
-          'callTime': '2025-09-24 1${i.toString().padLeft(2, '0')}:15',
-          'duration': i % 3 == 0
-              ? '02:${(10 + i).toString().padLeft(2, '0')}'
-              : '00:00',
-          'calledBy': i % 2 == 0 ? 'Anita' : 'Chetan',
-        };
+  // Real data from database
+  List<LeadActivity> _callActivities = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCallActivities();
+  }
+
+  Future<void> _loadCallActivities() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
       });
+
+      // Get all leads first
+      final List<Lead> leads = await DatabaseService.getLeads();
+
+      // Get activities for all leads
+      final List<LeadActivity> allActivities = [];
+      for (final Lead lead in leads) {
+        try {
+          final List<LeadActivity> leadActivities =
+              await masters.DatabaseServiceMasters.getLeadActivities(
+                leadId: lead.id,
+                limit: 100, // Get more activities per lead
+              );
+          allActivities.addAll(leadActivities);
+        } catch (e) {
+          // Skip if error getting activities for this lead
+          print('Error getting activities for lead ${lead.id}: $e');
+        }
+      }
+
+      // Filter for call-related activities
+      final List<LeadActivity> callActivities = allActivities.where((activity) {
+        return activity.type == ActivityType.callInitiated ||
+            activity.type == ActivityType.emailInitiated ||
+            activity.type == ActivityType.messageInitiated ||
+            activity.type == ActivityType.whatsappInitiated;
+      }).toList();
+
+      setState(() {
+        _callActivities = callActivities;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Call Stats'),
+          actions: <Widget>[
+            IconButton(
+              tooltip: 'Filters',
+              icon: const Icon(Icons.tune),
+              onPressed: _openFilters,
+            ),
+          ],
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading call activities...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Call Stats'),
+          actions: <Widget>[
+            IconButton(
+              tooltip: 'Filters',
+              icon: const Icon(Icons.tune),
+              onPressed: _openFilters,
+            ),
+          ],
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+              const SizedBox(height: 16),
+              Text(
+                'Error loading call activities',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadCallActivities,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final Map<String, int> s = widget.summary;
     return Scaffold(
       appBar: AppBar(
@@ -54,8 +165,8 @@ class _CallStatsDetailScreenState extends State<CallStatsDetailScreen> {
           const SizedBox(height: 16),
           _buildLegend(context, s),
           const SizedBox(height: 16),
-          ..._callRows.map(
-            (Map<String, String> row) => _callCard(context, row),
+          ..._callActivities.map(
+            (LeadActivity activity) => _callCardFromActivity(context, activity),
           ),
         ],
       ),
@@ -324,7 +435,14 @@ class _CallStatsDetailScreenState extends State<CallStatsDetailScreen> {
     );
   }
 
-  Widget _callCard(BuildContext context, Map<String, String> row) {
+  Widget _callCardFromActivity(BuildContext context, LeadActivity activity) {
+    final String status = _getActivityStatus(activity.type);
+    final String response = _getActivityResponse(activity);
+    final String phone = _getActivityPhone(activity);
+    final String callTime = _formatDateTime(activity.createdAt);
+    final String duration = _getActivityDuration(activity);
+    final String calledBy = activity.performedByName;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -342,24 +460,67 @@ class _CallStatsDetailScreenState extends State<CallStatsDetailScreen> {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  row['name'] ?? '-',
+                  activity.description,
                   style: Theme.of(
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
-              _statusPill(context, row['status'] ?? '-'),
+              _statusPill(context, status),
             ],
           ),
           const SizedBox(height: 6),
-          _kv(context, 'Response', row['response']),
-          _kv(context, 'Phone', row['phone']),
-          _kv(context, 'Call time', row['callTime']),
-          _kv(context, 'Call duration', row['duration']),
-          _kv(context, 'Called by', row['calledBy']),
+          _kv(context, 'Response', response),
+          _kv(context, 'Phone', phone),
+          _kv(context, 'Call time', callTime),
+          _kv(context, 'Call duration', duration),
+          _kv(context, 'Called by', calledBy),
         ],
       ),
     );
+  }
+
+  String _getActivityStatus(ActivityType type) {
+    switch (type) {
+      case ActivityType.callInitiated:
+        return 'Connected';
+      case ActivityType.emailInitiated:
+        return 'Email Sent';
+      case ActivityType.messageInitiated:
+        return 'Message Sent';
+      case ActivityType.whatsappInitiated:
+        return 'WhatsApp Sent';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  String _getActivityResponse(LeadActivity activity) {
+    // Extract response from description or metadata
+    if (activity.metadata != null && activity.metadata!['response'] != null) {
+      return activity.metadata!['response'].toString();
+    }
+    return 'No response recorded';
+  }
+
+  String _getActivityPhone(LeadActivity activity) {
+    // Extract phone from metadata
+    if (activity.metadata != null && activity.metadata!['phone'] != null) {
+      return activity.metadata!['phone'].toString();
+    }
+    return 'Phone not recorded';
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.day.toString().padLeft(2, '0')}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.year} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _getActivityDuration(LeadActivity activity) {
+    // Extract duration from metadata
+    if (activity.metadata != null && activity.metadata!['duration'] != null) {
+      return activity.metadata!['duration'].toString();
+    }
+    return '00:00';
   }
 
   Widget _kv(BuildContext context, String k, String? v) {
