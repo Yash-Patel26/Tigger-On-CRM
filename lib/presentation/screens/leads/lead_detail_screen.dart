@@ -9676,59 +9676,18 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
 
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                tabs: const [
-                  Tab(text: 'Disposition Log'),
-                  Tab(text: 'Call Log'),
-                  Tab(text: 'Allocation Log'),
-                  Tab(text: 'SMS Log'),
-                  Tab(text: 'Email Log'),
-                  Tab(text: 'WhatsApp Log'),
-                  Tab(text: 'Visitor Log'),
-                  Tab(text: 'Offline Log'),
-                ],
-              ),
-            ),
-            // Real-time connection indicator
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(
-                color: _isRealtimeConnected
-                    ? Colors.green.withOpacity(0.1)
-                    : Colors.grey.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _isRealtimeConnected
-                      ? Colors.green.withOpacity(0.3)
-                      : Colors.grey.withOpacity(0.3),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _isRealtimeConnected ? Icons.wifi : Icons.wifi_off,
-                    size: 12,
-                    color: _isRealtimeConnected ? Colors.green : Colors.grey,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _isRealtimeConnected ? 'Live' : 'Offline',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: _isRealtimeConnected ? Colors.green : Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabs: const [
+            Tab(text: 'Disposition Log'),
+            Tab(text: 'Call Log'),
+            Tab(text: 'Allocation Log'),
+            Tab(text: 'SMS Log'),
+            Tab(text: 'Email Log'),
+            Tab(text: 'WhatsApp Log'),
+            Tab(text: 'Visitor Log'),
+            Tab(text: 'Offline Log'),
           ],
         ),
         SizedBox(
