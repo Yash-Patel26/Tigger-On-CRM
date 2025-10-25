@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../../data/services/master_data_service.dart';
+import '../../../../data/services/lead_duplicate_service.dart';
+import '../../../../data/services/lead_service.dart';
+import '../../../../data/models/models.dart';
 
 class CreateLeadScreen extends StatefulWidget {
   const CreateLeadScreen({super.key});
@@ -32,6 +36,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
   // Dropdown values
   String? _selectedLeadSource;
   String? _selectedAssignTo;
+  String? _selectedProject;
   String? _selectedProjectCategory;
   String? _selectedPropertyType;
   String? _selectedState;
@@ -39,99 +44,34 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
   String? _selectedLocation;
   String? _selectedPurchaseYear;
   String? _selectedPurchaseMonth;
+  String? _selectedBudget;
 
-  // Mock data for dropdowns
-  final List<String> _leadSources = [
-    'Website',
-    'Social Media',
-    'Referral',
-    'Advertisement',
-    'Cold Call',
-    'Walk-in',
-    'Other',
-  ];
+  // Master data lists
+  List<LeadSourceMaster> _leadSources = [];
+  List<UserMaster> _users = [];
+  List<ProjectMaster> _projects = [];
+  List<PropertyCategory> _propertyCategories = [];
+  List<PropertyTypeMaster> _propertyTypes = [];
+  List<StateMaster> _states = [];
+  List<City> _cities = [];
+  List<Location> _locations = [];
+  List<PurchasePlanYear> _purchaseYears = [];
+  List<PurchasePlanMonth> _purchaseMonths = [];
+  List<BudgetMaster> _budgets = [];
 
-  final List<String> _assignToOptions = [
-    'John Smith',
-    'Sarah Johnson',
-    'Mike Wilson',
-    'Emily Davis',
-    'David Brown',
-  ];
+  // Loading states
+  bool _isLoadingMasterData = true;
+  bool _isCheckingDuplicate = false;
+  bool _isSaving = false;
 
-  final List<String> _projectCategories = [
-    'Residential',
-    'Commercial',
-    'Industrial',
-    'Mixed Use',
-    'Land',
-  ];
+  // Duplicate lead info
+  Map<String, dynamic>? _duplicateLeadInfo;
 
-  final List<String> _propertyTypes = [
-    'Apartment',
-    'Villa',
-    'Plot',
-    'Office Space',
-    'Shop',
-    'Warehouse',
-    'Other',
-  ];
-
-  final List<String> _states = [
-    'Maharashtra',
-    'Delhi',
-    'Karnataka',
-    'Tamil Nadu',
-    'Gujarat',
-    'West Bengal',
-    'Uttar Pradesh',
-    'Rajasthan',
-    'Punjab',
-    'Haryana',
-  ];
-
-  final List<String> _cities = [
-    'Mumbai',
-    'Delhi',
-    'Bangalore',
-    'Chennai',
-    'Pune',
-    'Hyderabad',
-    'Kolkata',
-    'Ahmedabad',
-    'Jaipur',
-    'Chandigarh',
-  ];
-
-  final List<String> _locations = [
-    'Central',
-    'North',
-    'South',
-    'East',
-    'West',
-    'Suburbs',
-    'Downtown',
-    'Business District',
-  ];
-
-  final List<String> _years = List.generate(
-    10,
-    (index) => (DateTime.now().year + index).toString(),
-  );
-  final List<String> _months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadMasterData();
+  }
 
   @override
   void dispose() {
@@ -145,111 +85,476 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
     _addressController.dispose();
     _remarkController.dispose();
     _budgetController.dispose();
-    _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadMasterData() async {
+    try {
+      setState(() {
+        _isLoadingMasterData = true;
+      });
+
+      // Load all master data in parallel
+      final results = await Future.wait([
+        MasterDataService.getLeadSourcesMaster(),
+        MasterDataService.getUsersMaster(),
+        MasterDataService.getProjectsMaster(),
+        MasterDataService.getPropertyCategories(),
+        MasterDataService.getPropertyTypesMaster(),
+        MasterDataService.getStates(),
+        MasterDataService.getPurchasePlanYears(),
+        MasterDataService.getPurchasePlanMonths(),
+        MasterDataService.getBudgetMaster(),
+      ]);
+
+      setState(() {
+        _leadSources = results[0] as List<LeadSourceMaster>;
+        _users = results[1] as List<UserMaster>;
+        _projects = results[2] as List<ProjectMaster>;
+        _propertyCategories = results[3] as List<PropertyCategory>;
+        _propertyTypes = results[4] as List<PropertyTypeMaster>;
+        _states = results[5] as List<StateMaster>;
+        _purchaseYears = results[6] as List<PurchasePlanYear>;
+        _purchaseMonths = results[7] as List<PurchasePlanMonth>;
+        _budgets = results[8] as List<BudgetMaster>;
+        _isLoadingMasterData = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingMasterData = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
+      }
+    }
+  }
+
+  Future<void> _checkDuplicateLead() async {
+    final contactNumber = _contactNumberController.text.trim();
+    if (contactNumber.isEmpty) return;
+
+    setState(() {
+      _isCheckingDuplicate = true;
+    });
+
+    try {
+      final duplicateInfo = await LeadDuplicateService.checkDuplicateLead(
+        contactNumber,
+      );
+
+      setState(() {
+        _duplicateLeadInfo = duplicateInfo;
+        _isCheckingDuplicate = false;
+      });
+
+      if (duplicateInfo != null && duplicateInfo['exists'] == true) {
+        if (mounted) {
+          _showDuplicateLeadDialog(duplicateInfo);
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isCheckingDuplicate = false;
+      });
+      print('Error checking duplicate: $e');
+    }
+  }
+
+  void _showDuplicateLeadDialog(Map<String, dynamic> duplicateInfo) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Duplicate Lead Found'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Lead ID: ${duplicateInfo['lead_id']}'),
+            Text('Customer Name: ${duplicateInfo['customer_name']}'),
+            Text('Assigned To: ${duplicateInfo['assigned_to_name']}'),
+            Text('Created At: ${_formatDate(duplicateInfo['created_at'])}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pop(); // Go back to lead screen
+            },
+            child: const Text('View Lead'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(dynamic date) {
+    if (date == null) return 'N/A';
+    try {
+      final DateTime dateTime = DateTime.parse(date.toString());
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    } catch (e) {
+      return 'N/A';
+    }
+  }
+
+  String _formatISTDateTime(DateTime dateTime) {
+    // Convert to IST (UTC+5:30)
+    final istDateTime = dateTime.toUtc().add(
+      const Duration(hours: 5, minutes: 30),
+    );
+
+    // Format date
+    final day = istDateTime.day.toString().padLeft(2, '0');
+    final month = istDateTime.month.toString().padLeft(2, '0');
+    final year = istDateTime.year;
+
+    // Format time
+    final hour = istDateTime.hour.toString().padLeft(2, '0');
+    final minute = istDateTime.minute.toString().padLeft(2, '0');
+    final second = istDateTime.second.toString().padLeft(2, '0');
+
+    return '$day/$month/$year at $hour:$minute:$second IST';
+  }
+
+  void _showSuccessDialog(BuildContext context) {
+    final now = DateTime.now();
+    final istDateTime = _formatISTDateTime(now);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.check_circle,
+                  color: Colors.green.shade600,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Lead Created Successfully!',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Your lead has been created and saved to the database.',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.access_time,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Created on: $istDateTime',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); // Go back to lead screen
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Continue',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _onProjectChanged(String? projectId) {
+    if (projectId == null) return;
+
+    final project = _projects.firstWhere((p) => p.id == projectId);
+
+    setState(() {
+      _selectedProject = projectId;
+      _selectedProjectCategory = project.category;
+      _selectedState = project.state;
+      _selectedCity = project.city;
+      _selectedLocation = project.location;
+    });
+
+    // Load cities and locations based on selected state and city
+    if (project.state != null) {
+      // Find the state ID from the states list
+      try {
+        final state = _states.firstWhere((s) => s.name == project.state);
+        _loadCities(state.id);
+      } catch (e) {
+        print('State not found: ${project.state}');
+      }
+    }
+    if (project.city != null) {
+      // Find the city ID from the cities list
+      try {
+        final city = _cities.firstWhere((c) => c.name == project.city);
+        _loadLocations(city.id);
+      } catch (e) {
+        print('City not found: ${project.city}');
+      }
+    }
+  }
+
+  Future<void> _loadCities(String stateId) async {
+    try {
+      final cities = await MasterDataService.getCities(stateId: stateId);
+      setState(() {
+        _cities = cities;
+      });
+    } catch (e) {
+      print('Error loading cities: $e');
+    }
+  }
+
+  Future<void> _loadLocations(String cityId) async {
+    try {
+      final locations = await MasterDataService.getLocations(cityId: cityId);
+      setState(() {
+        _locations = locations;
+      });
+    } catch (e) {
+      print('Error loading locations: $e');
+    }
+  }
+
+  Future<void> _saveAndContinue() async {
+    if (!_basicFormKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_currentPage == 0) {
+      // Move to next page
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      // Save the lead
+      await _saveLead();
+    }
+  }
+
+  Future<void> _saveLead() async {
+    if (!_preferenceFormKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      // Create lead object
+      final lead = Lead(
+        id: '', // Will be generated by database
+        leadId: '', // Will be generated by database
+        customerName:
+            '${_firstNameController.text.trim()} ${_middleNameController.text.trim()} ${_lastNameController.text.trim()}'
+                .trim(),
+        email: _emailController.text.trim(),
+        phone: '${_countryCodeController.text}${_contactNumberController.text}',
+        address: _addressController.text.trim(),
+        occupation: _occupationController.text.trim(),
+        status: LeadStatus.cold, // Default status
+        subStatus: LeadSubStatus.newLead, // Default sub status
+        source: _getLeadSourceEnum(_selectedLeadSource),
+        propertyType: _getPropertyTypeEnum(_selectedPropertyType),
+        categoryType: CategoryType.a, // Default category
+        projectId: _selectedProject,
+        projectName: _projects.firstWhere((p) => p.id == _selectedProject).name,
+        budgetRange: _selectedBudget,
+        requirements: _remarkController.text.trim(),
+        notes: _remarkController.text.trim(),
+        assignedTo: _selectedAssignTo ?? '',
+        assignedToName: _users
+            .firstWhere((u) => u.id == _selectedAssignTo)
+            .name,
+        createdBy: '', // Will be set by service
+        createdByName: '', // Will be set by service
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        hasSiteVisit: false,
+        followUpCount: 0,
+        siteVisitCount: 0,
+        isDuplicate: false,
+      );
+
+      final leadService = LeadService();
+      final response = await leadService.createLead(lead);
+
+      if (response.success) {
+        if (mounted) {
+          _showSuccessDialog(context);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error creating lead: ${response.error}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error creating lead: $e')));
+      }
+    } finally {
+      setState(() {
+        _isSaving = false;
+      });
+    }
+  }
+
+  LeadSource _getLeadSourceEnum(String? sourceName) {
+    if (sourceName == null) return LeadSource.other;
+
+    switch (sourceName.toUpperCase()) {
+      case 'PORTAL':
+        return LeadSource.portal;
+      case 'WALK IN':
+        return LeadSource.walkIn;
+      case 'REFERRAL':
+        return LeadSource.referral;
+      case 'WEBSITE':
+        return LeadSource.website;
+      case 'SOCIAL MEDIA':
+        return LeadSource.socialMedia;
+      default:
+        return LeadSource.other;
+    }
+  }
+
+  PropertyType _getPropertyTypeEnum(String? typeName) {
+    if (typeName == null) return PropertyType.residential;
+
+    switch (typeName.toUpperCase()) {
+      case 'RESIDENTIAL':
+        return PropertyType.residential;
+      case 'COMMERCIAL':
+        return PropertyType.commercial;
+      case 'INDUSTRIAL':
+        return PropertyType.industrial;
+      case 'LAND':
+        return PropertyType.land;
+      default:
+        return PropertyType.residential;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-        title: Text(
-          'Create Lead',
-          style: Theme.of(context).appBarTheme.titleTextStyle,
-        ),
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: Theme.of(context).iconTheme.color,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        actions: const [],
+        title: const Text('Create Lead'),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
       ),
-      body: Column(
-        children: [
-          // Progress indicator
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+      body: _isLoadingMasterData
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                // Progress indicator
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
                     children: [
-                      Icon(
-                        Icons.assignment_add,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          _currentPage == 0
-                              ? 'Step 1 of 2 · Basic Details'
-                              : 'Step 2 of 2 · Preference Details',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
+                        child: LinearProgressIndicator(
+                          value: (_currentPage + 1) / _totalPages,
+                          backgroundColor: Colors.grey[300],
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Theme.of(context).primaryColor,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 16),
                       Text(
                         '${_currentPage + 1}/$_totalPages',
-                        style: Theme.of(context).textTheme.bodySmall,
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      minHeight: 6,
-                      value: (_currentPage + 1) / _totalPages,
-                      backgroundColor: Theme.of(context).dividerColor,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
+                ),
+                // Page content
+                Expanded(
+                  child: PageView(
+                    controller: _pageController,
+                    physics: const NeverScrollableScrollPhysics(),
+                    onPageChanged: (page) {
+                      setState(() {
+                        _currentPage = page;
+                      });
+                    },
+                    children: [
+                      _buildBasicDetailsPage(),
+                      _buildPreferenceDetailsPage(),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          ),
-          // Page content
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              onPageChanged: (page) {
-                setState(() {
-                  _currentPage = page;
-                });
-              },
-              children: [
-                _buildBasicDetailsPage(),
-                _buildPreferenceDetailsPage(),
+                ),
               ],
             ),
-          ),
-        ],
-      ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
@@ -262,32 +567,33 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
           ),
           child: Row(
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    if (_currentPage == 0) {
-                      Navigator.of(context).maybePop();
-                    } else {
+              if (_currentPage > 0)
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
                       _pageController.previousPage(
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeInOut,
                       );
-                    }
-                  },
-                  icon: const Icon(Icons.chevron_left_rounded),
-                  label: Text(_currentPage == 0 ? 'Back' : 'Previous'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _currentPage == 0 ? _nextPage : _saveAndContinue,
-                  icon: Icon(
-                    _currentPage == 0
-                        ? Icons.chevron_right_rounded
-                        : Icons.check_circle_outline,
+                    },
+                    child: const Text('Previous'),
                   ),
-                  label: Text(_currentPage == 0 ? 'Next' : 'Save & Create'),
+                ),
+              if (_currentPage > 0) const SizedBox(width: 16),
+              Expanded(
+                child: FilledButton(
+                  onPressed: _isSaving ? null : _saveAndContinue,
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          _currentPage == _totalPages - 1
+                              ? 'Save Lead'
+                              : 'Continue',
+                        ),
                 ),
               ),
             ],
@@ -323,15 +629,11 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                   Row(
                     children: [
                       SizedBox(
-                        width: 104,
+                        width: 80,
                         child: TextFormField(
                           controller: _countryCodeController,
                           decoration: InputDecoration(
-                            labelText: 'Country',
-                            prefixIcon: const Icon(
-                              Icons.flag_outlined,
-                              size: 18,
-                            ),
+                            labelText: 'Code',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -365,23 +667,74 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                             if (value == null || value.isEmpty) {
                               return 'Contact number is required';
                             }
-                            if (value.length != 10) {
-                              return 'Enter valid 10-digit number';
+                            if (value.length < 10) {
+                              return 'Please enter a valid 10-digit number';
                             }
                             return null;
+                          },
+                          onChanged: (value) {
+                            if (value.length == 10) {
+                              _checkDuplicateLead();
+                            }
                           },
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
 
-                  // Email
+                  // Show duplicate check status
+                  if (_isCheckingDuplicate)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(width: 8),
+                          Text('Checking for duplicates...'),
+                        ],
+                      ),
+                    ),
+
+                  if (_duplicateLeadInfo != null &&
+                      _duplicateLeadInfo!['exists'] == true)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[50],
+                        border: Border.all(color: Colors.orange),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.warning,
+                            color: Colors.orange[700],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Lead already exists with ID: ${_duplicateLeadInfo!['lead_id']}',
+                              style: TextStyle(color: Colors.orange[700]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  // Email ID
                   TextFormField(
                     controller: _emailController,
                     decoration: InputDecoration(
                       labelText: 'Email ID *',
-                      prefixIcon: const Icon(Icons.alternate_email, size: 18),
+                      prefixIcon: const Icon(Icons.email_outlined, size: 18),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -394,7 +747,37 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                       if (!RegExp(
                         r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                       ).hasMatch(value)) {
-                        return 'Enter valid email';
+                        return 'Please enter a valid email';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Lead Source
+                  DropdownButtonFormField<String>(
+                    value: _selectedLeadSource,
+                    decoration: InputDecoration(
+                      labelText: 'Lead Source *',
+                      prefixIcon: const Icon(Icons.source_outlined, size: 18),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    items: _leadSources.map((source) {
+                      return DropdownMenuItem<String>(
+                        value: source.name,
+                        child: Text(source.name),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedLeadSource = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Lead source is required';
                       }
                       return null;
                     },
@@ -409,43 +792,14 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Lead & Personal Details',
+                    'Personal Information',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Lead Source
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedLeadSource,
-                    decoration: InputDecoration(
-                      labelText: 'Lead Source *',
-                      prefixIcon: const Icon(Icons.source_outlined, size: 18),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    items: _leadSources.map((String source) {
-                      return DropdownMenuItem<String>(
-                        value: source,
-                        child: Text(source),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedLeadSource = newValue;
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Lead source is required';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
 
-                  // Name fields (stacked vertically for long names)
+                  // First Name
                   TextFormField(
                     controller: _firstNameController,
                     decoration: InputDecoration(
@@ -462,18 +816,22 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
+
+                  // Middle Name
                   TextFormField(
                     controller: _middleNameController,
                     decoration: InputDecoration(
                       labelText: 'Middle Name',
-                      prefixIcon: const Icon(Icons.badge_outlined, size: 18),
+                      prefixIcon: const Icon(Icons.person_outline, size: 18),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
+
+                  // Last Name
                   TextFormField(
                     controller: _lastNameController,
                     decoration: InputDecoration(
@@ -490,17 +848,14 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
                   // Occupation
                   TextFormField(
                     controller: _occupationController,
                     decoration: InputDecoration(
                       labelText: 'Occupation *',
-                      prefixIcon: const Icon(
-                        Icons.work_outline_rounded,
-                        size: 18,
-                      ),
+                      prefixIcon: const Icon(Icons.work_outline, size: 18),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -512,51 +867,40 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                       return null;
                     },
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-            _SectionCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Assignment & Address',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   // Assign To
                   DropdownButtonFormField<String>(
-                    initialValue: _selectedAssignTo,
+                    value: _selectedAssignTo,
                     decoration: InputDecoration(
                       labelText: 'Assign To *',
-                      prefixIcon: const Icon(Icons.person_add_alt_1, size: 18),
+                      prefixIcon: const Icon(
+                        Icons.person_add_outlined,
+                        size: 18,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    items: _assignToOptions.map((String assignee) {
+                    items: _users.map((user) {
                       return DropdownMenuItem<String>(
-                        value: assignee,
-                        child: Text(assignee),
+                        value: user.id,
+                        child: Text(user.name),
                       );
                     }).toList(),
-                    onChanged: (String? newValue) {
+                    onChanged: (value) {
                       setState(() {
-                        _selectedAssignTo = newValue;
+                        _selectedAssignTo = value;
                       });
                     },
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Assign to is required';
+                        return 'Please assign to a user';
                       }
                       return null;
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
                   // Address
                   TextFormField(
@@ -604,64 +948,82 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Project & Property',
+                    'Project & Location Preferences',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Project Category
+
+                  // Project
                   DropdownButtonFormField<String>(
-                    initialValue: _selectedProjectCategory,
+                    value: _selectedProject,
                     decoration: InputDecoration(
-                      labelText: 'Project Category *',
+                      labelText: 'Project *',
+                      prefixIcon: const Icon(Icons.business_outlined, size: 18),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    items: _projects.map((project) {
+                      return DropdownMenuItem<String>(
+                        value: project.id,
+                        child: Text(project.name),
+                      );
+                    }).toList(),
+                    onChanged: _onProjectChanged,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Project is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Category (prefilled from project)
+                  DropdownButtonFormField<String>(
+                    value: _selectedProjectCategory,
+                    decoration: InputDecoration(
+                      labelText: 'Category',
                       prefixIcon: const Icon(Icons.category_outlined, size: 18),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    items: _projectCategories.map((String category) {
+                    items: _propertyCategories.map((category) {
                       return DropdownMenuItem<String>(
-                        value: category,
-                        child: Text(category),
+                        value: category.name,
+                        child: Text(category.name),
                       );
                     }).toList(),
-                    onChanged: (String? newValue) {
+                    onChanged: (value) {
                       setState(() {
-                        _selectedProjectCategory = newValue;
+                        _selectedProjectCategory = value;
                       });
                     },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Project category is required';
-                      }
-                      return null;
-                    },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
                   // Property Type
                   DropdownButtonFormField<String>(
-                    initialValue: _selectedPropertyType,
+                    value: _selectedPropertyType,
                     decoration: InputDecoration(
                       labelText: 'Property Type *',
-                      prefixIcon: const Icon(
-                        Icons.apartment_outlined,
-                        size: 18,
-                      ),
+                      prefixIcon: const Icon(Icons.home_outlined, size: 18),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    items: _propertyTypes.map((String type) {
+                    items: _propertyTypes.map((type) {
                       return DropdownMenuItem<String>(
-                        value: type,
-                        child: Text(type),
+                        value: type.name,
+                        child: Text(type.name),
                       );
                     }).toList(),
-                    onChanged: (String? newValue) {
+                    onChanged: (value) {
                       setState(() {
-                        _selectedPropertyType = newValue;
+                        _selectedPropertyType = value;
                       });
                     },
                     validator: (value) {
@@ -671,125 +1033,98 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                       return null;
                     },
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-            _SectionCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Location Preference',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // State and City
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: _selectedState,
-                          decoration: InputDecoration(
-                            labelText: 'State *',
-                            prefixIcon: const Icon(
-                              Icons.map_outlined,
-                              size: 18,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          isExpanded: true,
-                          items: _states.map((String state) {
-                            return DropdownMenuItem<String>(
-                              value: state,
-                              child: Text(state),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _selectedState = newValue;
-                              _selectedCity =
-                                  null; // Reset city when state changes
-                            });
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'State is required';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: _selectedCity,
-                          decoration: InputDecoration(
-                            labelText: 'City *',
-                            prefixIcon: const Icon(
-                              Icons.location_city_outlined,
-                              size: 18,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          isExpanded: true,
-                          items: _cities.map((String city) {
-                            return DropdownMenuItem<String>(
-                              value: city,
-                              child: Text(city),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _selectedCity = newValue;
-                            });
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'City is required';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Location
+                  // State (prefilled from project)
                   DropdownButtonFormField<String>(
-                    initialValue: _selectedLocation,
+                    value: _selectedState,
                     decoration: InputDecoration(
-                      labelText: 'Location *',
+                      labelText: 'State',
+                      prefixIcon: const Icon(
+                        Icons.location_on_outlined,
+                        size: 18,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    items: _states.map((state) {
+                      return DropdownMenuItem<String>(
+                        value: state.name,
+                        child: Text(state.name),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedState = value;
+                        _selectedCity = null;
+                        _selectedLocation = null;
+                        _cities.clear();
+                        _locations.clear();
+                      });
+                      if (value != null) {
+                        final state = _states.firstWhere(
+                          (s) => s.name == value,
+                        );
+                        _loadCities(state.id);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // City (prefilled from project)
+                  DropdownButtonFormField<String>(
+                    value: _selectedCity,
+                    decoration: InputDecoration(
+                      labelText: 'City',
+                      prefixIcon: const Icon(
+                        Icons.location_city_outlined,
+                        size: 18,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    items: _cities.map((city) {
+                      return DropdownMenuItem<String>(
+                        value: city.name,
+                        child: Text(city.name),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCity = value;
+                        _selectedLocation = null;
+                        _locations.clear();
+                      });
+                      if (value != null) {
+                        final city = _cities.firstWhere((c) => c.name == value);
+                        _loadLocations(city.id);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Location (prefilled from project)
+                  DropdownButtonFormField<String>(
+                    value: _selectedLocation,
+                    decoration: InputDecoration(
+                      labelText: 'Location',
                       prefixIcon: const Icon(Icons.place_outlined, size: 18),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    isExpanded: true,
-                    items: _locations.map((String location) {
+                    items: _locations.map((location) {
                       return DropdownMenuItem<String>(
-                        value: location,
-                        child: Text(location),
+                        value: location.name,
+                        child: Text(location.name),
                       );
                     }).toList(),
-                    onChanged: (String? newValue) {
+                    onChanged: (value) {
                       setState(() {
-                        _selectedLocation = newValue;
+                        _selectedLocation = value;
                       });
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Location is required';
-                      }
-                      return null;
                     },
                   ),
                 ],
@@ -808,83 +1143,73 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Purchase Plan Year and Month
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: _selectedPurchaseYear,
-                          decoration: InputDecoration(
-                            labelText: 'Purchase Plan Year *',
-                            prefixIcon: const Icon(
-                              Icons.event_outlined,
-                              size: 18,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          isExpanded: true,
-                          items: _years.map((String year) {
-                            return DropdownMenuItem<String>(
-                              value: year,
-                              child: Text(year),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _selectedPurchaseYear = newValue;
-                            });
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Year is required';
-                            }
-                            return null;
-                          },
-                        ),
+
+                  // Purchase Plan Year
+                  DropdownButtonFormField<String>(
+                    value: _selectedPurchaseYear,
+                    decoration: InputDecoration(
+                      labelText: 'Purchase Plan Year *',
+                      prefixIcon: const Icon(Icons.event_outlined, size: 18),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: _selectedPurchaseMonth,
-                          decoration: InputDecoration(
-                            labelText: 'Month *',
-                            prefixIcon: const Icon(
-                              Icons.calendar_month_outlined,
-                              size: 18,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          isExpanded: true,
-                          items: _months.map((String month) {
-                            return DropdownMenuItem<String>(
-                              value: month,
-                              child: Text(month),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _selectedPurchaseMonth = newValue;
-                            });
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Month is required';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                    ],
+                    ),
+                    items: _purchaseYears.map((year) {
+                      return DropdownMenuItem<String>(
+                        value: year.name,
+                        child: Text(year.name),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedPurchaseYear = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Purchase plan year is required';
+                      }
+                      return null;
+                    },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
+
+                  // Purchase Plan Month
+                  DropdownButtonFormField<String>(
+                    value: _selectedPurchaseMonth,
+                    decoration: InputDecoration(
+                      labelText: 'Purchase Plan Month *',
+                      prefixIcon: const Icon(
+                        Icons.calendar_month_outlined,
+                        size: 18,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    items: _purchaseMonths.map((month) {
+                      return DropdownMenuItem<String>(
+                        value: month.name,
+                        child: Text(month.name),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedPurchaseMonth = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Purchase plan month is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
 
                   // Budget
-                  TextFormField(
-                    controller: _budgetController,
+                  DropdownButtonFormField<String>(
+                    value: _selectedBudget,
                     decoration: InputDecoration(
                       labelText: 'Budget *',
                       prefixIcon: const Icon(
@@ -894,10 +1219,18 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      prefixText: '₹ ',
                     ),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    items: _budgets.map((budget) {
+                      return DropdownMenuItem<String>(
+                        value: budget.name,
+                        child: Text(budget.name),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedBudget = value;
+                      });
+                    },
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Budget is required';
@@ -915,23 +1248,24 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Additional Notes',
+                    'Additional Information',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Remark
+
+                  // Remarks
                   TextFormField(
                     controller: _remarkController,
                     decoration: InputDecoration(
-                      labelText: 'Remark',
-                      prefixIcon: const Icon(Icons.notes_outlined, size: 18),
+                      labelText: 'Remarks',
+                      prefixIcon: const Icon(Icons.note_outlined, size: 18),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    maxLines: 3,
+                    maxLines: 4,
                   ),
                 ],
               ),
@@ -941,65 +1275,29 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
       ),
     );
   }
-
-  void _nextPage() {
-    if (_basicFormKey.currentState?.validate() ?? false) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
-  }
-
-  void _saveAndContinue() {
-    final bool basicOk = _basicFormKey.currentState?.validate() ?? false;
-    final bool prefOk = _preferenceFormKey.currentState?.validate() ?? false;
-    if (basicOk && prefOk) {
-      // TODO: Save lead data
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Lead created successfully!'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-        ),
-      );
-      Navigator.of(context).pop();
-    }
-  }
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
-
   final String title;
+
+  const _SectionHeader({required this.title});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 6,
-          height: 18,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary,
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-        ),
-      ],
+    return Text(
+      title,
+      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+        fontWeight: FontWeight.w700,
+        color: Theme.of(context).primaryColor,
+      ),
     );
   }
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.child});
-
   final Widget child;
+
+  const _SectionCard({required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -1013,7 +1311,7 @@ class _SectionCard extends StatelessWidget {
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
             spreadRadius: 1,
-            blurRadius: 8,
+            blurRadius: 4,
             offset: const Offset(0, 2),
           ),
         ],

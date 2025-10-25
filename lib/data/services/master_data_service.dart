@@ -145,19 +145,7 @@ class MasterDataService {
           .map((json) => StateMaster.fromJson(json))
           .toList();
     } catch (e) {
-      // If table doesn't exist, return default states
-      return const [
-        StateMaster(id: '1', name: 'Gujarat', countryId: '1', isActive: true),
-        StateMaster(
-          id: '2',
-          name: 'Maharashtra',
-          countryId: '1',
-          isActive: true,
-        ),
-        StateMaster(id: '3', name: 'Haryana', countryId: '1', isActive: true),
-        StateMaster(id: '4', name: 'Delhi', countryId: '1', isActive: true),
-        StateMaster(id: '5', name: 'Karnataka', countryId: '1', isActive: true),
-      ];
+      throw Exception('Failed to fetch states: $e');
     }
   }
 
@@ -173,14 +161,7 @@ class MasterDataService {
       final response = await query.order('name');
       return (response as List).map((json) => City.fromJson(json)).toList();
     } catch (e) {
-      // If table doesn't exist, return default cities
-      return const [
-        City(id: '1', name: 'Ahmedabad', stateId: '1', isActive: true),
-        City(id: '2', name: 'Mumbai', stateId: '2', isActive: true),
-        City(id: '3', name: 'Gurugram', stateId: '3', isActive: true),
-        City(id: '4', name: 'New Delhi', stateId: '4', isActive: true),
-        City(id: '5', name: 'Bangalore', stateId: '5', isActive: true),
-      ];
+      throw Exception('Failed to fetch cities: $e');
     }
   }
 
@@ -196,24 +177,49 @@ class MasterDataService {
       final response = await query.order('name');
       return (response as List).map((json) => Location.fromJson(json)).toList();
     } catch (e) {
-      // If table doesn't exist, return default locations
+      throw Exception('Failed to fetch locations: $e');
+    }
+  }
+
+  // Lead Sources Master
+  static Future<List<LeadSourceMaster>> getLeadSourcesMaster() async {
+    try {
+      final response = await _client
+          .from('lead_sources_master')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+
+      return (response as List)
+          .map((json) => LeadSourceMaster.fromJson(json))
+          .toList();
+    } catch (e) {
+      // If table doesn't exist, return default lead sources
       return const [
-        Location(id: '1', name: 'Gift City', cityId: '1', isActive: true),
-        Location(id: '2', name: 'NH 48, Part 2', cityId: '1', isActive: true),
-        Location(
-          id: '3',
-          name: 'Bandra Kurla Complex',
-          cityId: '2',
-          isActive: true,
-        ),
-        Location(id: '4', name: 'Cyber City', cityId: '3', isActive: true),
-        Location(id: '5', name: 'Connaught Place', cityId: '4', isActive: true),
+        LeadSourceMaster(id: '1', name: '99 ACRES', isActive: true),
+        LeadSourceMaster(id: '2', name: 'AFFORDABLE WEBSITE', isActive: true),
+        LeadSourceMaster(id: '3', name: 'BULK DATA', isActive: true),
+        LeadSourceMaster(id: '4', name: 'CHANNEL PARTNER', isActive: true),
+        LeadSourceMaster(id: '5', name: 'CLIENT VISIT', isActive: true),
+        LeadSourceMaster(id: '6', name: 'CROSS SELL', isActive: true),
+        LeadSourceMaster(id: '7', name: 'FACEBOOK', isActive: true),
+        LeadSourceMaster(id: '8', name: 'GOOGLE', isActive: true),
+        LeadSourceMaster(id: '9', name: 'HOUSING', isActive: true),
+        LeadSourceMaster(id: '10', name: 'IVR', isActive: true),
+        LeadSourceMaster(id: '11', name: 'LINKEDIN', isActive: true),
+        LeadSourceMaster(id: '12', name: 'MAGIC BRICKS', isActive: true),
+        LeadSourceMaster(id: '13', name: 'MARCOM IDEAZ', isActive: true),
+        LeadSourceMaster(id: '14', name: 'MARKETPLACE', isActive: true),
+        LeadSourceMaster(id: '15', name: 'MONARCH INDIA', isActive: true),
+        LeadSourceMaster(id: '16', name: 'NETINSURE WEB', isActive: true),
+        LeadSourceMaster(id: '17', name: 'NL WEBSITE', isActive: true),
+        LeadSourceMaster(id: '18', name: 'OTHERS', isActive: true),
       ];
     }
   }
 
-  // Projects
-  static Future<List<Project>> getProjects() async {
+  // Projects Master
+  static Future<List<ProjectMaster>> getProjectsMaster() async {
     try {
       final response = await _client
           .from('projects')
@@ -221,81 +227,203 @@ class MasterDataService {
           .eq('is_active', true)
           .order('name');
 
-      return (response as List).map((json) => Project.fromJson(json)).toList();
+      return (response as List)
+          .map((json) => ProjectMaster.fromJson(json))
+          .toList();
     } catch (e) {
       throw Exception('Failed to fetch projects: $e');
     }
   }
 
-  // Inventories
-  static Future<List<Inventory>> getInventories({String? projectId}) async {
-    try {
-      var query = _client.from('inventories').select('*').eq('is_active', true);
-
-      if (projectId != null) {
-        query = query.eq('project_id', projectId);
-      }
-
-      final response = await query.order('name');
-      return (response as List)
-          .map((json) => Inventory.fromJson(json))
-          .toList();
-    } catch (e) {
-      throw Exception('Failed to fetch inventories: $e');
-    }
-  }
-
-  // Assignment Users
-  static Future<List<AssignmentUser>> getAssignmentUsers() async {
+  // Budget Master
+  static Future<List<BudgetMaster>> getBudgetMaster() async {
     try {
       final response = await _client
-          .from('assignment_users')
+          .from('budget_master')
           .select('*')
           .eq('is_active', true)
           .order('name');
 
       return (response as List)
-          .map((json) => AssignmentUser.fromJson(json))
+          .map((json) => BudgetMaster.fromJson(json))
           .toList();
     } catch (e) {
-      throw Exception('Failed to fetch assignment users: $e');
+      // If table doesn't exist, return default budget ranges
+      return const [
+        BudgetMaster(id: '1', name: 'Under 25 Lacs', isActive: true),
+        BudgetMaster(id: '2', name: '25-50 Lacs', isActive: true),
+        BudgetMaster(id: '3', name: '50-75 Lacs', isActive: true),
+        BudgetMaster(id: '4', name: '75-100 Lacs', isActive: true),
+        BudgetMaster(id: '5', name: '100-150 Lacs', isActive: true),
+        BudgetMaster(id: '6', name: '150-200 Lacs', isActive: true),
+        BudgetMaster(id: '7', name: 'Above 200 Lacs', isActive: true),
+      ];
     }
   }
 
-  // Ticket Disposition Main
-  static Future<List<TicketDispositionMain>> getTicketDispositionMains() async {
+  // Purchase Plan Years
+  static Future<List<PurchasePlanYear>> getPurchasePlanYears() async {
     try {
       final response = await _client
-          .from('ticket_disposition_main')
+          .from('purchase_plan_years')
           .select('*')
           .eq('is_active', true)
           .order('name');
 
       return (response as List)
-          .map((json) => TicketDispositionMain.fromJson(json))
+          .map((json) => PurchasePlanYear.fromJson(json))
           .toList();
     } catch (e) {
-      throw Exception('Failed to fetch ticket disposition mains: $e');
+      // If table doesn't exist, return default years
+      final currentYear = DateTime.now().year;
+      return List.generate(10, (index) {
+        final year = currentYear + index;
+        return PurchasePlanYear(
+          id: year.toString(),
+          name: year.toString(),
+          isActive: true,
+        );
+      });
     }
   }
 
-  // Ticket Disposition Sub
-  static Future<List<TicketDispositionSub>> getTicketDispositionSubs(
-    String mainId,
-  ) async {
+  // Purchase Plan Months
+  static Future<List<PurchasePlanMonth>> getPurchasePlanMonths() async {
     try {
       final response = await _client
-          .from('ticket_disposition_sub')
+          .from('purchase_plan_months')
           .select('*')
           .eq('is_active', true)
-          .eq('main_id', mainId)
           .order('name');
 
       return (response as List)
-          .map((json) => TicketDispositionSub.fromJson(json))
+          .map((json) => PurchasePlanMonth.fromJson(json))
           .toList();
     } catch (e) {
-      throw Exception('Failed to fetch ticket disposition subs: $e');
+      // If table doesn't exist, return default months
+      return const [
+        PurchasePlanMonth(id: '1', name: 'January', isActive: true),
+        PurchasePlanMonth(id: '2', name: 'February', isActive: true),
+        PurchasePlanMonth(id: '3', name: 'March', isActive: true),
+        PurchasePlanMonth(id: '4', name: 'April', isActive: true),
+        PurchasePlanMonth(id: '5', name: 'May', isActive: true),
+        PurchasePlanMonth(id: '6', name: 'June', isActive: true),
+        PurchasePlanMonth(id: '7', name: 'July', isActive: true),
+        PurchasePlanMonth(id: '8', name: 'August', isActive: true),
+        PurchasePlanMonth(id: '9', name: 'September', isActive: true),
+        PurchasePlanMonth(id: '10', name: 'October', isActive: true),
+        PurchasePlanMonth(id: '11', name: 'November', isActive: true),
+        PurchasePlanMonth(id: '12', name: 'December', isActive: true),
+      ];
+    }
+  }
+
+  // Users Master
+  static Future<List<UserMaster>> getUsersMaster() async {
+    try {
+      final response = await _client
+          .from('users')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+
+      return (response as List)
+          .map((json) => UserMaster.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch users: $e');
+    }
+  }
+
+  // Gender Master
+  static Future<List<GenderMaster>> getGenderMaster() async {
+    try {
+      final response = await _client
+          .from('gender_master')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+
+      return (response as List)
+          .map((json) => GenderMaster.fromJson(json))
+          .toList();
+    } catch (e) {
+      // If table doesn't exist, return default gender options
+      return const [
+        GenderMaster(id: '1', name: 'Male', isActive: true),
+        GenderMaster(id: '2', name: 'Female', isActive: true),
+        GenderMaster(id: '3', name: 'Other', isActive: true),
+      ];
+    }
+  }
+
+  // Marital Status Master
+  static Future<List<MaritalStatusMaster>> getMaritalStatusMaster() async {
+    try {
+      final response = await _client
+          .from('marital_status_master')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+
+      return (response as List)
+          .map((json) => MaritalStatusMaster.fromJson(json))
+          .toList();
+    } catch (e) {
+      // If table doesn't exist, return default marital status options
+      return const [
+        MaritalStatusMaster(id: '1', name: 'Single', isActive: true),
+        MaritalStatusMaster(id: '2', name: 'Married', isActive: true),
+        MaritalStatusMaster(id: '3', name: 'Divorced', isActive: true),
+        MaritalStatusMaster(id: '4', name: 'Widowed', isActive: true),
+      ];
+    }
+  }
+
+  // Employment Type Master
+  static Future<List<EmploymentTypeMaster>> getEmploymentTypeMaster() async {
+    try {
+      final response = await _client
+          .from('employment_type_master')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+
+      return (response as List)
+          .map((json) => EmploymentTypeMaster.fromJson(json))
+          .toList();
+    } catch (e) {
+      // If table doesn't exist, return default employment type options
+      return const [
+        EmploymentTypeMaster(id: '1', name: 'Salaried', isActive: true),
+        EmploymentTypeMaster(id: '2', name: 'Self-employed', isActive: true),
+        EmploymentTypeMaster(id: '3', name: 'Business', isActive: true),
+        EmploymentTypeMaster(id: '4', name: 'Retired', isActive: true),
+        EmploymentTypeMaster(id: '5', name: 'Student', isActive: true),
+        EmploymentTypeMaster(id: '6', name: 'Unemployed', isActive: true),
+      ];
+    }
+  }
+
+  // ITR Filing Status Master
+  static Future<List<ItrFilingStatusMaster>> getItrFilingStatusMaster() async {
+    try {
+      final response = await _client
+          .from('itr_filing_status_master')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+
+      return (response as List)
+          .map((json) => ItrFilingStatusMaster.fromJson(json))
+          .toList();
+    } catch (e) {
+      // If table doesn't exist, return default ITR filing status options
+      return const [
+        ItrFilingStatusMaster(id: '1', name: 'Yes', isActive: true),
+        ItrFilingStatusMaster(id: '2', name: 'No', isActive: true),
+        ItrFilingStatusMaster(id: '3', name: 'Not Applicable', isActive: true),
+      ];
     }
   }
 }

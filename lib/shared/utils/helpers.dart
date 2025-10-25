@@ -5,6 +5,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../data/services/supabase_service.dart';
 import '../../data/services/location_service.dart';
 import '../../core/constants/constants.dart';
@@ -577,5 +578,37 @@ class Helpers {
       // Location: Error requesting location permission: $e
       return false;
     }
+  }
+
+  /// Get current user name from authentication and profile data
+  static Future<String> getCurrentUserName() async {
+    try {
+      final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+      if (currentUser?.id != null) {
+        // Try to get name from user metadata first
+        final String? metadataName =
+            currentUser?.userMetadata?['name'] as String?;
+        if (metadataName != null && metadataName.isNotEmpty) {
+          return metadataName;
+        }
+
+        // Fallback to getting from profiles table
+        final profile = await SupabaseService.getProfile(currentUser!.id);
+        if (profile != null) {
+          final String? fullName = profile['full_name'] as String?;
+          if (fullName != null && fullName.isNotEmpty) {
+            return fullName;
+          }
+        }
+      }
+      return 'System User';
+    } catch (e) {
+      return 'System User';
+    }
+  }
+
+  /// Get current user ID from authentication
+  static String? getCurrentUserId() {
+    return supabase.Supabase.instance.client.auth.currentUser?.id;
   }
 }

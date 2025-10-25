@@ -1240,9 +1240,8 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
             leadId: lead.id,
             oldAssignee: currentLead.assignedToName,
             newAssignee: _selectedUserName,
-            performedBy: 'current_user_id', // TODO: Get actual current user ID
-            performedByName:
-                'Current User', // TODO: Get actual current user name
+            performedBy: Helpers.getCurrentUserId() ?? 'system',
+            performedByName: await Helpers.getCurrentUserName(),
           );
 
           if (mounted) {
@@ -1943,18 +1942,16 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
 
       final String fullName = nameParts.join(' ');
 
-      // Prepare update data
-      final Map<String, dynamic> updateData = {
-        'customer_name': fullName,
-        'email': _emailController.text.trim(),
-        'phone': _phoneController.text.trim(),
-        'alternate_phone': _alternatePhoneController.text.trim().isEmpty
+      // Update the lead on server using the more robust method
+      await DatabaseService.updateLeadPersonalInfo(
+        leadId: _leadId,
+        name: fullName,
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        alternatePhone: _alternatePhoneController.text.trim().isEmpty
             ? null
             : _alternatePhoneController.text.trim(),
-      };
-
-      // Update the lead on server
-      await DatabaseService.patchLead(_leadId, updateData);
+      );
 
       // Prepare optimistic updated lead for instant UI update
       final Lead updatedLead = widget.lead.copyWith(
@@ -2032,37 +2029,27 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        controller: _firstNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'First Name *',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.person),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'First name is required';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        controller: _middleNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Middle Name',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
+                TextFormField(
+                  controller: _firstNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'First Name *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.person),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'First name is required';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _middleNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Middle Name',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -2101,41 +2088,33 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
                   },
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _phoneController,
-                        decoration: const InputDecoration(
-                          labelText: 'Phone Number *',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.phone),
-                        ),
-                        keyboardType: TextInputType.phone,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Phone number is required';
-                          }
-                          if (value.trim().length < 10) {
-                            return 'Please enter a valid phone number';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _alternatePhoneController,
-                        decoration: const InputDecoration(
-                          labelText: 'Alternate Phone',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.phone_android),
-                        ),
-                        keyboardType: TextInputType.phone,
-                      ),
-                    ),
-                  ],
+                TextFormField(
+                  controller: _phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone Number *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.phone),
+                  ),
+                  keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Phone number is required';
+                    }
+                    if (value.trim().length < 10) {
+                      return 'Please enter a valid phone number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _alternatePhoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Alternate Phone',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.phone_android),
+                  ),
+                  keyboardType: TextInputType.phone,
                 ),
               ],
             ),
@@ -2448,31 +2427,90 @@ class _ProjectLocationCompact extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
+        // Project Information
+        if (lead.projectName != null && lead.projectName!.isNotEmpty) ...[
+          _LabelValueText(
+            label: 'Preferred Project: ',
+            value: lead.projectName!,
+          ),
+          const SizedBox(height: 8),
+        ],
+
+        // Location Information
+        if (lead.state != null && lead.state!.isNotEmpty) ...[
+          _LabelValueText(label: 'State: ', value: lead.state!),
+          const SizedBox(height: 4),
+        ],
+        if (lead.city != null && lead.city!.isNotEmpty) ...[
+          _LabelValueText(label: 'City: ', value: lead.city!),
+          const SizedBox(height: 4),
+        ],
+        if (lead.location != null && lead.location!.isNotEmpty) ...[
+          _LabelValueText(label: 'Location: ', value: lead.location!),
+          const SizedBox(height: 4),
+        ],
+
+        // Customer Address
+        if (lead.address != null && lead.address!.isNotEmpty) ...[
+          _LabelValueText(label: 'Customer Address: ', value: lead.address!),
+          const SizedBox(height: 4),
+        ],
+
+        // Budget Information
+        if (lead.budgetRange != null && lead.budgetRange!.isNotEmpty) ...[
+          _LabelValueText(label: 'Budget Range: ', value: lead.budgetRange!),
+          const SizedBox(height: 4),
+        ],
+
+        // Requirements/Notes
+        if (lead.requirements != null && lead.requirements!.isNotEmpty) ...[
+          _LabelValueText(label: 'Requirements: ', value: lead.requirements!),
+          const SizedBox(height: 4),
+        ],
+
+        // Property Type and Category
         Row(
           children: <Widget>[
             Expanded(
               child: _LabelValueText(
-                label: 'Project: ',
-                value: lead.projectName ?? '-',
+                label: 'Property Type: ',
+                value: _formatPropertyType(lead.propertyType),
               ),
             ),
-            _LabelValueText(label: 'City: ', value: lead.city ?? '-'),
+            Expanded(
+              child: _LabelValueText(
+                label: 'Category: ',
+                value: _formatCategoryType(lead.categoryType),
+              ),
+            ),
           ],
-        ),
-        const SizedBox(height: 8),
-        _LabelValueText(label: 'State: ', value: lead.state ?? '-'),
-        const SizedBox(height: 4),
-        _LabelValueText(
-          label: 'Customer Location: ',
-          value: lead.address ?? '-',
-        ),
-        const SizedBox(height: 4),
-        _LabelValueText(
-          label: 'Purchase Plan: ',
-          value: lead.requirements ?? '-',
         ),
       ],
     );
+  }
+
+  String _formatPropertyType(PropertyType type) {
+    switch (type) {
+      case PropertyType.residential:
+        return 'Residential';
+      case PropertyType.commercial:
+        return 'Commercial';
+      case PropertyType.industrial:
+        return 'Industrial';
+      case PropertyType.land:
+        return 'Land';
+    }
+  }
+
+  String _formatCategoryType(CategoryType type) {
+    switch (type) {
+      case CategoryType.a:
+        return 'A Category';
+      case CategoryType.b:
+        return 'B Category';
+      case CategoryType.c:
+        return 'C Category';
+    }
   }
 }
 
@@ -2509,16 +2547,16 @@ class _PersonalInfoCardState extends State<_PersonalInfoCard> {
   }
 
   void _initializeFromLead() {
-    // Initialize from lead data or use defaults
+    // Initialize from lead data - use actual database values
     dob = widget.lead.dob;
     age = widget.lead.age;
-    gender = widget.lead.gender ?? 'Male';
-    maritalStatus = widget.lead.maritalStatus ?? 'Single';
-    employmentType = widget.lead.employmentType ?? 'Salaried';
-    itrFilingStatus = widget.lead.itrFilingStatus ?? 'Filed';
-    occupation = widget.lead.occupation ?? 'Software Engineer';
+    gender = widget.lead.gender ?? '';
+    maritalStatus = widget.lead.maritalStatus ?? '';
+    employmentType = widget.lead.employmentType ?? '';
+    itrFilingStatus = widget.lead.itrFilingStatus ?? '';
+    occupation = widget.lead.occupation ?? '';
     address = widget.lead.address ?? '';
-    country = widget.lead.country ?? 'India';
+    country = widget.lead.country ?? '';
     stateName = widget.lead.stateName ?? '';
     city = widget.lead.city ?? '';
     location = widget.lead.location ?? '';
@@ -2537,42 +2575,63 @@ class _PersonalInfoCardState extends State<_PersonalInfoCard> {
         const SizedBox(height: 8),
         _LabelValueText(label: 'Age: ', value: age?.toString() ?? '—'),
         const SizedBox(height: 8),
-        _LabelValueText(label: 'Gender: ', value: gender),
+        _LabelValueText(
+          label: 'Gender: ',
+          value: gender.isEmpty ? 'Not specified' : gender,
+        ),
         const SizedBox(height: 8),
-        _LabelValueText(label: 'Marital Status: ', value: maritalStatus),
+        _LabelValueText(
+          label: 'Marital Status: ',
+          value: maritalStatus.isEmpty ? 'Not specified' : maritalStatus,
+        ),
         const SizedBox(height: 12),
         const Divider(height: 16),
         // Employment details
-        _LabelValueText(label: 'Employment Type: ', value: employmentType),
+        _LabelValueText(
+          label: 'Employment Type: ',
+          value: employmentType.isEmpty ? 'Not specified' : employmentType,
+        ),
         const SizedBox(height: 8),
-        _LabelValueText(label: 'ITR Filing: ', value: itrFilingStatus),
+        _LabelValueText(
+          label: 'ITR Filing: ',
+          value: itrFilingStatus.isEmpty ? 'Not specified' : itrFilingStatus,
+        ),
         const SizedBox(height: 8),
-        _LabelValueText(label: 'Occupation: ', value: occupation),
+        _LabelValueText(
+          label: 'Occupation: ',
+          value: occupation.isEmpty ? 'Not specified' : occupation,
+        ),
         const SizedBox(height: 12),
         const Divider(height: 16),
         // Address details
         _LabelValueText(
           label: 'Address: ',
-          value: address.isEmpty ? '—' : address,
+          value: address.isEmpty ? 'Not specified' : address,
         ),
         const SizedBox(height: 8),
-        _LabelValueText(label: 'Country: ', value: country),
+        _LabelValueText(
+          label: 'Country: ',
+          value: country.isEmpty ? 'Not specified' : country,
+        ),
         const SizedBox(height: 8),
         _LabelValueText(
           label: 'State: ',
-          value: stateName.isEmpty ? '—' : stateName,
+          value: stateName.isEmpty ? 'Not specified' : stateName,
         ),
         const SizedBox(height: 8),
-        _LabelValueText(label: 'City: ', value: city.isEmpty ? '—' : city),
+        _LabelValueText(
+          label: 'City: ',
+          value: city.isEmpty ? 'Not specified' : city,
+        ),
         const SizedBox(height: 8),
         _LabelValueText(
           label: 'Location: ',
-          value: location.isEmpty ? '—' : location,
+          value: location.isEmpty ? 'Not specified' : location,
         ),
         const SizedBox(height: 8),
         _LabelValueText(
           label: 'Pincode: ',
-          value: pincode.isEmpty ? '—' : pincode,
+          value: pincode.isEmpty ? 'Not specified' : pincode,
         ),
       ],
     );
@@ -2610,15 +2669,24 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
   late TextEditingController _occupationController;
 
   DateTime? _selectedDob;
-  String _selectedGender = 'Male';
-  String _selectedMaritalStatus = 'Single';
-  String _selectedEmploymentType = 'Salaried';
-  String _selectedItrStatus = 'Filed';
+  String _selectedGender = '';
+  String _selectedMaritalStatus = '';
+  String _selectedEmploymentType = '';
+  String _selectedItrStatus = '';
+
+  // Master data lists
+  List<GenderMaster> _genders = [];
+  List<MaritalStatusMaster> _maritalStatuses = [];
+  List<EmploymentTypeMaster> _employmentTypes = [];
+  List<ItrFilingStatusMaster> _itrFilingStatuses = [];
+
+  bool _isLoadingMasterData = true;
 
   @override
   void initState() {
     super.initState();
     _initializeControllers();
+    _loadMasterData();
   }
 
   void _initializeControllers() {
@@ -2637,10 +2705,34 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
     );
 
     _selectedDob = widget.lead.dob;
-    _selectedGender = widget.lead.gender ?? 'Male';
-    _selectedMaritalStatus = widget.lead.maritalStatus ?? 'Single';
-    _selectedEmploymentType = widget.lead.employmentType ?? 'Salaried';
-    _selectedItrStatus = widget.lead.itrFilingStatus ?? 'Filed';
+    _selectedGender = widget.lead.gender ?? '';
+    _selectedMaritalStatus = widget.lead.maritalStatus ?? '';
+    _selectedEmploymentType = widget.lead.employmentType ?? '';
+    _selectedItrStatus = widget.lead.itrFilingStatus ?? '';
+  }
+
+  Future<void> _loadMasterData() async {
+    try {
+      final results = await Future.wait([
+        MasterDataService.getGenderMaster(),
+        MasterDataService.getMaritalStatusMaster(),
+        MasterDataService.getEmploymentTypeMaster(),
+        MasterDataService.getItrFilingStatusMaster(),
+      ]);
+
+      setState(() {
+        _genders = results[0] as List<GenderMaster>;
+        _maritalStatuses = results[1] as List<MaritalStatusMaster>;
+        _employmentTypes = results[2] as List<EmploymentTypeMaster>;
+        _itrFilingStatuses = results[3] as List<ItrFilingStatusMaster>;
+        _isLoadingMasterData = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingMasterData = false;
+      });
+      print('Error loading master data: $e');
+    }
   }
 
   @override
@@ -2770,49 +2862,59 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedGender,
-                            decoration: const InputDecoration(
-                              labelText: 'Gender',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: ['Male', 'Female', 'Other']
-                                .map(
-                                  (String value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
+                          _isLoadingMasterData
+                              ? const CircularProgressIndicator()
+                              : DropdownButtonFormField<String>(
+                                  value: _selectedGender.isEmpty
+                                      ? null
+                                      : _selectedGender,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Gender',
+                                    border: OutlineInputBorder(),
                                   ),
-                                )
-                                .toList(),
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                _selectedGender = newValue!;
-                              });
-                            },
-                          ),
+                                  items: _genders
+                                      .map(
+                                        (GenderMaster gender) =>
+                                            DropdownMenuItem<String>(
+                                              value: gender.name,
+                                              child: Text(gender.name),
+                                            ),
+                                      )
+                                      .toList(),
+                                  onChanged: (String? newValue) {
+                                    setState(() {
+                                      _selectedGender = newValue ?? '';
+                                    });
+                                  },
+                                ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedMaritalStatus,
-                        decoration: const InputDecoration(
-                          labelText: 'Marital Status',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: ['Single', 'Married', 'Divorced', 'Widowed'].map(
-                          (String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          },
-                        ).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            _selectedMaritalStatus = newValue!;
-                          });
-                        },
-                      ),
+                      _isLoadingMasterData
+                          ? const CircularProgressIndicator()
+                          : DropdownButtonFormField<String>(
+                              value: _selectedMaritalStatus.isEmpty
+                                  ? null
+                                  : _selectedMaritalStatus,
+                              decoration: const InputDecoration(
+                                labelText: 'Marital Status',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: _maritalStatuses
+                                  .map(
+                                    (MaritalStatusMaster status) =>
+                                        DropdownMenuItem<String>(
+                                          value: status.name,
+                                          child: Text(status.name),
+                                        ),
+                                  )
+                                  .toList(),
+                              onChanged: (String? newValue) {
+                                setState(() {
+                                  _selectedMaritalStatus = newValue ?? '';
+                                });
+                              },
+                            ),
 
                       const SizedBox(height: 24),
 
@@ -2828,56 +2930,57 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedEmploymentType,
-                            decoration: const InputDecoration(
-                              labelText: 'Employment Type',
-                              border: OutlineInputBorder(),
-                            ),
-                            items:
-                                [
-                                      'Salaried',
-                                      'Self-Employed',
-                                      'Business',
-                                      'Retired',
-                                      'Student',
-                                      'Unemployed',
-                                    ]
-                                    .map(
-                                      (String value) =>
-                                          DropdownMenuItem<String>(
-                                            value: value,
-                                            child: Text(value),
-                                          ),
-                                    )
-                                    .toList(),
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                _selectedEmploymentType = newValue!;
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedItrStatus,
-                            decoration: const InputDecoration(
-                              labelText: 'ITR Filing Status',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: ['Filed', 'Not Filed', 'Not Applicable']
-                                .map(
-                                  (String value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
+                          _isLoadingMasterData
+                              ? const CircularProgressIndicator()
+                              : DropdownButtonFormField<String>(
+                                  value: _selectedEmploymentType.isEmpty
+                                      ? null
+                                      : _selectedEmploymentType,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Employment Type',
+                                    border: OutlineInputBorder(),
                                   ),
-                                )
-                                .toList(),
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                _selectedItrStatus = newValue!;
-                              });
-                            },
-                          ),
+                                  items: _employmentTypes
+                                      .map(
+                                        (EmploymentTypeMaster type) =>
+                                            DropdownMenuItem<String>(
+                                              value: type.name,
+                                              child: Text(type.name),
+                                            ),
+                                      )
+                                      .toList(),
+                                  onChanged: (String? newValue) {
+                                    setState(() {
+                                      _selectedEmploymentType = newValue ?? '';
+                                    });
+                                  },
+                                ),
+                          const SizedBox(height: 12),
+                          _isLoadingMasterData
+                              ? const CircularProgressIndicator()
+                              : DropdownButtonFormField<String>(
+                                  value: _selectedItrStatus.isEmpty
+                                      ? null
+                                      : _selectedItrStatus,
+                                  decoration: const InputDecoration(
+                                    labelText: 'ITR Filing Status',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: _itrFilingStatuses
+                                      .map(
+                                        (ItrFilingStatusMaster status) =>
+                                            DropdownMenuItem<String>(
+                                              value: status.name,
+                                              child: Text(status.name),
+                                            ),
+                                      )
+                                      .toList(),
+                                  onChanged: (String? newValue) {
+                                    setState(() {
+                                      _selectedItrStatus = newValue ?? '';
+                                    });
+                                  },
+                                ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -5042,10 +5145,8 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                               .DatabaseServiceMasters.logSiteVisitScheduled(
                             leadId: activeLeadId,
                             siteVisitId: siteVisit.id,
-                            performedBy:
-                                'current_user_id', // TODO: Get actual current user ID
-                            performedByName:
-                                'Current User', // TODO: Get actual current user name
+                            performedBy: Helpers.getCurrentUserId() ?? 'system',
+                            performedByName: await Helpers.getCurrentUserName(),
                           );
                           if (!mounted) return;
                           setState(() {
@@ -5406,10 +5507,8 @@ class _TaskTabState extends State<_TaskTab> {
                         leadId: activeLeadId,
                         taskId: createdTask.id,
                         taskTitle: titleCtrl.text.trim(),
-                        performedBy:
-                            'current_user_id', // TODO: Get actual current user ID
-                        performedByName:
-                            'Current User', // TODO: Get actual current user name
+                        performedBy: Helpers.getCurrentUserId() ?? 'system',
+                        performedByName: await Helpers.getCurrentUserName(),
                       );
                       if (!mounted) return;
                       setState(() {
@@ -5824,8 +5923,11 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
 
   Widget _buildProjectsList() {
     final List<Project> items = _projects;
+    final ScrollController scrollController = ScrollController();
     return Scrollbar(
+      controller: scrollController,
       child: ListView.separated(
+        controller: scrollController,
         itemCount: items.length,
         separatorBuilder: (_, __) => const Divider(height: 16),
         itemBuilder: (BuildContext context, int i) {
@@ -5993,11 +6095,11 @@ class _CreatePropertyOptionScreenState
       // Load all data in parallel
       final results = await Future.wait([
         MasterDataService.getOptionTypes(),
-        MasterDataService.getProjects(),
+        DatabaseService.getProjects(limit: 50),
         MasterDataService.getPropertyCategories(),
         MasterDataService.getPropertyTypesMaster(),
         MasterDataService.getStates(),
-        MasterDataService.getInventories(),
+        DatabaseServiceMasters.getInventoryTypes(),
       ]);
 
       setState(() {
@@ -6123,12 +6225,16 @@ class _CreatePropertyOptionScreenState
                     _label('Project Name *'),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: projectName.isEmpty ? null : projectName,
                       items: _projectNames
                           .map(
                             (Project e) => DropdownMenuItem<String>(
                               value: e.name,
-                              child: Text(e.name),
+                              child: Text(
+                                e.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           )
                           .toList(),
@@ -6191,6 +6297,7 @@ class _CreatePropertyOptionScreenState
                               _label('State'),
                               const SizedBox(height: 6),
                               DropdownButtonFormField<String>(
+                                isExpanded: true,
                                 initialValue: stateValue.isEmpty
                                     ? null
                                     : stateValue,
@@ -6199,7 +6306,10 @@ class _CreatePropertyOptionScreenState
                                       (StateMaster e) =>
                                           DropdownMenuItem<String>(
                                             value: e.name,
-                                            child: Text(e.name),
+                                            child: Text(
+                                              e.name,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           ),
                                     )
                                     .toList(),
@@ -6235,6 +6345,7 @@ class _CreatePropertyOptionScreenState
                               _label('City'),
                               const SizedBox(height: 6),
                               DropdownButtonFormField<String>(
+                                isExpanded: true,
                                 initialValue: cityValue.isEmpty
                                     ? null
                                     : cityValue,
@@ -6242,7 +6353,10 @@ class _CreatePropertyOptionScreenState
                                     .map(
                                       (City e) => DropdownMenuItem<String>(
                                         value: e.name,
-                                        child: Text(e.name),
+                                        child: Text(
+                                          e.name,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                     )
                                     .toList(),
@@ -6274,12 +6388,16 @@ class _CreatePropertyOptionScreenState
                     _label('Location'),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: location.isEmpty ? null : location,
                       items: _locations
                           .map(
                             (Location e) => DropdownMenuItem<String>(
                               value: e.name,
-                              child: Text(e.name),
+                              child: Text(
+                                e.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           )
                           .toList(),
@@ -6428,9 +6546,12 @@ class _CreatePropertyOptionScreenState
   Widget _buildProjectsList() {
     // Use fetched projects from database
     final List<Project> items = _projectNames;
+    final ScrollController scrollController = ScrollController();
 
     return Scrollbar(
+      controller: scrollController,
       child: ListView.separated(
+        controller: scrollController,
         itemCount: items.length,
         separatorBuilder: (_, __) => const Divider(height: 16),
         itemBuilder: (BuildContext context, int i) {
@@ -6553,16 +6674,18 @@ class _CreatePropertyOptionScreenState
       return const Center(child: Text('No inventories available'));
     }
 
+    final ScrollController scrollController = ScrollController();
     return Scrollbar(
+      controller: scrollController,
       child: ListView.separated(
+        controller: scrollController,
         itemCount: _inventories.length,
         separatorBuilder: (_, __) => const Divider(height: 16),
         itemBuilder: (BuildContext context, int i) {
           final Inventory inventory = _inventories[i];
           final String priceText =
               inventory.price != null && inventory.price! > 0
-              ? '₹ ${inventory.price!.toStringAsFixed(0)} / ${inventory.priceUnit ?? ''}'
-                    .trim()
+              ? '₹ ${inventory.price!.toStringAsFixed(0)}'.trim()
               : '-';
 
           return Row(
@@ -6586,13 +6709,11 @@ class _CreatePropertyOptionScreenState
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (inventory.unitNumber != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'Unit: ${inventory.unitNumber}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Unit: ${inventory.name}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                     const SizedBox(height: 4),
                     RichText(
                       text: TextSpan(
@@ -6625,11 +6746,11 @@ class _CreatePropertyOptionScreenState
                             ),
                           ),
                           TextSpan(
-                            text: inventory.isAvailable
+                            text: inventory.availabilityStatus == 'available'
                                 ? 'Available'
                                 : 'Not Available',
                             style: TextStyle(
-                              color: inventory.isAvailable
+                              color: inventory.availabilityStatus == 'available'
                                   ? Colors.green
                                   : Colors.red,
                             ),
@@ -6936,6 +7057,17 @@ class _TicketTabState extends State<_TicketTab> {
     String? priority = 'Low';
     String? assignTo;
 
+    // Customer data fetching
+    bool isLoadingCustomer = false;
+    String? customerName;
+    String? customerEmail;
+    String? customerAddress;
+
+    // Lead data fetching based on mobile number
+    bool isLoadingLeads = false;
+    List<Lead> availableLeads = [];
+    String? selectedLeadId;
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -7008,14 +7140,117 @@ class _TicketTabState extends State<_TicketTab> {
                                 SizedBox(
                                   height: 56,
                                   child: ElevatedButton(
-                                    onPressed: () {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Fetching details...'),
-                                        ),
-                                      );
+                                    onPressed: () async {
+                                      if (registeredMobileCtrl.text
+                                          .trim()
+                                          .isEmpty) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Please enter a mobile number first',
+                                            ),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                        return;
+                                      }
+
+                                      setModal(() {
+                                        isLoadingCustomer = true;
+                                        isLoadingLeads = true;
+                                      });
+
+                                      try {
+                                        // Fetch both customer and leads data
+                                        final customer =
+                                            await DatabaseService.getCustomerByPhone(
+                                              registeredMobileCtrl.text.trim(),
+                                            );
+                                        final leads =
+                                            await DatabaseService.getLeads(
+                                              search: registeredMobileCtrl.text
+                                                  .trim(),
+                                              limit: 50,
+                                            );
+
+                                        setModal(() {
+                                          isLoadingCustomer = false;
+                                          isLoadingLeads = false;
+
+                                          if (customer != null) {
+                                            customerName =
+                                                customer['name'] as String?;
+                                            customerEmail =
+                                                customer['email'] as String?;
+                                            customerAddress =
+                                                customer['address'] as String?;
+                                            contactNameCtrl.text =
+                                                customerName ?? '';
+                                          } else {
+                                            customerName = null;
+                                            customerEmail = null;
+                                            customerAddress = null;
+                                            contactNameCtrl.text = '';
+                                          }
+
+                                          availableLeads = leads;
+                                          leadList =
+                                              null; // Reset lead selection
+                                          selectedLeadId = null;
+                                        });
+
+                                        if (customer != null) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Customer found: ${customerName ?? 'Unknown'} | ${leads.length} leads found',
+                                              ),
+                                              backgroundColor: Colors.green,
+                                            ),
+                                          );
+                                        } else if (leads.isNotEmpty) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'No customer found, but ${leads.length} leads found for this mobile number',
+                                              ),
+                                              backgroundColor: Colors.orange,
+                                            ),
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'No customer or leads found with this mobile number',
+                                              ),
+                                              backgroundColor: Colors.orange,
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        setModal(() {
+                                          isLoadingCustomer = false;
+                                          isLoadingLeads = false;
+                                        });
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Error fetching data: $e',
+                                            ),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.green,
@@ -7024,24 +7259,201 @@ class _TicketTabState extends State<_TicketTab> {
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    child: const Text('Fetch Details'),
+                                    child: isLoadingCustomer
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                    Colors.white,
+                                                  ),
+                                            ),
+                                          )
+                                        : const Text('Fetch Details'),
                                   ),
                                 ),
                               ],
                             ),
                           if (!isInternal) const SizedBox(height: 16),
 
-                          if (!isInternal && !isVendor)
-                            _buildDropdownField(
-                              'Lead List*',
-                              leadList,
-                              List<String>.generate(12, (int i) {
-                                if (i == 0) return 'Mayank11 · 9816353871';
-                                return 'Customer ${i + 1} · ${9000000000 + i}';
-                              }),
-                              (String? v) => setModal(() => leadList = v),
-                              isRequired: true,
+                          // Show fetched customer data
+                          if (customerName != null) ...[
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade50,
+                                border: Border.all(
+                                  color: Colors.green.shade200,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle,
+                                        color: Colors.green.shade600,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Customer Found',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.green.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  if (customerName != null)
+                                    Text('Name: $customerName'),
+                                  if (customerEmail != null)
+                                    Text('Email: $customerEmail'),
+                                  if (customerAddress != null)
+                                    Text('Address: $customerAddress'),
+                                ],
+                              ),
                             ),
+                            const SizedBox(height: 16),
+                          ],
+
+                          if (!isInternal && !isVendor) ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildDropdownField(
+                                    'Lead List*',
+                                    leadList,
+                                    availableLeads
+                                        .map(
+                                          (lead) =>
+                                              '${lead.customerName} · ${lead.phone}',
+                                        )
+                                        .toList(),
+                                    (String? v) => setModal(() {
+                                      leadList = v;
+                                      if (v != null) {
+                                        final selectedLead = availableLeads
+                                            .firstWhere(
+                                              (lead) =>
+                                                  '${lead.customerName} · ${lead.phone}' ==
+                                                  v,
+                                            );
+                                        selectedLeadId = selectedLead.id;
+                                      }
+                                    }),
+                                    isRequired: true,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                SizedBox(
+                                  height: 56,
+                                  child: ElevatedButton(
+                                    onPressed: availableLeads.isEmpty
+                                        ? null
+                                        : () async {
+                                            setModal(() {
+                                              isLoadingLeads = true;
+                                            });
+
+                                            try {
+                                              final leads =
+                                                  await DatabaseService.getLeads(
+                                                    search: registeredMobileCtrl
+                                                        .text
+                                                        .trim(),
+                                                    limit: 50,
+                                                  );
+                                              setModal(() {
+                                                availableLeads = leads;
+                                                leadList =
+                                                    null; // Reset selection
+                                                selectedLeadId = null;
+                                                isLoadingLeads = false;
+                                              });
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Refreshed: ${leads.length} leads found',
+                                                  ),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
+                                            } catch (e) {
+                                              setModal(() {
+                                                isLoadingLeads = false;
+                                              });
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Error refreshing leads: $e',
+                                                  ),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: isLoadingLeads
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                    Colors.white,
+                                                  ),
+                                            ),
+                                          )
+                                        : const Text('Refresh'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (availableLeads.isEmpty && !isLoadingLeads)
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade50,
+                                  border: Border.all(
+                                    color: Colors.orange.shade200,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info,
+                                      color: Colors.orange.shade600,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Expanded(
+                                      child: Text(
+                                        'No leads found. Click "Fetch Details" to search for leads with this mobile number.',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
                           if (!isInternal && !isVendor)
                             const SizedBox(height: 16),
 
@@ -7164,15 +7576,23 @@ class _TicketTabState extends State<_TicketTab> {
                         }
 
                         try {
-                          final parentState = context
-                              .findAncestorStateOfType<
-                                _LeadDetailScreenState
-                              >();
-                          final String activeLeadId = parentState == null
-                              ? ''
-                              : (await parentState._leadFuture).leadId;
+                          // Use selected lead ID if available, otherwise fall back to current lead
+                          String ticketLeadId = '';
+                          if (selectedLeadId != null &&
+                              selectedLeadId!.isNotEmpty) {
+                            ticketLeadId = selectedLeadId!;
+                          } else {
+                            final parentState = context
+                                .findAncestorStateOfType<
+                                  _LeadDetailScreenState
+                                >();
+                            ticketLeadId = parentState == null
+                                ? ''
+                                : (await parentState._leadFuture).leadId;
+                          }
+
                           await DatabaseService.createTicket(
-                            leadId: activeLeadId,
+                            leadId: ticketLeadId,
                             issueTitle: issueTitleCtrl.text.trim(),
                             issueDescription: issueDescriptionCtrl.text.trim(),
                             priority:
@@ -7197,11 +7617,13 @@ class _TicketTabState extends State<_TicketTab> {
                             assignedToName: assignTo,
                             contactName: contactNameCtrl.text.trim(),
                             contactMobile: registeredMobileCtrl.text.trim(),
+                            unitNumber: unitNumberCtrl.text.trim(),
+                            alternateNumber: alternateMobileCtrl.text.trim(),
                           );
                           if (!mounted) return;
                           setState(() {
                             _ticketsFuture = DatabaseService.getTickets(
-                              leadId: activeLeadId,
+                              leadId: ticketLeadId,
                               limit: 200,
                             );
                           });
@@ -8719,8 +9141,8 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
     };
 
     for (final activity in activities) {
-      // Use activity_type field which contains the actual activity type
-      final type = activity['activity_type'] as String?;
+      // Use type field which contains the actual activity type
+      final type = activity['type'] as String?;
 
       switch (type?.toLowerCase()) {
         case 'disposition_change':
@@ -8922,7 +9344,7 @@ class _DispositionLogTab extends StatelessWidget {
     if (timestamp == null) return '-';
     try {
       final dateTime = DateTime.parse(timestamp);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}';
     } catch (e) {
       return timestamp;
     }
@@ -9001,7 +9423,7 @@ class _CallLogTab extends StatelessWidget {
     if (timestamp == null) return '-';
     try {
       final dateTime = DateTime.parse(timestamp);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}';
     } catch (e) {
       return timestamp;
     }
@@ -9078,7 +9500,7 @@ class _AllocationLogTab extends StatelessWidget {
     if (timestamp == null) return '-';
     try {
       final dateTime = DateTime.parse(timestamp);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}';
     } catch (e) {
       return timestamp;
     }
@@ -9153,7 +9575,7 @@ class _SmsLogTab extends StatelessWidget {
     if (timestamp == null) return '-';
     try {
       final dateTime = DateTime.parse(timestamp);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}';
     } catch (e) {
       return timestamp;
     }
@@ -9227,7 +9649,7 @@ class _EmailLogTab extends StatelessWidget {
     if (timestamp == null) return '-';
     try {
       final dateTime = DateTime.parse(timestamp);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}';
     } catch (e) {
       return timestamp;
     }
@@ -9302,7 +9724,7 @@ class _WhatsAppLogTab extends StatelessWidget {
     if (timestamp == null) return '-';
     try {
       final dateTime = DateTime.parse(timestamp);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}';
     } catch (e) {
       return timestamp;
     }
@@ -9376,7 +9798,7 @@ class _VisitorLogTab extends StatelessWidget {
     if (timestamp == null) return '-';
     try {
       final dateTime = DateTime.parse(timestamp);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}';
     } catch (e) {
       return timestamp;
     }
@@ -9452,7 +9874,7 @@ class _OfflineLogTab extends StatelessWidget {
     if (timestamp == null) return '-';
     try {
       final dateTime = DateTime.parse(timestamp);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}';
     } catch (e) {
       return timestamp;
     }

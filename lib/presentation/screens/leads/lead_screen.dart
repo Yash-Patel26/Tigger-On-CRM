@@ -131,26 +131,58 @@ class _LeadScreenState extends State<LeadScreen> {
 
   Future<void> _loadStats() async {
     try {
-      // Load dashboard stats for lead counts
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day);
+      final todayEnd = todayStart.add(const Duration(days: 1));
+
+      // Load all leads to calculate stats
       final response = await _leadRepository.getLeads(
         page: 1,
-        limit: 1, // Just to get total count
+        limit: 1000, // Get more leads to calculate accurate stats
       );
 
-      if (response.success) {
-        // In a real implementation, you would have separate stats endpoints
-        // For now, we'll calculate from the leads data
+      if (response.success && response.data != null) {
+        final leads = response.data!;
+
+        // Calculate stats
+        int todaysLeadCount = 0;
+        int todaysFollowUpCount = 0;
+        int totalFollowUpCount = 0;
+        int duplicateVisitsCount = 0;
+
+        for (final lead in leads) {
+          // Count today's leads
+          if (lead.createdAt.isAfter(todayStart) &&
+              lead.createdAt.isBefore(todayEnd)) {
+            todaysLeadCount++;
+          }
+
+          // Count follow-ups
+          if (lead.nextFollowUpDate != null) {
+            totalFollowUpCount++;
+            if (lead.nextFollowUpDate!.isAfter(todayStart) &&
+                lead.nextFollowUpDate!.isBefore(todayEnd)) {
+              todaysFollowUpCount++;
+            }
+          }
+
+          // Count duplicate visits
+          if (lead.isDuplicate) {
+            duplicateVisitsCount++;
+          }
+        }
+
         setState(() {
-          totalLead = response.data?.length ?? 0;
-          // You would call separate endpoints for these stats
-          todaysLead = 0;
-          todaysFollowUp = 0;
-          totalFollowUp = 0;
-          totalDuplicateVisits = 0;
+          totalLead = leads.length;
+          todaysLead = todaysLeadCount;
+          todaysFollowUp = todaysFollowUpCount;
+          totalFollowUp = totalFollowUpCount;
+          totalDuplicateVisits = duplicateVisitsCount;
         });
       }
     } catch (e) {
-      // Error loading stats: $e
+      print('Error loading stats: $e');
+      // Keep existing values on error
     }
   }
 
@@ -233,8 +265,9 @@ class _LeadScreenState extends State<LeadScreen> {
           table: 'leads',
           callback: (supabase.PostgresChangePayload payload) {
             if (!mounted) return;
-            // Refresh the current page when any lead is updated
+            // Refresh the current page and stats when any lead is updated
             _loadPage(_currentPage);
+            _loadStats();
           },
         )
         .onPostgresChanges(
@@ -243,8 +276,9 @@ class _LeadScreenState extends State<LeadScreen> {
           table: 'leads',
           callback: (supabase.PostgresChangePayload payload) {
             if (!mounted) return;
-            // Refresh the current page when a new lead is created
+            // Refresh the current page and stats when a new lead is created
             _loadPage(_currentPage);
+            _loadStats();
           },
         )
         .subscribe();
@@ -261,6 +295,7 @@ class _LeadScreenState extends State<LeadScreen> {
             icon: const Icon(Icons.refresh),
             onPressed: () {
               _loadPage(_currentPage); // Refresh current page
+              _loadStats(); // Refresh stats
             },
           ),
           IconButton(
@@ -1727,8 +1762,8 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
         leadId: lead.id,
         oldAssignee: oldAssignee,
         newAssignee: _selectedUserName,
-        performedBy: 'current_user_id', // TODO: Get actual current user ID
-        performedByName: 'Current User', // TODO: Get actual current user name
+        performedBy: Helpers.getCurrentUserId() ?? 'system',
+        performedByName: await Helpers.getCurrentUserName(),
       );
 
       if (mounted) {

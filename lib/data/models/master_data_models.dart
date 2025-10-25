@@ -266,23 +266,27 @@ class Inventory {
   final String id;
   final String name;
   final String projectId;
-  final String propertyTypeId;
-  final String? unitNumber;
+  final String? unitType;
   final double? price;
-  final String? priceUnit;
-  final bool isAvailable;
+  final double? area;
+  final int? floorNumber;
+  final String? availabilityStatus;
   final bool isActive;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   const Inventory({
     required this.id,
     required this.name,
     required this.projectId,
-    required this.propertyTypeId,
-    this.unitNumber,
+    this.unitType,
     this.price,
-    this.priceUnit,
-    required this.isAvailable,
+    this.area,
+    this.floorNumber,
+    this.availabilityStatus,
     required this.isActive,
+    this.createdAt,
+    this.updatedAt,
   });
 
   factory Inventory.fromJson(Map<String, dynamic> json) {
@@ -290,12 +294,18 @@ class Inventory {
       id: json['id'] as String,
       name: json['name'] as String,
       projectId: json['project_id'] as String,
-      propertyTypeId: json['property_type_id'] as String,
-      unitNumber: json['unit_number'] as String?,
+      unitType: json['unit_type'] as String?,
       price: (json['price'] as num?)?.toDouble(),
-      priceUnit: json['price_unit'] as String?,
-      isAvailable: json['is_available'] as bool? ?? true,
+      area: (json['area'] as num?)?.toDouble(),
+      floorNumber: json['floor_number'] as int?,
+      availabilityStatus: json['availability_status'] as String?,
       isActive: json['is_active'] as bool? ?? true,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : null,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : null,
     );
   }
 
@@ -304,12 +314,278 @@ class Inventory {
       'id': id,
       'name': name,
       'project_id': projectId,
-      'property_type_id': propertyTypeId,
-      'unit_number': unitNumber,
+      'unit_type': unitType,
       'price': price,
-      'price_unit': priceUnit,
-      'is_available': isAvailable,
+      'area': area,
+      'floor_number': floorNumber,
+      'availability_status': availabilityStatus,
+      'is_active': isActive,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+}
+
+// New models for lead creation form
+class LeadSourceMaster {
+  final String id;
+  final String name;
+  final bool isActive;
+
+  const LeadSourceMaster({
+    required this.id,
+    required this.name,
+    required this.isActive,
+  });
+
+  factory LeadSourceMaster.fromJson(Map<String, dynamic> json) {
+    return LeadSourceMaster(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      isActive: json['is_active'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'name': name, 'is_active': isActive};
+  }
+}
+
+class ProjectMaster {
+  final String id;
+  final String name;
+  final String? category;
+  final String? state;
+  final String? city;
+  final String? location;
+  final bool isActive;
+
+  const ProjectMaster({
+    required this.id,
+    required this.name,
+    this.category,
+    this.state,
+    this.city,
+    this.location,
+    required this.isActive,
+  });
+
+  factory ProjectMaster.fromJson(Map<String, dynamic> json) {
+    return ProjectMaster(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      category: json['category'] as String?,
+      state: json['state'] as String?,
+      city: json['city'] as String?,
+      location: json['location'] as String?,
+      isActive: json['is_active'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'category': category,
+      'state': state,
+      'city': city,
+      'location': location,
       'is_active': isActive,
     };
+  }
+}
+
+class BudgetMaster {
+  final String id;
+  final String name;
+  final bool isActive;
+
+  const BudgetMaster({
+    required this.id,
+    required this.name,
+    required this.isActive,
+  });
+
+  factory BudgetMaster.fromJson(Map<String, dynamic> json) {
+    return BudgetMaster(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      isActive: json['is_active'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'name': name, 'is_active': isActive};
+  }
+}
+
+class PurchasePlanYear {
+  final String id;
+  final String name;
+  final bool isActive;
+
+  const PurchasePlanYear({
+    required this.id,
+    required this.name,
+    required this.isActive,
+  });
+
+  factory PurchasePlanYear.fromJson(Map<String, dynamic> json) {
+    return PurchasePlanYear(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      isActive: json['is_active'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'name': name, 'is_active': isActive};
+  }
+}
+
+class PurchasePlanMonth {
+  final String id;
+  final String name;
+  final bool isActive;
+
+  const PurchasePlanMonth({
+    required this.id,
+    required this.name,
+    required this.isActive,
+  });
+
+  factory PurchasePlanMonth.fromJson(Map<String, dynamic> json) {
+    return PurchasePlanMonth(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      isActive: json['is_active'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'name': name, 'is_active': isActive};
+  }
+}
+
+class UserMaster {
+  final String id;
+  final String name;
+  final String? email;
+  final bool isActive;
+
+  const UserMaster({
+    required this.id,
+    required this.name,
+    this.email,
+    required this.isActive,
+  });
+
+  factory UserMaster.fromJson(Map<String, dynamic> json) {
+    return UserMaster(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      email: json['email'] as String?,
+      isActive: json['is_active'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'name': name, 'email': email, 'is_active': isActive};
+  }
+}
+
+class GenderMaster {
+  final String id;
+  final String name;
+  final bool isActive;
+
+  const GenderMaster({
+    required this.id,
+    required this.name,
+    required this.isActive,
+  });
+
+  factory GenderMaster.fromJson(Map<String, dynamic> json) {
+    return GenderMaster(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      isActive: json['is_active'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'name': name, 'is_active': isActive};
+  }
+}
+
+class MaritalStatusMaster {
+  final String id;
+  final String name;
+  final bool isActive;
+
+  const MaritalStatusMaster({
+    required this.id,
+    required this.name,
+    required this.isActive,
+  });
+
+  factory MaritalStatusMaster.fromJson(Map<String, dynamic> json) {
+    return MaritalStatusMaster(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      isActive: json['is_active'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'name': name, 'is_active': isActive};
+  }
+}
+
+class EmploymentTypeMaster {
+  final String id;
+  final String name;
+  final bool isActive;
+
+  const EmploymentTypeMaster({
+    required this.id,
+    required this.name,
+    required this.isActive,
+  });
+
+  factory EmploymentTypeMaster.fromJson(Map<String, dynamic> json) {
+    return EmploymentTypeMaster(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      isActive: json['is_active'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'name': name, 'is_active': isActive};
+  }
+}
+
+class ItrFilingStatusMaster {
+  final String id;
+  final String name;
+  final bool isActive;
+
+  const ItrFilingStatusMaster({
+    required this.id,
+    required this.name,
+    required this.isActive,
+  });
+
+  factory ItrFilingStatusMaster.fromJson(Map<String, dynamic> json) {
+    return ItrFilingStatusMaster(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      isActive: json['is_active'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'name': name, 'is_active': isActive};
   }
 }
