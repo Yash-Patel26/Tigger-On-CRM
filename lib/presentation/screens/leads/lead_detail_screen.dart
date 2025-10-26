@@ -9,11 +9,13 @@ import '../../../../data/repositories/lead_repository.dart';
 import '../../../../data/repositories/site_visit_repository.dart';
 import '../../../../data/repositories/task_repository.dart';
 import '../../../../data/repositories/ticket_repository.dart';
+import '../../../../data/repositories/booking_repository.dart';
 import '../../../../data/services/api_service.dart' as api;
 import '../../../../data/services/database_service.dart';
 import '../../../../data/services/database_service_masters.dart' as masters;
 import '../../../../data/services/master_data_service.dart';
 import '../../../../data/models/models.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class LeadDetailScreen extends StatefulWidget {
   const LeadDetailScreen({super.key, required this.leadId});
@@ -26,6 +28,7 @@ class LeadDetailScreen extends StatefulWidget {
 
 class _LeadDetailScreenState extends State<LeadDetailScreen> {
   final LeadRepository _leadRepository = LeadRepository();
+  final BookingRepository _bookingRepository = BookingRepository();
 
   late Future<Lead> _leadFuture;
   RealtimeChannel? _leadRealtimeChannel;
@@ -154,7 +157,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             IconButton(
               tooltip: 'Assign',
               icon: Icon(
-                Icons.assignment_ind_outlined,
+                FontAwesomeIcons.userPlus,
                 color: Theme.of(context).colorScheme.primary,
               ),
               onPressed: () => _showAssignDialog(context),
@@ -162,8 +165,9 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             IconButton(
               tooltip: 'Dispose Lead',
               icon: Icon(
-                Icons.delete_outline,
+                FontAwesomeIcons.trashCan,
                 color: Theme.of(context).colorScheme.primary,
+                size: 20,
               ),
               onPressed: () => _showDisposeDialog(context),
             ),
@@ -375,11 +379,17 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                         action: IconButton(
                           onPressed: () =>
                               _showEditPersonalInfoDialog(context, lead),
-                          icon: const Icon(Icons.edit, size: 20),
+                          icon: const Icon(
+                            FontAwesomeIcons.penToSquare,
+                            size: 20,
+                          ),
                           tooltip: 'Edit Personal Information',
                         ),
                         child: _PersonalInfoCard(lead: lead),
                       ),
+                      const SizedBox(height: 12),
+
+                      _RequirementNotesCard(leadId: lead.id),
                       const SizedBox(height: 12),
 
                       _CollapsibleCard(
@@ -433,6 +443,129 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
         return const _AssignLeadDialog();
       },
     );
+  }
+
+  // Show create booking dialog
+  Future<void> _showCreateBookingDialog() async {
+    try {
+      // Get the lead data
+      final lead = await _fetchLead();
+
+      // Extract booking data from lead for pre-population
+      final bookingData = _extractBookingDataFromLead(
+        lead,
+        supabase.Supabase.instance.client.auth.currentUser?.id ?? 'system',
+        (supabase
+                    .Supabase
+                    .instance
+                    .client
+                    .auth
+                    .currentUser
+                    ?.userMetadata?['name']
+                as String?) ??
+            'System User',
+      );
+
+      if (!mounted) return;
+
+      // Show booking form dialog
+      await showDialog(
+        context: context,
+        builder: (context) => _CreateBookingDialog(
+          lead: lead,
+          prePopulatedData: bookingData,
+          onBookingCreated: () {
+            // Refresh lead data after booking creation
+            refreshLead();
+          },
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load lead data: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Extract booking data from lead
+  Map<String, dynamic> _extractBookingDataFromLead(
+    Lead lead,
+    String performedBy,
+    String performedByName,
+  ) {
+    // Get current user info for sales executive
+    final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+    final String userId = currentUser?.id ?? 'system';
+    final String userName =
+        (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
+
+    // Calculate booking amount based on budget range or use default
+    double bookingAmount = 100000.0; // Default booking amount
+    if (lead.budgetRange != null && lead.budgetRange!.isNotEmpty) {
+      // Extract numeric value from budget range (e.g., "10-15 Lakhs" -> 1250000)
+      final budgetMatch = RegExp(
+        r'(\d+(?:\.\d+)?)',
+      ).firstMatch(lead.budgetRange!);
+      if (budgetMatch != null) {
+        final budgetValue = double.parse(budgetMatch.group(1)!);
+        if (lead.budgetRange!.toLowerCase().contains('lakh')) {
+          bookingAmount = budgetValue * 100000; // Convert lakhs to rupees
+        } else if (lead.budgetRange!.toLowerCase().contains('crore')) {
+          bookingAmount = budgetValue * 10000000; // Convert crores to rupees
+        } else {
+          bookingAmount = budgetValue;
+        }
+      }
+    }
+
+    // Calculate advance amount (typically 10% of booking amount)
+    final advanceAmount = bookingAmount * 0.1;
+    final balanceAmount = bookingAmount - advanceAmount;
+
+    // Calculate commission (typically 2% of booking amount)
+    final commission = bookingAmount * 0.02;
+
+    return {
+      'customerName': lead.customerName,
+      'customerEmail': lead.email,
+      'customerPhone': lead.phone,
+      'projectId': lead.projectId ?? 'default-project',
+      'projectName': lead.projectName ?? 'Default Project',
+      'propertyType': lead.propertyType.name,
+      'category': lead.categoryType.name,
+      'unitNo': 'TBD', // To be determined
+      'unitDetails': lead.requirements ?? 'Unit details to be finalized',
+      'bookingAmount': bookingAmount,
+      'advanceAmount': advanceAmount,
+      'balanceAmount': balanceAmount,
+      'paymentMode': PaymentMode.cash, // Default payment mode
+      'paymentReference': null,
+      'salesExecutiveId': lead.assignedTo.isNotEmpty ? lead.assignedTo : userId,
+      'salesExecutiveName': lead.assignedToName.isNotEmpty
+          ? lead.assignedToName
+          : userName,
+      'commission': commission,
+      'approvedBy': performedByName,
+      'approvedById': performedBy,
+      'status': BookingStatus.confirmed,
+      'bookingDate': DateTime.now(),
+      'possessionDate': null, // To be determined later
+      'notes':
+          'Booking created automatically from lead disposition: ${lead.leadId}',
+      'termsAndConditions': 'Standard terms and conditions apply',
+      'documents': <String>[],
+      'customFields': {
+        'lead_source': lead.source.name,
+        'lead_created_at': lead.createdAt.toIso8601String(),
+        'original_budget_range': lead.budgetRange,
+        'lead_requirements': lead.requirements,
+      },
+    };
   }
 }
 
@@ -579,8 +712,8 @@ class _LazyCollapsibleCardState extends State<_LazyCollapsibleCard> {
                     ),
                     Icon(
                       expanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
+                          ? FontAwesomeIcons.chevronUp
+                          : FontAwesomeIcons.chevronDown,
                     ),
                   ],
                 ),
@@ -805,7 +938,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
                       Row(
                         children: [
                           Icon(
-                            Icons.schedule,
+                            FontAwesomeIcons.clock,
                             size: 20,
                             color: Theme.of(context).colorScheme.primary,
                           ),
@@ -1082,22 +1215,79 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
       final parent = context.findAncestorStateOfType<_LeadDetailScreenState>();
       if (parent != null) {
         parent.refreshLead();
+
+        // Check if disposition is customer/booking done and show create booking button
+        final lowerMain = mainDispositionName.toLowerCase();
+        final lowerSub = subDispositionName.toLowerCase();
+
+        if (lowerMain.contains('customer') &&
+            lowerSub.contains('booking done')) {
+          // Show create booking button with a slight delay to ensure dialog is closed
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (parent.mounted) {
+              ScaffoldMessenger.of(parent.context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.book_online, color: Colors.white),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text('Lead marked as Customer Booking Done'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(
+                            parent.context,
+                          ).hideCurrentSnackBar();
+                          // Use a callback to show the booking dialog
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            parent._showCreateBookingDialog();
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.green,
+                        ),
+                        child: const Text('Create Booking'),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 10),
+                  action: SnackBarAction(
+                    label: 'Dismiss',
+                    textColor: Colors.white,
+                    onPressed: () {
+                      ScaffoldMessenger.of(
+                        parent.context,
+                      ).hideCurrentSnackBar();
+                    },
+                  ),
+                ),
+              );
+            }
+          });
+        }
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Disposition saved successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Disposition saved successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save disposition: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save disposition: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -1131,6 +1321,10 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
     required String performedByName,
   }) async {
     try {
+      // Get current lead data to capture old sub_status
+      final currentLead = await DatabaseService.getLeadById(leadId);
+      final String oldSubStatus = currentLead?.subStatus?.name ?? 'Not Set';
+
       // Determine new lead status based on disposition
       String newStatus = _determineLeadStatusFromDisposition(
         mainDispositionName,
@@ -1164,11 +1358,11 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
       // Update lead status and follow-up date
       await DatabaseService.patchLead(leadId, updateData);
 
-      // Log status change activity
+      // Log status change activity with old and new values
       await masters.DatabaseServiceMasters.logLeadStatusChange(
         leadId: leadId,
-        oldStatus: 'Previous Status',
-        newStatus: '$newStatus - $newSubStatus',
+        oldStatus: oldSubStatus,
+        newStatus: newSubStatus,
         performedBy: performedBy,
         performedByName: performedByName,
       );
@@ -1249,6 +1443,704 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
   String _capitalize(String s) {
     if (s.isEmpty) return s;
     return s[0].toUpperCase() + s.substring(1);
+  }
+}
+
+class _CreateBookingDialog extends StatefulWidget {
+  final Lead lead;
+  final Map<String, dynamic> prePopulatedData;
+  final VoidCallback onBookingCreated;
+
+  const _CreateBookingDialog({
+    required this.lead,
+    required this.prePopulatedData,
+    required this.onBookingCreated,
+  });
+
+  @override
+  State<_CreateBookingDialog> createState() => _CreateBookingDialogState();
+}
+
+class _CreateBookingDialogState extends State<_CreateBookingDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final BookingRepository _bookingRepository = BookingRepository();
+
+  // Form controllers
+  late TextEditingController _customerNameController;
+  late TextEditingController _customerEmailController;
+  late TextEditingController _customerPhoneController;
+  late TextEditingController _projectNameController;
+  late TextEditingController _unitNoController;
+  late TextEditingController _unitDetailsController;
+  late TextEditingController _bookingAmountController;
+  late TextEditingController _advanceAmountController;
+  late TextEditingController _balanceAmountController;
+  late TextEditingController _commissionController;
+  late TextEditingController _salesExecutiveController;
+  late TextEditingController _approvedByController;
+  late TextEditingController _notesController;
+  late TextEditingController _termsController;
+
+  // Form values
+  String _propertyType = 'residential';
+  String _category = 'b';
+  PaymentMode _paymentMode = PaymentMode.cash;
+  BookingStatus _status = BookingStatus.confirmed;
+  DateTime _bookingDate = DateTime.now();
+  DateTime? _possessionDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeControllers();
+  }
+
+  void _initializeControllers() {
+    _customerNameController = TextEditingController(
+      text: widget.prePopulatedData['customerName'],
+    );
+    _customerEmailController = TextEditingController(
+      text: widget.prePopulatedData['customerEmail'],
+    );
+    _customerPhoneController = TextEditingController(
+      text: widget.prePopulatedData['customerPhone'],
+    );
+    _projectNameController = TextEditingController(
+      text: widget.prePopulatedData['projectName'],
+    );
+    _unitNoController = TextEditingController(
+      text: widget.prePopulatedData['unitNo'],
+    );
+    _unitDetailsController = TextEditingController(
+      text: widget.prePopulatedData['unitDetails'],
+    );
+    _bookingAmountController = TextEditingController(
+      text: widget.prePopulatedData['bookingAmount'].toString(),
+    );
+    _advanceAmountController = TextEditingController(
+      text: widget.prePopulatedData['advanceAmount'].toString(),
+    );
+    _balanceAmountController = TextEditingController(
+      text: widget.prePopulatedData['balanceAmount'].toString(),
+    );
+    _commissionController = TextEditingController(
+      text: widget.prePopulatedData['commission'].toString(),
+    );
+    _salesExecutiveController = TextEditingController(
+      text: widget.prePopulatedData['salesExecutiveName'],
+    );
+    _approvedByController = TextEditingController(
+      text: widget.prePopulatedData['approvedBy'],
+    );
+    _notesController = TextEditingController(
+      text: widget.prePopulatedData['notes'],
+    );
+    _termsController = TextEditingController(
+      text: widget.prePopulatedData['termsAndConditions'],
+    );
+
+    _propertyType = widget.prePopulatedData['propertyType'];
+    _category = widget.prePopulatedData['category'];
+  }
+
+  @override
+  void dispose() {
+    _customerNameController.dispose();
+    _customerEmailController.dispose();
+    _customerPhoneController.dispose();
+    _projectNameController.dispose();
+    _unitNoController.dispose();
+    _unitDetailsController.dispose();
+    _bookingAmountController.dispose();
+    _advanceAmountController.dispose();
+    _balanceAmountController.dispose();
+    _commissionController.dispose();
+    _salesExecutiveController.dispose();
+    _approvedByController.dispose();
+    _notesController.dispose();
+    _termsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        height: MediaQuery.of(context).size.height * 0.9,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            // Header
+            Row(
+              children: [
+                const Icon(Icons.book_online, size: 28, color: Colors.green),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Create Booking - ${widget.lead.leadId}',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const Divider(),
+
+            // Form
+            Expanded(
+              child: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Customer Information Section
+                      _buildSectionHeader('Customer Information', Icons.person),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _customerNameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Customer Name *',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Customer name is required';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _customerEmailController,
+                              decoration: const InputDecoration(
+                                labelText: 'Email *',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Email is required';
+                                }
+                                if (!RegExp(
+                                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                ).hasMatch(value)) {
+                                  return 'Enter a valid email';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _customerPhoneController,
+                        decoration: const InputDecoration(
+                          labelText: 'Phone Number *',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Phone number is required';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Property Information Section
+                      _buildSectionHeader('Property Information', Icons.home),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _propertyType,
+                              decoration: const InputDecoration(
+                                labelText: 'Property Type *',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: PropertyType.values.map((type) {
+                                return DropdownMenuItem(
+                                  value: type.name,
+                                  child: Text(type.name.toUpperCase()),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _propertyType = value!;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _category,
+                              decoration: const InputDecoration(
+                                labelText: 'Category *',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: CategoryType.values.map((category) {
+                                return DropdownMenuItem(
+                                  value: category.name,
+                                  child: Text(category.name.toUpperCase()),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _category = value!;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _projectNameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Project Name *',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Project name is required';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _unitNoController,
+                              decoration: const InputDecoration(
+                                labelText: 'Unit Number',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _unitDetailsController,
+                        decoration: const InputDecoration(
+                          labelText: 'Unit Details',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 2,
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Financial Information Section
+                      _buildSectionHeader(
+                        'Financial Information',
+                        Icons.attach_money,
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _bookingAmountController,
+                              decoration: const InputDecoration(
+                                labelText: 'Booking Amount *',
+                                prefixText: '₹ ',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Booking amount is required';
+                                }
+                                if (double.tryParse(value) == null) {
+                                  return 'Enter a valid amount';
+                                }
+                                return null;
+                              },
+                              onChanged: (value) {
+                                _calculateAmounts();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _advanceAmountController,
+                              decoration: const InputDecoration(
+                                labelText: 'Advance Amount',
+                                prefixText: '₹ ',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _balanceAmountController,
+                              decoration: const InputDecoration(
+                                labelText: 'Balance Amount',
+                                prefixText: '₹ ',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _commissionController,
+                              decoration: const InputDecoration(
+                                labelText: 'Commission',
+                                prefixText: '₹ ',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Payment & Status Section
+                      _buildSectionHeader('Payment & Status', Icons.payment),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<PaymentMode>(
+                              value: _paymentMode,
+                              decoration: const InputDecoration(
+                                labelText: 'Payment Mode *',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: PaymentMode.values.map((mode) {
+                                return DropdownMenuItem(
+                                  value: mode,
+                                  child: Text(mode.name.toUpperCase()),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _paymentMode = value!;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: DropdownButtonFormField<BookingStatus>(
+                              value: _status,
+                              decoration: const InputDecoration(
+                                labelText: 'Status *',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: BookingStatus.values.map((status) {
+                                return DropdownMenuItem(
+                                  value: status,
+                                  child: Text(status.name.toUpperCase()),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _status = value!;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate: _bookingDate,
+                                  firstDate: DateTime.now().subtract(
+                                    const Duration(days: 30),
+                                  ),
+                                  lastDate: DateTime.now().add(
+                                    const Duration(days: 365),
+                                  ),
+                                );
+                                if (date != null) {
+                                  setState(() {
+                                    _bookingDate = date;
+                                  });
+                                }
+                              },
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: 'Booking Date *',
+                                  border: OutlineInputBorder(),
+                                ),
+                                child: Text(_formatDate(_bookingDate)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate:
+                                      _possessionDate ??
+                                      DateTime.now().add(
+                                        const Duration(days: 365),
+                                      ),
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now().add(
+                                    const Duration(days: 2000),
+                                  ),
+                                );
+                                if (date != null) {
+                                  setState(() {
+                                    _possessionDate = date;
+                                  });
+                                }
+                              },
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: 'Possession Date',
+                                  border: OutlineInputBorder(),
+                                ),
+                                child: Text(
+                                  _possessionDate != null
+                                      ? _formatDate(_possessionDate!)
+                                      : 'Select Date',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Sales Information Section
+                      _buildSectionHeader('Sales Information', Icons.sell),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _salesExecutiveController,
+                              decoration: const InputDecoration(
+                                labelText: 'Sales Executive *',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Sales executive is required';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _approvedByController,
+                              decoration: const InputDecoration(
+                                labelText: 'Approved By *',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Approved by is required';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Additional Information Section
+                      _buildSectionHeader('Additional Information', Icons.note),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _notesController,
+                        decoration: const InputDecoration(
+                          labelText: 'Notes',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _termsController,
+                        decoration: const InputDecoration(
+                          labelText: 'Terms & Conditions',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 3,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const Divider(),
+
+            // Action Buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: _createBooking,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Create Booking'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.green),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.green,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _calculateAmounts() {
+    final bookingAmount = double.tryParse(_bookingAmountController.text);
+    if (bookingAmount != null) {
+      final advanceAmount = bookingAmount * 0.1;
+      final balanceAmount = bookingAmount - advanceAmount;
+      final commission = bookingAmount * 0.02;
+
+      _advanceAmountController.text = advanceAmount.toStringAsFixed(2);
+      _balanceAmountController.text = balanceAmount.toStringAsFixed(2);
+      _commissionController.text = commission.toStringAsFixed(2);
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  Future<void> _createBooking() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    try {
+      // Get current user info
+      final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+      final String userId = currentUser?.id ?? 'system';
+      final String userName =
+          (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
+
+      // Create booking
+      await _bookingRepository.createBooking(
+        customerId: widget.lead.id,
+        customerName: _customerNameController.text,
+        customerEmail: _customerEmailController.text,
+        customerPhone: _customerPhoneController.text,
+        leadId: widget.lead.leadId,
+        projectId: widget.prePopulatedData['projectId'],
+        projectName: _projectNameController.text,
+        propertyType: _propertyType,
+        category: _category,
+        unitNo: _unitNoController.text,
+        unitDetails: _unitDetailsController.text,
+        bookingAmount: double.parse(_bookingAmountController.text),
+        advanceAmount: double.tryParse(_advanceAmountController.text),
+        balanceAmount: double.tryParse(_balanceAmountController.text),
+        paymentMode: _paymentMode,
+        paymentReference: null,
+        salesExecutiveId: widget.prePopulatedData['salesExecutiveId'],
+        salesExecutiveName: _salesExecutiveController.text,
+        commission: double.parse(_commissionController.text),
+        approvedBy: _approvedByController.text,
+        approvedById: userId,
+        status: _status,
+        bookingDate: _bookingDate,
+        possessionDate: _possessionDate,
+        notes: _notesController.text,
+        termsAndConditions: _termsController.text,
+        documents: <String>[],
+        createdBy: userId,
+        createdByName: userName,
+        customFields: widget.prePopulatedData['customFields'],
+      );
+
+      // Close dialog
+      Navigator.of(context).pop();
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Booking created successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Callback to refresh lead data
+      widget.onBookingCreated();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to create booking: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }
 
@@ -1428,8 +2320,8 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
                     ],
                     Icon(
                       expanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
+                          ? FontAwesomeIcons.chevronUp
+                          : FontAwesomeIcons.chevronDown,
                     ),
                   ],
                 ),
@@ -1476,7 +2368,7 @@ class _CrossSellTabState extends State<_CrossSellTab> {
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: _openAddSheet,
-              icon: const Icon(Icons.add_rounded),
+              icon: const Icon(FontAwesomeIcons.plus),
               label: const Text('Create'),
             ),
           ),
@@ -1571,13 +2463,13 @@ class _CrossSellTabState extends State<_CrossSellTab> {
           const SizedBox(height: 6),
           Row(
             children: <Widget>[
-              const Icon(Icons.apartment, size: 14),
+              const Icon(FontAwesomeIcons.building, size: 14),
               const SizedBox(width: 6),
               Text(
                 (it['property_type'] ?? it['propertyType'] ?? '-') as String,
               ),
               const SizedBox(width: 12),
-              const Icon(Icons.person_outline, size: 14),
+              const Icon(FontAwesomeIcons.user, size: 14),
               const SizedBox(width: 6),
               Text(
                 'Assigned: ${(it['assigned_to_name'] ?? it['assignedTo'] ?? '-') as String}',
@@ -1632,7 +2524,7 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                       const Spacer(),
                       IconButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(Icons.close_rounded),
+                        icon: const Icon(FontAwesomeIcons.xmark),
                       ),
                     ],
                   ),
@@ -1865,7 +2757,10 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                             const SnackBar(
                               content: Row(
                                 children: [
-                                  Icon(Icons.check_circle, color: Colors.white),
+                                  Icon(
+                                    FontAwesomeIcons.circleCheck,
+                                    color: Colors.white,
+                                  ),
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -1889,7 +2784,7 @@ class _CrossSellTabState extends State<_CrossSellTab> {
                           ).showSnackBar(SnackBar(content: Text('Failed: $e')));
                         }
                       },
-                      icon: const Icon(Icons.check_rounded),
+                      icon: const Icon(FontAwesomeIcons.check),
                       label: const Text('Create'),
                     ),
                   ),
@@ -1912,10 +2807,10 @@ class _ContactCompact extends StatelessWidget {
     // Read gender from lead data
     final String gender = lead.gender ?? 'Unknown';
     final IconData genderIcon = gender.toLowerCase() == 'female'
-        ? Icons.woman
+        ? FontAwesomeIcons.venus
         : gender.toLowerCase() == 'male'
-        ? Icons.man
-        : Icons.person;
+        ? FontAwesomeIcons.mars
+        : FontAwesomeIcons.user;
     return Column(
       children: <Widget>[
         // Header actions (badge + icons) on top row
@@ -1947,7 +2842,7 @@ class _ContactCompact extends StatelessWidget {
             IconButton(
               tooltip: 'Edit customer',
               icon: Icon(
-                Icons.edit,
+                FontAwesomeIcons.penToSquare,
                 color: Theme.of(context).colorScheme.primary,
                 size: 20,
               ),
@@ -1957,7 +2852,7 @@ class _ContactCompact extends StatelessWidget {
             IconButton(
               tooltip: 'Source',
               icon: Icon(
-                Icons.public,
+                FontAwesomeIcons.globe,
                 color: Theme.of(context).colorScheme.primary,
                 size: 20,
               ),
@@ -2173,7 +3068,7 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
                   decoration: const InputDecoration(
                     labelText: 'First Name *',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person),
+                    prefixIcon: Icon(FontAwesomeIcons.user),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -2211,7 +3106,7 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Email Address',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.email),
+                    prefixIcon: Icon(FontAwesomeIcons.envelope),
                   ),
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
@@ -2232,7 +3127,7 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Phone Number *',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone),
+                    prefixIcon: Icon(FontAwesomeIcons.phone),
                   ),
                   keyboardType: TextInputType.phone,
                   validator: (value) {
@@ -2251,7 +3146,7 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Alternate Phone',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone_android),
+                    prefixIcon: Icon(FontAwesomeIcons.mobile),
                   ),
                   keyboardType: TextInputType.phone,
                 ),
@@ -2394,7 +3289,7 @@ class _LeadMetaCompactState extends State<_LeadMetaCompact> {
               },
               child: Row(
                 children: <Widget>[
-                  const Icon(Icons.event_outlined, size: 18),
+                  const Icon(FontAwesomeIcons.calendar, size: 18),
                   const SizedBox(width: 6),
                   Text(_relativeDayString(followUp)),
                 ],
@@ -2421,7 +3316,7 @@ class _LeadMetaCompactState extends State<_LeadMetaCompact> {
               },
               child: Row(
                 children: <Widget>[
-                  const Icon(Icons.access_time, size: 18),
+                  const Icon(FontAwesomeIcons.clock, size: 18),
                   const SizedBox(width: 6),
                   Text(
                     '${followUp.hour.toString().padLeft(2, '0')}:${followUp.minute.toString().padLeft(2, '0')}',
@@ -2683,6 +3578,23 @@ class _LazyProjectLocationCompactState
     }
   }
 
+  void _showProjectLocationUpdateDialog(BuildContext context, Lead lead) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return _ProjectLocationUpdateDialog(
+          lead: lead,
+          onSave: (updatedLead) {
+            // Refresh the data after successful update
+            setState(() {
+              _leadFuture = LeadRepository().getLead(widget.leadId);
+            });
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_hasLoaded) {
@@ -2692,7 +3604,7 @@ class _LazyProjectLocationCompactState
           Center(
             child: TextButton.icon(
               onPressed: _loadData,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(FontAwesomeIcons.arrowsRotate),
               label: const Text('Load Project & Location Details'),
             ),
           ),
@@ -2719,7 +3631,11 @@ class _LazyProjectLocationCompactState
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  const Icon(Icons.error, color: Colors.red, size: 48),
+                  const Icon(
+                    FontAwesomeIcons.triangleExclamation,
+                    color: Colors.red,
+                    size: 48,
+                  ),
                   const SizedBox(height: 8),
                   Text('Failed to load data: ${snapshot.error}'),
                   const SizedBox(height: 8),
@@ -2737,7 +3653,11 @@ class _LazyProjectLocationCompactState
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  const Icon(Icons.error, color: Colors.red, size: 48),
+                  const Icon(
+                    FontAwesomeIcons.triangleExclamation,
+                    color: Colors.red,
+                    size: 48,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Failed to load data: ${response.message ?? 'Unknown error'}',
@@ -2751,9 +3671,374 @@ class _LazyProjectLocationCompactState
         }
 
         final lead = response.data!;
-        return _ProjectLocationCompact(lead: lead);
+        return Column(
+          children: [
+            _ProjectLocationCompact(lead: lead),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FilledButton.icon(
+                  onPressed: () =>
+                      _showProjectLocationUpdateDialog(context, lead),
+                  icon: const Icon(FontAwesomeIcons.penToSquare, size: 16),
+                  label: const Text('Update'),
+                ),
+              ],
+            ),
+          ],
+        );
       },
     );
+  }
+}
+
+class _ProjectLocationUpdateDialog extends StatefulWidget {
+  final Lead lead;
+  final Function(Lead) onSave;
+
+  const _ProjectLocationUpdateDialog({
+    required this.lead,
+    required this.onSave,
+  });
+
+  @override
+  State<_ProjectLocationUpdateDialog> createState() =>
+      _ProjectLocationUpdateDialogState();
+}
+
+class _ProjectLocationUpdateDialogState
+    extends State<_ProjectLocationUpdateDialog> {
+  late TextEditingController _projectNameController;
+  late TextEditingController _stateController;
+  late TextEditingController _cityController;
+  late TextEditingController _locationController;
+  late TextEditingController _addressController;
+  late TextEditingController _budgetRangeController;
+  late TextEditingController _requirementsController;
+
+  PropertyType _selectedPropertyType = PropertyType.residential;
+  CategoryType _selectedCategoryType = CategoryType.a;
+
+  List<Project> _projects = [];
+  bool _isLoadingProjects = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeControllers();
+    _loadProjects();
+  }
+
+  void _initializeControllers() {
+    _projectNameController = TextEditingController(
+      text: widget.lead.projectName ?? '',
+    );
+    _stateController = TextEditingController(text: widget.lead.state ?? '');
+    _cityController = TextEditingController(text: widget.lead.city ?? '');
+    _locationController = TextEditingController(
+      text: widget.lead.location ?? '',
+    );
+    _addressController = TextEditingController(text: widget.lead.address ?? '');
+    _budgetRangeController = TextEditingController(
+      text: widget.lead.budgetRange ?? '',
+    );
+    _requirementsController = TextEditingController(
+      text: widget.lead.requirements ?? '',
+    );
+
+    _selectedPropertyType = widget.lead.propertyType;
+    _selectedCategoryType = widget.lead.categoryType;
+  }
+
+  Future<void> _loadProjects() async {
+    try {
+      final projects = await DatabaseService.getProjects(limit: 200);
+      if (mounted) {
+        setState(() {
+          _projects = projects;
+          _isLoadingProjects = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingProjects = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _projectNameController.dispose();
+    _stateController.dispose();
+    _cityController.dispose();
+    _locationController.dispose();
+    _addressController.dispose();
+    _budgetRangeController.dispose();
+    _requirementsController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveChanges() async {
+    try {
+      // Prepare update data
+      final Map<String, dynamic> updateData = {
+        'project_name': _projectNameController.text.trim().isEmpty
+            ? null
+            : _projectNameController.text.trim(),
+        'state': _stateController.text.trim().isEmpty
+            ? null
+            : _stateController.text.trim(),
+        'city': _cityController.text.trim().isEmpty
+            ? null
+            : _cityController.text.trim(),
+        'location': _locationController.text.trim().isEmpty
+            ? null
+            : _locationController.text.trim(),
+        'address': _addressController.text.trim().isEmpty
+            ? null
+            : _addressController.text.trim(),
+        'budget_range': _budgetRangeController.text.trim().isEmpty
+            ? null
+            : _budgetRangeController.text.trim(),
+        'requirements': _requirementsController.text.trim().isEmpty
+            ? null
+            : _requirementsController.text.trim(),
+        'property_type': _selectedPropertyType.name,
+        'category_type': _selectedCategoryType.name,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      // Update the lead in database
+      await DatabaseService.patchLead(widget.lead.id, updateData);
+
+      // Create updated lead object
+      final Lead updatedLead = widget.lead.copyWith(
+        projectName: updateData['project_name'],
+        state: updateData['state'],
+        city: updateData['city'],
+        location: updateData['location'],
+        address: updateData['address'],
+        budgetRange: updateData['budget_range'],
+        requirements: updateData['requirements'],
+        propertyType: _selectedPropertyType,
+        categoryType: _selectedCategoryType,
+      );
+
+      if (mounted) {
+        // Close dialog
+        Navigator.of(context).pop();
+
+        // Call the onSave callback to refresh parent
+        widget.onSave(updatedLead);
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Project & Location information updated successfully',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Update Project & Location'),
+      content: SizedBox(
+        width: 500,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              // Project Name Dropdown
+              if (_isLoadingProjects)
+                const CircularProgressIndicator()
+              else
+                DropdownButtonFormField<String>(
+                  value: _projectNameController.text.isEmpty
+                      ? null
+                      : _projectNameController.text,
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: '',
+                      child: Text('Select Project'),
+                    ),
+                    ..._projects.map(
+                      (project) => DropdownMenuItem<String>(
+                        value: project.name,
+                        child: Text(project.name),
+                      ),
+                    ),
+                  ],
+                  onChanged: (String? value) {
+                    _projectNameController.text = value ?? '';
+                  },
+                  decoration: const InputDecoration(
+                    labelText: 'Preferred Project',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              const SizedBox(height: 16),
+
+              // Location Fields
+              TextField(
+                controller: _stateController,
+                decoration: const InputDecoration(
+                  labelText: 'State',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _cityController,
+                decoration: const InputDecoration(
+                  labelText: 'City',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _locationController,
+                decoration: const InputDecoration(
+                  labelText: 'Location',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _addressController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Customer Address',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _budgetRangeController,
+                decoration: const InputDecoration(
+                  labelText: 'Budget Range',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _requirementsController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Requirements',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Property Type and Category
+              Column(
+                children: <Widget>[
+                  DropdownButtonFormField<PropertyType>(
+                    value: _selectedPropertyType,
+                    items: PropertyType.values
+                        .map(
+                          (type) => DropdownMenuItem<PropertyType>(
+                            value: type,
+                            child: Text(_formatPropertyType(type)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (PropertyType? value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedPropertyType = value;
+                        });
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Property Type',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<CategoryType>(
+                    value: _selectedCategoryType,
+                    items: CategoryType.values
+                        .map(
+                          (type) => DropdownMenuItem<CategoryType>(
+                            value: type,
+                            child: Text(_formatCategoryType(type)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (CategoryType? value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedCategoryType = value;
+                        });
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _saveChanges, child: const Text('Update')),
+      ],
+    );
+  }
+
+  String _formatPropertyType(PropertyType type) {
+    switch (type) {
+      case PropertyType.residential:
+        return 'Residential';
+      case PropertyType.commercial:
+        return 'Commercial';
+      case PropertyType.industrial:
+        return 'Industrial';
+      case PropertyType.land:
+        return 'Land';
+    }
+  }
+
+  String _formatCategoryType(CategoryType type) {
+    switch (type) {
+      case CategoryType.a:
+        return 'Category A';
+      case CategoryType.b:
+        return 'Category B';
+      case CategoryType.c:
+        return 'Category C';
+    }
   }
 }
 
@@ -3018,7 +4303,7 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(FontAwesomeIcons.xmark),
                   ),
                 ],
               ),
@@ -3398,7 +4683,7 @@ class _ProfessionalInfoCardState extends State<_ProfessionalInfoCard> {
             Expanded(child: Text('Employment Type: $employmentType')),
             TextButton.icon(
               onPressed: _editEmploymentType,
-              icon: const Icon(Icons.edit, size: 18),
+              icon: const Icon(FontAwesomeIcons.penToSquare, size: 18),
               label: const Text('Edit'),
             ),
           ],
@@ -3409,7 +4694,7 @@ class _ProfessionalInfoCardState extends State<_ProfessionalInfoCard> {
             Expanded(child: Text('ITR Filing Status: $itrFilingStatus')),
             TextButton.icon(
               onPressed: _editItrStatus,
-              icon: const Icon(Icons.edit, size: 18),
+              icon: const Icon(FontAwesomeIcons.penToSquare, size: 18),
               label: const Text('Edit'),
             ),
           ],
@@ -3420,7 +4705,7 @@ class _ProfessionalInfoCardState extends State<_ProfessionalInfoCard> {
             Expanded(child: Text('Occupation: $occupation')),
             TextButton.icon(
               onPressed: _editOccupation,
-              icon: const Icon(Icons.edit, size: 18),
+              icon: const Icon(FontAwesomeIcons.penToSquare, size: 18),
               label: const Text('Edit'),
             ),
           ],
@@ -3599,7 +4884,7 @@ class _PermanentAddressCardState extends State<_PermanentAddressCard> {
             ),
             TextButton.icon(
               onPressed: _editAddress,
-              icon: const Icon(Icons.edit, size: 18),
+              icon: const Icon(FontAwesomeIcons.penToSquare, size: 18),
               label: const Text('Edit'),
             ),
           ],
@@ -3610,7 +4895,7 @@ class _PermanentAddressCardState extends State<_PermanentAddressCard> {
             Expanded(child: Text('Country: $country')),
             TextButton.icon(
               onPressed: _editCountry,
-              icon: const Icon(Icons.edit, size: 18),
+              icon: const Icon(FontAwesomeIcons.penToSquare, size: 18),
               label: const Text('Edit'),
             ),
           ],
@@ -3623,7 +4908,7 @@ class _PermanentAddressCardState extends State<_PermanentAddressCard> {
             ),
             TextButton.icon(
               onPressed: _editState,
-              icon: const Icon(Icons.edit, size: 18),
+              icon: const Icon(FontAwesomeIcons.penToSquare, size: 18),
               label: const Text('Edit'),
             ),
           ],
@@ -3634,7 +4919,7 @@ class _PermanentAddressCardState extends State<_PermanentAddressCard> {
             Expanded(child: Text('City: ${city.isEmpty ? '—' : city}')),
             TextButton.icon(
               onPressed: _editCity,
-              icon: const Icon(Icons.edit, size: 18),
+              icon: const Icon(FontAwesomeIcons.penToSquare, size: 18),
               label: const Text('Edit'),
             ),
           ],
@@ -3647,7 +4932,7 @@ class _PermanentAddressCardState extends State<_PermanentAddressCard> {
             ),
             TextButton.icon(
               onPressed: _editLocation,
-              icon: const Icon(Icons.edit, size: 18),
+              icon: const Icon(FontAwesomeIcons.penToSquare, size: 18),
               label: const Text('Edit'),
             ),
           ],
@@ -3660,7 +4945,7 @@ class _PermanentAddressCardState extends State<_PermanentAddressCard> {
             ),
             TextButton.icon(
               onPressed: _editPincode,
-              icon: const Icon(Icons.edit, size: 18),
+              icon: const Icon(FontAwesomeIcons.penToSquare, size: 18),
               label: const Text('Edit'),
             ),
           ],
@@ -4145,7 +5430,7 @@ class _EnhancedActivitySectionsState extends State<_EnhancedActivitySections> {
       children: [
         _buildSectionCard(
           title: 'Cross Sell',
-          icon: Icons.sell,
+          icon: FontAwesomeIcons.tag,
           color: Colors.blue,
           future: _crossSellsFuture,
           onTap: () => _navigateToTab(1), // Cross Sell tab index
@@ -4153,7 +5438,7 @@ class _EnhancedActivitySectionsState extends State<_EnhancedActivitySections> {
         const SizedBox(height: 8),
         _buildSectionCard(
           title: 'Reference',
-          icon: Icons.people,
+          icon: FontAwesomeIcons.users,
           color: Colors.green,
           future: _referencesFuture,
           onTap: () => _navigateToTab(2), // Reference tab index
@@ -4161,7 +5446,7 @@ class _EnhancedActivitySectionsState extends State<_EnhancedActivitySections> {
         const SizedBox(height: 8),
         _buildSectionCard(
           title: 'Site Visit',
-          icon: Icons.location_on,
+          icon: FontAwesomeIcons.locationDot,
           color: Colors.orange,
           future: _siteVisitsFuture,
           onTap: () => _navigateToTab(3), // Site Visit tab index
@@ -4169,7 +5454,7 @@ class _EnhancedActivitySectionsState extends State<_EnhancedActivitySections> {
         const SizedBox(height: 8),
         _buildSectionCard(
           title: 'Task',
-          icon: Icons.task,
+          icon: FontAwesomeIcons.listCheck,
           color: Colors.purple,
           future: _tasksFuture,
           onTap: () => _navigateToTab(4), // Task tab index
@@ -4177,7 +5462,7 @@ class _EnhancedActivitySectionsState extends State<_EnhancedActivitySections> {
         const SizedBox(height: 8),
         _buildSectionCard(
           title: 'Question',
-          icon: Icons.help,
+          icon: FontAwesomeIcons.circleQuestion,
           color: Colors.teal,
           future: Future.value([]), // Questions are static for now
           onTap: () => _navigateToTab(5), // Question tab index
@@ -4185,7 +5470,7 @@ class _EnhancedActivitySectionsState extends State<_EnhancedActivitySections> {
         const SizedBox(height: 8),
         _buildSectionCard(
           title: 'Property Option',
-          icon: Icons.home,
+          icon: FontAwesomeIcons.house,
           color: Colors.indigo,
           future: Future.value([]), // Property options are static for now
           onTap: () => _navigateToTab(6), // Property Option tab index
@@ -4193,7 +5478,7 @@ class _EnhancedActivitySectionsState extends State<_EnhancedActivitySections> {
         const SizedBox(height: 8),
         _buildSectionCard(
           title: 'Ticket',
-          icon: Icons.support_agent,
+          icon: FontAwesomeIcons.headset,
           color: Colors.red,
           future: _ticketsFuture,
           onTap: () => _navigateToTab(7), // Ticket tab index
@@ -4276,7 +5561,7 @@ class _EnhancedActivitySectionsState extends State<_EnhancedActivitySections> {
                   ),
                 ),
                 Icon(
-                  Icons.arrow_forward_ios,
+                  FontAwesomeIcons.chevronRight,
                   size: 16,
                   color: Colors.grey[400],
                 ),
@@ -4505,7 +5790,7 @@ class _ReferenceTabState extends State<_ReferenceTab> {
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: _openAddRefSheet,
-                icon: const Icon(Icons.add_rounded),
+                icon: const Icon(FontAwesomeIcons.plus),
                 label: const Text('Create Reference'),
               ),
             ),
@@ -4840,7 +6125,7 @@ class _ReferenceTabState extends State<_ReferenceTab> {
                     const Spacer(),
                     IconButton(
                       onPressed: () => Navigator.of(ctx).pop(),
-                      icon: const Icon(Icons.close_rounded),
+                      icon: const Icon(FontAwesomeIcons.xmark),
                     ),
                   ],
                 ),
@@ -5069,7 +6354,7 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: _openAddVisitSheet,
-                icon: const Icon(Icons.add_rounded),
+                icon: const Icon(FontAwesomeIcons.plus),
                 label: const Text('Create Site Visit'),
               ),
             ),
@@ -5193,7 +6478,7 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Icon(
-                          Icons.visibility,
+                          FontAwesomeIcons.eye,
                           size: 16,
                           color: Theme.of(context).colorScheme.primary,
                         ),
@@ -5301,7 +6586,7 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                       const Spacer(),
                       IconButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(Icons.close_rounded),
+                        icon: const Icon(FontAwesomeIcons.xmark),
                       ),
                     ],
                   ),
@@ -5312,7 +6597,7 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                     decoration: const InputDecoration(
                       labelText: 'Customer Contact',
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.phone),
+                      prefixIcon: Icon(FontAwesomeIcons.phone),
                     ),
                     onChanged: (String v) async {
                       // Auto-fetch on 10+ digits
@@ -5637,7 +6922,7 @@ class _SiteVisitTabState extends State<_SiteVisitTab> {
                           );
                         }
                       },
-                      icon: const Icon(Icons.check_rounded),
+                      icon: const Icon(FontAwesomeIcons.check),
                       label: const Text('Create Site Visit'),
                     ),
                   ),
@@ -5680,7 +6965,7 @@ class _TaskTabState extends State<_TaskTab> {
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: _openCreateTaskSheet,
-                icon: const Icon(Icons.add_rounded),
+                icon: const Icon(FontAwesomeIcons.plus),
                 label: const Text('Create Task'),
               ),
             ),
@@ -6013,7 +7298,7 @@ class _TaskTabState extends State<_TaskTab> {
                       );
                     }
                   },
-                  icon: const Icon(Icons.check_rounded),
+                  icon: const Icon(FontAwesomeIcons.check),
                   label: const Text('Add Task'),
                 ),
               ],
@@ -6047,7 +7332,7 @@ class _QuestionTabState extends State<_QuestionTab> {
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: _openAddQuestionSheet,
-                icon: const Icon(Icons.add_rounded),
+                icon: const Icon(FontAwesomeIcons.plus),
                 label: const Text('Create Question'),
               ),
             ),
@@ -6132,7 +7417,7 @@ class _QuestionTabState extends State<_QuestionTab> {
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.of(ctx).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                    icon: const Icon(FontAwesomeIcons.xmark),
                   ),
                 ],
               ),
@@ -6203,7 +7488,7 @@ class _QuestionTabState extends State<_QuestionTab> {
                       );
                     }
                   },
-                  icon: const Icon(Icons.check_rounded),
+                  icon: const Icon(FontAwesomeIcons.check),
                   label: const Text('Create Question'),
                 ),
               ),
@@ -6253,7 +7538,7 @@ class _PropertyOptionTabState extends State<_PropertyOptionTab> {
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: _openAddPropertyOptionScreen,
-                icon: const Icon(Icons.add_rounded),
+                icon: const Icon(FontAwesomeIcons.plus),
                 label: const Text('Create Property Option'),
               ),
             ),
@@ -6439,7 +7724,7 @@ class _CreatePropertyOptionScreenState
   List<StateMaster> _states = <StateMaster>[];
   List<City> _cities = <City>[];
   List<Location> _locations = <Location>[];
-  List<Inventory> _inventories = <Inventory>[];
+  List<InventoryType> _inventories = <InventoryType>[];
 
   // Loading states
   bool _isLoading = true;
@@ -6463,7 +7748,7 @@ class _CreatePropertyOptionScreenState
         MasterDataService.getPropertyCategories(),
         MasterDataService.getPropertyTypesMaster(),
         MasterDataService.getStates(),
-        DatabaseServiceMasters.getInventoryTypes(),
+        MasterDataService.getInventoryTypes(),
       ]);
 
       setState(() {
@@ -6472,7 +7757,7 @@ class _CreatePropertyOptionScreenState
         _categories = results[2] as List<PropertyCategory>;
         _propertyTypes = results[3] as List<PropertyTypeMaster>;
         _states = results[4] as List<StateMaster>;
-        _inventories = results[5] as List<Inventory>;
+        _inventories = results[5] as List<InventoryType>;
         _isLoading = false;
       });
     } catch (e) {
@@ -7046,11 +8331,7 @@ class _CreatePropertyOptionScreenState
         itemCount: _inventories.length,
         separatorBuilder: (_, __) => const Divider(height: 16),
         itemBuilder: (BuildContext context, int i) {
-          final Inventory inventory = _inventories[i];
-          final String priceText =
-              inventory.price != null && inventory.price! > 0
-              ? '₹ ${inventory.price!.toStringAsFixed(0)}'.trim()
-              : '-';
+          final InventoryType inventory = _inventories[i];
 
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -7075,29 +8356,10 @@ class _CreatePropertyOptionScreenState
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Unit: ${inventory.name}',
+                      'Type: ${inventory.name}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 4),
-                    RichText(
-                      text: TextSpan(
-                        style: Theme.of(context).textTheme.bodySmall,
-                        children: <TextSpan>[
-                          const TextSpan(
-                            text: 'Price : ',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          TextSpan(
-                            text: priceText,
-                            style: const TextStyle(color: Colors.black87),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 2),
                     RichText(
                       text: TextSpan(
                         style: Theme.of(context).textTheme.bodySmall,
@@ -7110,11 +8372,9 @@ class _CreatePropertyOptionScreenState
                             ),
                           ),
                           TextSpan(
-                            text: inventory.availabilityStatus == 'available'
-                                ? 'Available'
-                                : 'Not Available',
+                            text: inventory.isActive ? 'Active' : 'Inactive',
                             style: TextStyle(
-                              color: inventory.availabilityStatus == 'available'
+                              color: inventory.isActive
                                   ? Colors.green
                                   : Colors.red,
                             ),
@@ -7182,7 +8442,7 @@ class _TicketTabState extends State<_TicketTab> {
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: _openCreateTicketSheet,
-                icon: const Icon(Icons.add_rounded),
+                icon: const Icon(FontAwesomeIcons.plus),
                 label: const Text('Create Ticket'),
               ),
             ),
@@ -7293,7 +8553,7 @@ class _TicketTabState extends State<_TicketTab> {
                                 Row(
                                   children: <Widget>[
                                     Icon(
-                                      Icons.person_outline,
+                                      FontAwesomeIcons.user,
                                       size: 16,
                                       color: Colors.grey.shade600,
                                     ),
@@ -7318,7 +8578,7 @@ class _TicketTabState extends State<_TicketTab> {
                                     ),
                                     const SizedBox(width: 8),
                                     Icon(
-                                      Icons.access_time,
+                                      FontAwesomeIcons.clock,
                                       size: 14,
                                       color: Colors.grey.shade600,
                                     ),
@@ -7355,7 +8615,7 @@ class _TicketTabState extends State<_TicketTab> {
                                         ),
                                       ),
                                       icon: const Icon(
-                                        Icons.visibility_outlined,
+                                        FontAwesomeIcons.eye,
                                         size: 18,
                                       ),
                                       label: const Text('View'),
@@ -7461,7 +8721,7 @@ class _TicketTabState extends State<_TicketTab> {
                       IconButton(
                         onPressed: () => Navigator.of(ctx).pop(),
                         icon: const Icon(
-                          Icons.close_rounded,
+                          FontAwesomeIcons.xmark,
                           color: Colors.black,
                         ),
                       ),
@@ -7656,7 +8916,7 @@ class _TicketTabState extends State<_TicketTab> {
                                   Row(
                                     children: [
                                       Icon(
-                                        Icons.check_circle,
+                                        FontAwesomeIcons.circleCheck,
                                         color: Colors.green.shade600,
                                         size: 20,
                                       ),
@@ -8862,7 +10122,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                       const Spacer(),
                       IconButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(Icons.close_rounded),
+                        icon: const Icon(FontAwesomeIcons.xmark),
                       ),
                     ],
                   ),
@@ -9349,6 +10609,33 @@ class _PreferencesCardState extends State<_PreferencesCard> {
   String project = 'Project Alpha';
   String unitType = '2 BHK';
   RangeValues budget = const RangeValues(40, 80);
+
+  void _showPreferencesUpdateDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return _PreferencesUpdateDialog(
+          initialProject: project,
+          initialUnitType: unitType,
+          initialBudget: budget,
+          onSave:
+              (String newProject, String newUnitType, RangeValues newBudget) {
+                setState(() {
+                  project = newProject;
+                  unitType = newUnitType;
+                  budget = newBudget;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Preferences updated successfully'),
+                  ),
+                );
+              },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
@@ -9397,6 +10684,239 @@ class _PreferencesCardState extends State<_PreferencesCard> {
           ),
           onChanged: (RangeValues v) => setState(() => budget = v),
         ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: () => _showPreferencesUpdateDialog(context),
+            child: const Text('Update'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PreferencesUpdateDialog extends StatefulWidget {
+  final String initialProject;
+  final String initialUnitType;
+  final RangeValues initialBudget;
+  final Function(String project, String unitType, RangeValues budget) onSave;
+
+  const _PreferencesUpdateDialog({
+    required this.initialProject,
+    required this.initialUnitType,
+    required this.initialBudget,
+    required this.onSave,
+  });
+
+  @override
+  State<_PreferencesUpdateDialog> createState() =>
+      _PreferencesUpdateDialogState();
+}
+
+class _PreferencesUpdateDialogState extends State<_PreferencesUpdateDialog> {
+  late String project;
+  late String unitType;
+  late RangeValues budget;
+
+  @override
+  void initState() {
+    super.initState();
+    project = widget.initialProject;
+    unitType = widget.initialUnitType;
+    budget = widget.initialBudget;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Update Preferences'),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            DropdownButtonFormField<String>(
+              value: project,
+              items:
+                  const <String>[
+                        'Project Alpha',
+                        'Project Beta',
+                        'Project Gamma',
+                      ]
+                      .map(
+                        (String e) =>
+                            DropdownMenuItem<String>(value: e, child: Text(e)),
+                      )
+                      .toList(),
+              onChanged: (String? v) => setState(() => project = v ?? project),
+              decoration: const InputDecoration(
+                labelText: 'Preferred Project',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: unitType,
+              items: const <String>['1 BHK', '2 BHK', '3 BHK', 'Penthouse']
+                  .map(
+                    (String e) =>
+                        DropdownMenuItem<String>(value: e, child: Text(e)),
+                  )
+                  .toList(),
+              onChanged: (String? v) =>
+                  setState(() => unitType = v ?? unitType),
+              decoration: const InputDecoration(
+                labelText: 'Unit Type',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Budget (Lacs)',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 8),
+            RangeSlider(
+              values: budget,
+              min: 10,
+              max: 200,
+              divisions: 38,
+              labels: RangeLabels(
+                budget.start.toStringAsFixed(0),
+                budget.end.toStringAsFixed(0),
+              ),
+              onChanged: (RangeValues v) => setState(() => budget = v),
+            ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            widget.onSave(project, unitType, budget);
+            Navigator.of(context).pop();
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
+class _RequirementNotesCard extends StatefulWidget {
+  const _RequirementNotesCard({required this.leadId});
+  final String leadId;
+
+  @override
+  State<_RequirementNotesCard> createState() => _RequirementNotesCardState();
+}
+
+class _RequirementNotesCardState extends State<_RequirementNotesCard> {
+  String requirementNotes =
+      'Looking for a 2 BHK apartment in a gated community with modern amenities. Prefers ground floor or first floor. Budget range is flexible but looking for good value for money. Interested in properties near schools and hospitals.';
+  bool isEditing = false;
+  final TextEditingController _notesController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _notesController.text = requirementNotes;
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  void _toggleEdit() {
+    setState(() {
+      isEditing = !isEditing;
+      if (isEditing) {
+        _notesController.text = requirementNotes;
+      }
+    });
+  }
+
+  void _updateNotes() {
+    setState(() {
+      requirementNotes = _notesController.text;
+      isEditing = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Requirement notes updated successfully')),
+    );
+  }
+
+  void _cancelEdit() {
+    setState(() {
+      isEditing = false;
+      _notesController.text = requirementNotes;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Requirement Notes',
+      children: <Widget>[
+        if (!isEditing) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: Text(
+              requirementNotes,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: <Widget>[
+              OutlinedButton.icon(
+                onPressed: _toggleEdit,
+                icon: const Icon(FontAwesomeIcons.penToSquare, size: 16),
+                label: const Text('Edit'),
+              ),
+            ],
+          ),
+        ] else ...[
+          TextField(
+            controller: _notesController,
+            maxLines: 6,
+            decoration: const InputDecoration(
+              labelText: 'Requirement Notes',
+              hintText: 'Enter detailed requirement notes...',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: <Widget>[
+              OutlinedButton(
+                onPressed: _cancelEdit,
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _updateNotes,
+                child: const Text('Update'),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -9520,11 +11040,17 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
 
     print('Categorizing ${activities.length} activities:');
     for (final activity in activities) {
-      // Use activity_type field which contains the actual activity type
-      final type = activity['activity_type'] as String?;
+      // Use type field which contains the actual activity type
+      final type = activity['type'] as String?;
       print('Activity type: "$type", action: "${activity['action']}"');
 
-      switch (type?.toLowerCase()) {
+      // Handle null or empty types
+      if (type == null || type.isEmpty) {
+        print('Unknown activity type: "null" - skipping');
+        continue;
+      }
+
+      switch (type.toLowerCase()) {
         case 'disposition_change':
           print('Adding to disposition category');
           categorized['disposition']!.add(activity);
@@ -9558,9 +11084,20 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
         case 'visitor':
           categorized['visitor']!.add(activity);
           break;
+        case 'updated':
+          // Handle updated activities - add to appropriate category based on action
+          final action = activity['action'] as String?;
+          if (action == 'status_updated') {
+            categorized['disposition']!.add(activity);
+          } else if (action == 'personal_info_update') {
+            // Add to a general updates category or skip
+            print('Personal info update - skipping');
+          } else {
+            print('Unknown updated action: "$action" - skipping');
+          }
+          break;
         default:
           print('Unknown activity type: "$type" - skipping');
-          // Add to a general category or skip
           break;
       }
     }
@@ -9745,14 +11282,8 @@ class _DispositionLogTab extends StatelessWidget {
                   'Disposed By',
                   activity['performed_by_name'] ?? 'Unknown',
                 ),
-                _buildField(
-                  'Disposed From',
-                  metadata['old_values']?['sub_status'] ?? '-',
-                ),
-                _buildField(
-                  'Disposed To',
-                  metadata['new_values']?['sub_status'] ?? '-',
-                ),
+                _buildField('Disposed From', metadata['old_status'] ?? '-'),
+                _buildField('Disposed To', metadata['new_status'] ?? '-'),
                 _buildField('Remark', metadata['remarks'] ?? '-'),
               ],
             ),
@@ -10427,7 +11958,7 @@ class _TimelineItem extends StatelessWidget {
                 Row(
                   children: <Widget>[
                     Icon(
-                      Icons.person_outline,
+                      FontAwesomeIcons.user,
                       size: 14,
                       color: Theme.of(
                         context,
@@ -10462,11 +11993,11 @@ class _TimelineItem extends StatelessWidget {
       case 'call':
       case 'phone_call':
       case 'call_initiated':
-        return Icons.phone;
+        return FontAwesomeIcons.phone;
       case 'email':
       case 'email_sent':
       case 'email_initiated':
-        return Icons.email;
+        return FontAwesomeIcons.envelope;
       case 'message':
       case 'sms':
       case 'message_initiated':
@@ -10486,7 +12017,7 @@ class _TimelineItem extends StatelessWidget {
         return Icons.swap_horiz;
       case 'assignment':
       case 'assigned':
-        return Icons.person_add;
+        return FontAwesomeIcons.userPlus;
       case 'disposition_change':
         return Icons.track_changes;
       case 'note':
@@ -10494,15 +12025,15 @@ class _TimelineItem extends StatelessWidget {
         return Icons.note_add;
       case 'follow_up':
       case 'follow_up_scheduled':
-        return Icons.schedule;
+        return FontAwesomeIcons.clock;
       case 'converted':
         return Icons.trending_up;
       case 'closed':
-        return Icons.close;
+        return FontAwesomeIcons.xmark;
       case 'created':
         return Icons.add_circle;
       case 'updated':
-        return Icons.edit;
+        return FontAwesomeIcons.penToSquare;
       default:
         return Icons.info;
     }
@@ -10736,9 +12267,9 @@ class _ActivityLogCard extends StatelessWidget {
       case ActivityType.created:
         return const Icon(Icons.add_circle, color: Colors.green);
       case ActivityType.updated:
-        return const Icon(Icons.edit, color: Colors.blue);
+        return const Icon(FontAwesomeIcons.penToSquare, color: Colors.blue);
       case ActivityType.assigned:
-        return const Icon(Icons.person_add, color: Colors.orange);
+        return const Icon(FontAwesomeIcons.userPlus, color: Colors.orange);
       case ActivityType.statusChanged:
         return const Icon(Icons.swap_horiz, color: Colors.purple);
       case ActivityType.dispositionChange:
@@ -10748,7 +12279,7 @@ class _ActivityLogCard extends StatelessWidget {
       case ActivityType.siteVisitScheduled:
         return const Icon(Icons.calendar_today, color: Colors.teal);
       case ActivityType.siteVisitCompleted:
-        return const Icon(Icons.check_circle, color: Colors.green);
+        return const Icon(FontAwesomeIcons.circleCheck, color: Colors.green);
       case ActivityType.taskCreated:
         return const Icon(Icons.task, color: Colors.indigo);
       case ActivityType.taskCompleted:
@@ -10756,15 +12287,15 @@ class _ActivityLogCard extends StatelessWidget {
       case ActivityType.noteAdded:
         return const Icon(Icons.note_add, color: Colors.amber);
       case ActivityType.followUpScheduled:
-        return const Icon(Icons.schedule, color: Colors.cyan);
+        return const Icon(FontAwesomeIcons.clock, color: Colors.cyan);
       case ActivityType.converted:
         return const Icon(Icons.trending_up, color: Colors.green);
       case ActivityType.closed:
-        return const Icon(Icons.close, color: Colors.red);
+        return const Icon(FontAwesomeIcons.xmark, color: Colors.red);
       case ActivityType.callInitiated:
         return const Icon(Icons.call, color: Colors.green);
       case ActivityType.emailInitiated:
-        return const Icon(Icons.email, color: Colors.blue);
+        return const Icon(FontAwesomeIcons.envelope, color: Colors.blue);
       case ActivityType.messageInitiated:
         return const Icon(Icons.message, color: Colors.orange);
       case ActivityType.whatsappInitiated:
@@ -10778,7 +12309,11 @@ class _ActivityLogCard extends StatelessWidget {
     switch (type) {
       case ActivityType.created:
       case ActivityType.converted:
-        return const Icon(Icons.check_circle, color: Colors.green, size: 16);
+        return const Icon(
+          FontAwesomeIcons.circleCheck,
+          color: Colors.green,
+          size: 16,
+        );
       case ActivityType.closed:
         return const Icon(Icons.cancel, color: Colors.red, size: 16);
       default:
