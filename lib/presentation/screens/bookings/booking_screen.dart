@@ -369,6 +369,40 @@ class _BookingScreenState extends State<BookingScreen> {
 
                 const SizedBox(height: 16),
 
+                // Lead Info (if available from custom fields)
+                if (booking.customFields != null &&
+                    booking.customFields!.containsKey('lead_source'))
+                  _buildInfoSection('Lead Information', Icons.person_add, [
+                    _buildInfoRow(
+                      'Lead Source',
+                      booking.customFields!['lead_source'] ?? 'N/A',
+                    ),
+                    _buildInfoRow('Lead ID', booking.leadId),
+                    if (booking.customFields!.containsKey(
+                      'original_budget_range',
+                    ))
+                      _buildInfoRow(
+                        'Original Budget',
+                        booking.customFields!['original_budget_range'] ?? 'N/A',
+                      ),
+                    if (booking.customFields!.containsKey('lead_requirements'))
+                      _buildInfoRow(
+                        'Lead Requirements',
+                        booking.customFields!['lead_requirements'] ?? 'N/A',
+                      ),
+                    if (booking.customFields!.containsKey('lead_created_at'))
+                      _buildInfoRow(
+                        'Lead Created',
+                        _formatDate(
+                          DateTime.parse(
+                            booking.customFields!['lead_created_at'],
+                          ),
+                        ),
+                      ),
+                  ]),
+
+                const SizedBox(height: 16),
+
                 // Action Buttons
                 Row(
                   children: [
