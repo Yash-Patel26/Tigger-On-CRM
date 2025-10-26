@@ -1270,20 +1270,24 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
         }
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Disposition saved successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Disposition saved successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save disposition: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save disposition: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -1317,6 +1321,10 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
     required String performedByName,
   }) async {
     try {
+      // Get current lead data to capture old sub_status
+      final currentLead = await DatabaseService.getLeadById(leadId);
+      final String oldSubStatus = currentLead?.subStatus?.name ?? 'Not Set';
+
       // Determine new lead status based on disposition
       String newStatus = _determineLeadStatusFromDisposition(
         mainDispositionName,
@@ -1350,11 +1358,11 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
       // Update lead status and follow-up date
       await DatabaseService.patchLead(leadId, updateData);
 
-      // Log status change activity
+      // Log status change activity with old and new values
       await masters.DatabaseServiceMasters.logLeadStatusChange(
         leadId: leadId,
-        oldStatus: 'Previous Status',
-        newStatus: '$newStatus - $newSubStatus',
+        oldStatus: oldSubStatus,
+        newStatus: newSubStatus,
         performedBy: performedBy,
         performedByName: performedByName,
       );
@@ -11032,11 +11040,17 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
 
     print('Categorizing ${activities.length} activities:');
     for (final activity in activities) {
-      // Use activity_type field which contains the actual activity type
-      final type = activity['activity_type'] as String?;
+      // Use type field which contains the actual activity type
+      final type = activity['type'] as String?;
       print('Activity type: "$type", action: "${activity['action']}"');
 
-      switch (type?.toLowerCase()) {
+      // Handle null or empty types
+      if (type == null || type.isEmpty) {
+        print('Unknown activity type: "null" - skipping');
+        continue;
+      }
+
+      switch (type.toLowerCase()) {
         case 'disposition_change':
           print('Adding to disposition category');
           categorized['disposition']!.add(activity);
@@ -11070,9 +11084,20 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
         case 'visitor':
           categorized['visitor']!.add(activity);
           break;
+        case 'updated':
+          // Handle updated activities - add to appropriate category based on action
+          final action = activity['action'] as String?;
+          if (action == 'status_updated') {
+            categorized['disposition']!.add(activity);
+          } else if (action == 'personal_info_update') {
+            // Add to a general updates category or skip
+            print('Personal info update - skipping');
+          } else {
+            print('Unknown updated action: "$action" - skipping');
+          }
+          break;
         default:
           print('Unknown activity type: "$type" - skipping');
-          // Add to a general category or skip
           break;
       }
     }
@@ -11257,14 +11282,8 @@ class _DispositionLogTab extends StatelessWidget {
                   'Disposed By',
                   activity['performed_by_name'] ?? 'Unknown',
                 ),
-                _buildField(
-                  'Disposed From',
-                  metadata['old_values']?['sub_status'] ?? '-',
-                ),
-                _buildField(
-                  'Disposed To',
-                  metadata['new_values']?['sub_status'] ?? '-',
-                ),
+                _buildField('Disposed From', metadata['old_status'] ?? '-'),
+                _buildField('Disposed To', metadata['new_status'] ?? '-'),
                 _buildField('Remark', metadata['remarks'] ?? '-'),
               ],
             ),
