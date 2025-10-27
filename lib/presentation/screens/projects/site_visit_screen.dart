@@ -15,6 +15,12 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
   Future<List<SiteVisit>>? _siteVisitsFuture;
   Map<String, int> _metrics = {};
 
+  // Pagination state
+  int _currentPage = 1;
+  int _itemsPerPage = 25;
+  int _totalItems = 0;
+  final List<int> _pageSizeOptions = [10, 25, 50, 100];
+
   @override
   void initState() {
     super.initState();
@@ -23,7 +29,10 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
 
   Future<void> _loadSiteVisits() async {
     setState(() {
-      _siteVisitsFuture = DatabaseService.getSiteVisits(limit: 1000);
+      _siteVisitsFuture = DatabaseService.getSiteVisits(
+        limit: _itemsPerPage,
+        page: _currentPage,
+      );
     });
 
     // Load metrics
@@ -33,8 +42,13 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
   Future<void> _loadMetrics() async {
     try {
       final List<SiteVisit> visits = await DatabaseService.getSiteVisits(
-        limit: 1000,
+        limit: 10000,
       );
+
+      // Update total items count
+      setState(() {
+        _totalItems = visits.length;
+      });
       final DateTime now = DateTime.now();
       final DateTime todayStart = DateTime(now.year, now.month, now.day);
       final DateTime todayEnd = todayStart.add(const Duration(days: 1));
@@ -79,6 +93,23 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       // Error loading metrics: $e
     }
   }
+
+  void _onPageChanged(int page) {
+    setState(() {
+      _currentPage = page;
+    });
+    _loadSiteVisits();
+  }
+
+  void _onItemsPerPageChanged(int itemsPerPage) {
+    setState(() {
+      _itemsPerPage = itemsPerPage;
+      _currentPage = 1; // Reset to first page when changing page size
+    });
+    _loadSiteVisits();
+  }
+
+  int get _totalPages => (_totalItems / _itemsPerPage).ceil();
 
   @override
   Widget build(BuildContext context) {
@@ -132,6 +163,16 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           ),
           const SizedBox(height: 16),
           _SearchBar(onChanged: (String v) => setState(() => _search = v)),
+          const SizedBox(height: 12),
+          _PaginationControl(
+            currentPage: _currentPage,
+            totalPages: _totalPages,
+            itemsPerPage: _itemsPerPage,
+            totalItems: _totalItems,
+            pageSizeOptions: _pageSizeOptions,
+            onPageChanged: _onPageChanged,
+            onItemsPerPageChanged: _onItemsPerPageChanged,
+          ),
           const SizedBox(height: 12),
           FutureBuilder<List<SiteVisit>>(
             future: _siteVisitsFuture,
@@ -882,4 +923,99 @@ String _formatDate(DateTime dateTime) {
     'Dec',
   ];
   return '${dateTime.day} ${months[dateTime.month - 1]} ${dateTime.year}';
+}
+
+class _PaginationControl extends StatelessWidget {
+  final int currentPage;
+  final int totalPages;
+  final int itemsPerPage;
+  final int totalItems;
+  final List<int> pageSizeOptions;
+  final Function(int) onPageChanged;
+  final Function(int) onItemsPerPageChanged;
+
+  const _PaginationControl({
+    required this.currentPage,
+    required this.totalPages,
+    required this.itemsPerPage,
+    required this.totalItems,
+    required this.pageSizeOptions,
+    required this.onPageChanged,
+    required this.onItemsPerPageChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Top row: Items per page and page info
+            Row(
+              children: [
+                // Items per page selector
+                Text('Show:', style: Theme.of(context).textTheme.bodyMedium),
+                const SizedBox(width: 8),
+                DropdownButton<int>(
+                  value: itemsPerPage,
+                  items: pageSizeOptions.map((int value) {
+                    return DropdownMenuItem<int>(
+                      value: value,
+                      child: Text('$value'),
+                    );
+                  }).toList(),
+                  onChanged: (int? newValue) {
+                    if (newValue != null) {
+                      onItemsPerPageChanged(newValue);
+                    }
+                  },
+                ),
+                const Spacer(),
+
+                // Page info
+                Flexible(
+                  child: Text(
+                    'Page $currentPage of $totalPages ($totalItems items)',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Bottom row: Navigation buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: currentPage > 1
+                      ? () => onPageChanged(currentPage - 1)
+                      : null,
+                  icon: const Icon(Icons.chevron_left),
+                  tooltip: 'Previous page',
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$currentPage / $totalPages',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: currentPage < totalPages
+                      ? () => onPageChanged(currentPage + 1)
+                      : null,
+                  icon: const Icon(Icons.chevron_right),
+                  tooltip: 'Next page',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
