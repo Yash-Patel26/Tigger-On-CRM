@@ -3179,8 +3179,11 @@ class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
 
   List<Map<String, dynamic>> _getAllActivities() {
     final allActivities = <Map<String, dynamic>>[];
-    for (final activities in _activitiesByType.values) {
-      allActivities.addAll(activities);
+    // Exclude disposition activities from the "All" tab
+    for (final entry in _activitiesByType.entries) {
+      if (entry.key != 'disposition') {
+        allActivities.addAll(entry.value);
+      }
     }
     allActivities.sort((a, b) {
       final aTime = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(1970);

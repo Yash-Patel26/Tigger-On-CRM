@@ -28,10 +28,21 @@ class _TaskTabState extends State<TaskTab> {
   Future<void> _loadTasks() async {
     try {
       // First load from database for immediate display
-      _tasksFuture = DatabaseService.getTasks(
+      final tasks = await DatabaseService.getTasks(
         leadId: widget.leadId,
         limit: 200,
       );
+
+      // Filter out disposition-related follow-up tasks
+      final filteredTasks = tasks.where((task) {
+        // Exclude tasks that are follow-up tasks created from disposition
+        return !(task.title.toLowerCase().startsWith('follow-up:') &&
+            task.description.toLowerCase().contains(
+              'follow-up task created from disposition',
+            ));
+      }).toList();
+
+      _tasksFuture = Future.value(filteredTasks);
 
       // Then sync with backend API
       try {
@@ -42,10 +53,18 @@ class _TaskTabState extends State<TaskTab> {
         );
 
         if (apiResponse.success && apiResponse.data != null) {
+          // Filter out disposition-related follow-up tasks from API response too
+          final filteredApiTasks = apiResponse.data!.where((task) {
+            return !(task.title.toLowerCase().startsWith('follow-up:') &&
+                task.description.toLowerCase().contains(
+                  'follow-up task created from disposition',
+                ));
+          }).toList();
+
           // Update local database with backend data if needed
           // This ensures data consistency between local and backend
           setState(() {
-            _tasksFuture = Future.value(apiResponse.data!);
+            _tasksFuture = Future.value(filteredApiTasks);
           });
         }
       } catch (apiError) {
