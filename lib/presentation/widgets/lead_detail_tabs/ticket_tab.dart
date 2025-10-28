@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../data/services/database_service.dart';
 import '../../../../data/models/models.dart';
+import '../../../../shared/utils/helpers.dart';
 
 class TicketTab extends StatefulWidget {
   const TicketTab({super.key, required this.leadId});
@@ -260,10 +261,17 @@ class _TicketTabState extends State<TicketTab> {
 
   void _viewTicket(Ticket item) {
     // TODO: Navigate to ticket detail screen when it's available
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('View ticket: ${item.ticketNumber}'),
-        backgroundColor: Colors.blue,
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        title: const Text('Ticket'),
+        content: Text('Ticket: ${item.ticketNumber}'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
@@ -377,29 +385,10 @@ class _TicketTabState extends State<TicketTab> {
                             );
                           });
                           Navigator.of(ctx).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Row(
-                                children: [
-                                  Icon(
-                                    Icons.support_agent,
-                                    color: Colors.white,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '✅ Ticket created successfully! Support team will be notified.',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: Colors.green,
-                              duration: Duration(seconds: 4),
-                              behavior: SnackBarBehavior.floating,
-                            ),
+                          await Helpers.showSuccessDialog(
+                            context,
+                            title: 'Ticket created successfully',
+                            message: 'Support team will be notified.',
                           );
                         } catch (e) {
                           if (!mounted) return;
