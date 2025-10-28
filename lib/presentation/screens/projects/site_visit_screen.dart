@@ -954,22 +954,47 @@ class _PaginationControl extends StatelessWidget {
             // Top row: Items per page and page info
             Row(
               children: [
-                // Items per page selector
+                // Items per page selector with button styling
                 Text('Show:', style: Theme.of(context).textTheme.bodyMedium),
                 const SizedBox(width: 8),
-                DropdownButton<int>(
-                  value: itemsPerPage,
-                  items: pageSizeOptions.map((int value) {
-                    return DropdownMenuItem<int>(
-                      value: value,
-                      child: Text('$value'),
-                    );
-                  }).toList(),
-                  onChanged: (int? newValue) {
-                    if (newValue != null) {
-                      onItemsPerPageChanged(newValue);
-                    }
-                  },
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.3),
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: DropdownButton<int>(
+                    value: itemsPerPage,
+                    isDense: true,
+                    underline: Container(),
+                    items: pageSizeOptions.map((int value) {
+                      return DropdownMenuItem<int>(
+                        value: value,
+                        child: Text(
+                          '$value',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (int? newValue) {
+                      if (newValue != null) {
+                        onItemsPerPageChanged(newValue);
+                      }
+                    },
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    icon: Icon(
+                      Icons.arrow_drop_down,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 20,
+                    ),
+                  ),
                 ),
                 const Spacer(),
 

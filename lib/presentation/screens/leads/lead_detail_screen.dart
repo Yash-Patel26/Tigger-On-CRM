@@ -8,6 +8,8 @@ import '../../../../data/repositories/lead_repository.dart';
 import '../../../../data/repositories/booking_repository.dart';
 import '../../../../data/services/database_service.dart';
 import '../../../../data/services/database_service_masters.dart' as masters;
+import '../../../../data/services/location_data_service.dart';
+import '../../../../data/services/master_data_service.dart';
 import '../../../../data/models/models.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../widgets/lead_detail_tabs/reference_tab.dart';
@@ -723,54 +725,979 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
   void _showEditPersonalInfoDialog(BuildContext context, Lead lead) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Personal Information'),
-        content: const Text(
-          'Personal information editing functionality will be implemented here.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+      builder: (context) => _EditPersonalInfoDialog(lead: lead),
     );
   }
 
   void _showEditRequirementsDialog(BuildContext context, Lead lead) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Requirements & Notes'),
-        content: const Text(
-          'Requirements and notes editing functionality will be implemented here.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+      builder: (context) => _EditRequirementsDialog(lead: lead),
     );
   }
 
   void _showEditProjectLocationDialog(BuildContext context, Lead lead) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Project & Location'),
-        content: const Text(
-          'Project and location editing functionality will be implemented here.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+      builder: (context) => _EditProjectLocationDialog(lead: lead),
+    );
+  }
+}
+
+class _EditPersonalInfoDialog extends StatefulWidget {
+  const _EditPersonalInfoDialog({required this.lead});
+  final Lead lead;
+
+  @override
+  State<_EditPersonalInfoDialog> createState() =>
+      _EditPersonalInfoDialogState();
+}
+
+class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameController;
+  late TextEditingController _dobController;
+  late TextEditingController _ageController;
+  late TextEditingController _genderController;
+  late TextEditingController _maritalStatusController;
+  late TextEditingController _employmentTypeController;
+  late TextEditingController _itrFilingStatusController;
+  late TextEditingController _occupationController;
+  late TextEditingController _addressController;
+  late TextEditingController _cityController;
+  late TextEditingController _stateController;
+  late TextEditingController _pincodeController;
+  late TextEditingController _countryController;
+  late TextEditingController _locationController;
+
+  bool _isLoading = false;
+  bool _isLoadingMasterData = true;
+  DateTime? _selectedDob;
+
+  // Master data lists
+  List<GenderMaster> _genders = [];
+  List<MaritalStatusMaster> _maritalStatuses = [];
+  List<EmploymentTypeMaster> _employmentTypes = [];
+  List<ItrFilingStatusMaster> _itrFilingStatuses = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.lead.name ?? '');
+    _dobController = TextEditingController(
+      text: widget.lead.dob?.toIso8601String().split('T')[0] ?? '',
+    );
+    _ageController = TextEditingController(
+      text: widget.lead.age?.toString() ?? '',
+    );
+    _genderController = TextEditingController(text: widget.lead.gender ?? '');
+    _maritalStatusController = TextEditingController(
+      text: widget.lead.maritalStatus ?? '',
+    );
+    _employmentTypeController = TextEditingController(
+      text: widget.lead.employmentType ?? '',
+    );
+    _itrFilingStatusController = TextEditingController(
+      text: widget.lead.itrFilingStatus ?? '',
+    );
+    _occupationController = TextEditingController(
+      text: widget.lead.occupation ?? '',
+    );
+    _addressController = TextEditingController(text: widget.lead.address ?? '');
+    _cityController = TextEditingController(text: widget.lead.city ?? '');
+    _stateController = TextEditingController(text: widget.lead.state ?? '');
+    _pincodeController = TextEditingController(text: widget.lead.pincode ?? '');
+    _countryController = TextEditingController(text: widget.lead.country ?? '');
+    _locationController = TextEditingController(
+      text: widget.lead.location ?? '',
+    );
+    _selectedDob = widget.lead.dob;
+    _loadMasterData();
+  }
+
+  Future<void> _loadMasterData() async {
+    try {
+      final results = await Future.wait([
+        MasterDataService.getGenderMaster(),
+        MasterDataService.getMaritalStatusMaster(),
+        MasterDataService.getEmploymentTypeMaster(),
+        MasterDataService.getItrFilingStatusMaster(),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _genders = results[0] as List<GenderMaster>;
+          _maritalStatuses = results[1] as List<MaritalStatusMaster>;
+          _employmentTypes = results[2] as List<EmploymentTypeMaster>;
+          _itrFilingStatuses = results[3] as List<ItrFilingStatusMaster>;
+          _isLoadingMasterData = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingMasterData = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _dobController.dispose();
+    _ageController.dispose();
+    _genderController.dispose();
+    _maritalStatusController.dispose();
+    _employmentTypeController.dispose();
+    _itrFilingStatusController.dispose();
+    _occupationController.dispose();
+    _addressController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _pincodeController.dispose();
+    _countryController.dispose();
+    _locationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate:
+          _selectedDob ??
+          DateTime.now().subtract(const Duration(days: 365 * 25)),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDob = picked;
+        _dobController.text = picked.toIso8601String().split('T')[0];
+        // Auto-calculate age
+        final now = DateTime.now();
+        int age = now.year - picked.year;
+        if (now.month < picked.month ||
+            (now.month == picked.month && now.day < picked.day)) {
+          age--;
+        }
+        _ageController.text = age.toString();
+      });
+    }
+  }
+
+  Future<void> _savePersonalInfo() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await DatabaseService.patchLead(widget.lead.id, {
+        'name': _nameController.text.trim().isNotEmpty
+            ? _nameController.text.trim()
+            : null,
+        'dob': _selectedDob?.toIso8601String().split('T')[0],
+        'age': _ageController.text.trim().isNotEmpty
+            ? int.tryParse(_ageController.text.trim())
+            : null,
+        'gender': _genderController.text.trim().isNotEmpty
+            ? _genderController.text.trim()
+            : null,
+        'marital_status': _maritalStatusController.text.trim().isNotEmpty
+            ? _maritalStatusController.text.trim()
+            : null,
+        'employment_type': _employmentTypeController.text.trim().isNotEmpty
+            ? _employmentTypeController.text.trim()
+            : null,
+        'itr_filing_status': _itrFilingStatusController.text.trim().isNotEmpty
+            ? _itrFilingStatusController.text.trim()
+            : null,
+        'occupation': _occupationController.text.trim().isNotEmpty
+            ? _occupationController.text.trim()
+            : null,
+        'address': _addressController.text.trim().isNotEmpty
+            ? _addressController.text.trim()
+            : null,
+        'city': _cityController.text.trim().isNotEmpty
+            ? _cityController.text.trim()
+            : null,
+        'state_name': _stateController.text.trim().isNotEmpty
+            ? _stateController.text.trim()
+            : null,
+        'pincode': _pincodeController.text.trim().isNotEmpty
+            ? _pincodeController.text.trim()
+            : null,
+        'country': _countryController.text.trim().isNotEmpty
+            ? _countryController.text.trim()
+            : null,
+        'location': _locationController.text.trim().isNotEmpty
+            ? _locationController.text.trim()
+            : null,
+      });
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Personal information updated successfully'),
+            backgroundColor: Colors.green,
           ),
+        );
+        // Refresh the lead data
+        final parent = context
+            .findAncestorStateOfType<_LeadDetailScreenState>();
+        if (parent != null) {
+          parent.refreshLead();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update personal information: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      scrollable: true,
+      title: const Text('Edit Personal Information'),
+      content: _isLoadingMasterData
+          ? const SizedBox(
+              height: 200,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640, minWidth: 360),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Basic Information Section
+                    _buildSectionCard(
+                      title: 'Basic Information',
+                      children: [
+                        TextFormField(
+                          controller: _nameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Full Name',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        InkWell(
+                          onTap: _selectDate,
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Date of Birth',
+                              border: OutlineInputBorder(),
+                              suffixIcon: Icon(Icons.calendar_today),
+                            ),
+                            child: Text(
+                              _dobController.text.isEmpty
+                                  ? 'Select Date'
+                                  : _dobController.text,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _ageController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Age',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value != null && value.isNotEmpty) {
+                              final age = int.tryParse(value);
+                              if (age == null || age < 0 || age > 120) {
+                                return 'Enter valid age';
+                              }
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: _genderController.text.isEmpty
+                              ? null
+                              : _genderController.text,
+                          items: _genders.map((gender) {
+                            return DropdownMenuItem<String>(
+                              value: gender.name,
+                              child: Text(gender.name),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _genderController.text = value ?? '';
+                            });
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Gender',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Employment Information Section
+                    _buildSectionCard(
+                      title: 'Employment Information',
+                      children: [
+                        DropdownButtonFormField<String>(
+                          value: _maritalStatusController.text.isEmpty
+                              ? null
+                              : _maritalStatusController.text,
+                          items: _maritalStatuses.map((status) {
+                            return DropdownMenuItem<String>(
+                              value: status.name,
+                              child: Text(status.name),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _maritalStatusController.text = value ?? '';
+                            });
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Marital Status',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: _employmentTypeController.text.isEmpty
+                              ? null
+                              : _employmentTypeController.text,
+                          items: _employmentTypes.map((type) {
+                            return DropdownMenuItem<String>(
+                              value: type.name,
+                              child: Text(type.name),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _employmentTypeController.text = value ?? '';
+                            });
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Employment Type',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: _itrFilingStatusController.text.isEmpty
+                              ? null
+                              : _itrFilingStatusController.text,
+                          items: _itrFilingStatuses.map((status) {
+                            return DropdownMenuItem<String>(
+                              value: status.name,
+                              child: Text(status.name),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _itrFilingStatusController.text = value ?? '';
+                            });
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'ITR Filing Status',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _occupationController,
+                          decoration: const InputDecoration(
+                            labelText: 'Occupation',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Address Information Section
+                    _buildSectionCard(
+                      title: 'Address Information',
+                      children: [
+                        TextFormField(
+                          controller: _addressController,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Address',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _cityController,
+                          decoration: const InputDecoration(
+                            labelText: 'City',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _stateController,
+                          decoration: const InputDecoration(
+                            labelText: 'State',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _pincodeController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Pincode',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value != null && value.isNotEmpty) {
+                              if (value.length != 6 ||
+                                  !RegExp(r'^\d+$').hasMatch(value)) {
+                                return 'Enter valid 6-digit pincode';
+                              }
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _countryController,
+                          decoration: const InputDecoration(
+                            labelText: 'Country',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _locationController,
+                          decoration: const InputDecoration(
+                            labelText: 'Location',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isLoading ? null : _savePersonalInfo,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save Changes'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionCard({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...children,
         ],
       ),
+    );
+  }
+}
+
+class _EditRequirementsDialog extends StatefulWidget {
+  const _EditRequirementsDialog({required this.lead});
+  final Lead lead;
+
+  @override
+  State<_EditRequirementsDialog> createState() =>
+      _EditRequirementsDialogState();
+}
+
+class _EditRequirementsDialogState extends State<_EditRequirementsDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _requirementsController;
+  late TextEditingController _notesController;
+  late TextEditingController _budgetRangeController;
+
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _requirementsController = TextEditingController(
+      text: widget.lead.requirements ?? '',
+    );
+    _notesController = TextEditingController(text: widget.lead.notes ?? '');
+    _budgetRangeController = TextEditingController(
+      text: widget.lead.budgetRange ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _requirementsController.dispose();
+    _notesController.dispose();
+    _budgetRangeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveRequirements() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await DatabaseService.patchLead(widget.lead.id, {
+        'requirements': _requirementsController.text.trim().isNotEmpty
+            ? _requirementsController.text.trim()
+            : null,
+        'notes': _notesController.text.trim().isNotEmpty
+            ? _notesController.text.trim()
+            : null,
+        'budget_range': _budgetRangeController.text.trim().isNotEmpty
+            ? _budgetRangeController.text.trim()
+            : null,
+      });
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Requirements and notes updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Refresh the lead data
+        final parent = context
+            .findAncestorStateOfType<_LeadDetailScreenState>();
+        if (parent != null) {
+          parent.refreshLead();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update requirements and notes: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      scrollable: true,
+      title: const Text('Edit Requirements & Notes'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640, minWidth: 360),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: _budgetRangeController,
+                decoration: const InputDecoration(
+                  labelText: 'Budget Range',
+                  hintText: 'e.g., 50L - 1Cr',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.attach_money),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _requirementsController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Requirements',
+                  hintText: 'Describe the customer requirements...',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.description),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _notesController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Notes',
+                  hintText: 'Add any additional notes...',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.note),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isLoading ? null : _saveRequirements,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save Changes'),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditProjectLocationDialog extends StatefulWidget {
+  const _EditProjectLocationDialog({required this.lead});
+  final Lead lead;
+
+  @override
+  State<_EditProjectLocationDialog> createState() =>
+      _EditProjectLocationDialogState();
+}
+
+class _EditProjectLocationDialogState
+    extends State<_EditProjectLocationDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _projectNameController;
+  late TextEditingController _locationController;
+  late TextEditingController _budgetRangeController;
+
+  String? _selectedProjectId;
+  String? _selectedPropertyType;
+  String? _selectedCategoryType;
+
+  bool _isLoading = false;
+  List<Map<String, dynamic>> _projects = [];
+  bool _projectsLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _projectNameController = TextEditingController(
+      text: widget.lead.projectName ?? '',
+    );
+    _locationController = TextEditingController(
+      text: widget.lead.location ?? '',
+    );
+    _budgetRangeController = TextEditingController(
+      text: widget.lead.budgetRange ?? '',
+    );
+    _selectedProjectId = widget.lead.projectId;
+    _selectedPropertyType = widget.lead.propertyType.name;
+    _selectedCategoryType = widget.lead.categoryType.name;
+    _loadProjects();
+  }
+
+  @override
+  void dispose() {
+    _projectNameController.dispose();
+    _locationController.dispose();
+    _budgetRangeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProjects() async {
+    try {
+      final projects = await LocationDataService.getProjects();
+      setState(() {
+        _projects = projects;
+        _projectsLoaded = true;
+      });
+    } catch (e) {
+      print('Error loading projects: $e');
+      setState(() {
+        _projectsLoaded = true;
+      });
+    }
+  }
+
+  Future<void> _saveProjectLocation() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await DatabaseService.patchLead(widget.lead.id, {
+        'project_id': _selectedProjectId,
+        'project_name': _projectNameController.text.trim().isNotEmpty
+            ? _projectNameController.text.trim()
+            : null,
+        'location': _locationController.text.trim().isNotEmpty
+            ? _locationController.text.trim()
+            : null,
+        'budget_range': _budgetRangeController.text.trim().isNotEmpty
+            ? _budgetRangeController.text.trim()
+            : null,
+        'property_type': _selectedPropertyType,
+        'category_type': _selectedCategoryType,
+      });
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Project and location updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Refresh the lead data
+        final parent = context
+            .findAncestorStateOfType<_LeadDetailScreenState>();
+        if (parent != null) {
+          parent.refreshLead();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update project and location: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      scrollable: true,
+      title: const Text('Edit Project & Location'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640, minWidth: 360),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Project Selection
+              if (!_projectsLoaded)
+                const Center(child: CircularProgressIndicator())
+              else
+                DropdownButtonFormField<String>(
+                  value: _selectedProjectId,
+                  decoration: const InputDecoration(
+                    labelText: 'Select Project',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.business),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text('No Project Selected'),
+                    ),
+                    ..._projects.map(
+                      (project) => DropdownMenuItem<String>(
+                        value: project['id'] as String,
+                        child: Text(project['name'] as String),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedProjectId = value;
+                      if (value != null) {
+                        final project = _projects.firstWhere(
+                          (p) => p['id'] == value,
+                        );
+                        _projectNameController.text = project['name'] as String;
+                      } else {
+                        _projectNameController.clear();
+                      }
+                    });
+                  },
+                ),
+              const SizedBox(height: 16),
+
+              // Project Name
+              TextFormField(
+                controller: _projectNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Project Name',
+                  hintText: 'Enter project name',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.home_work),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Location
+              TextFormField(
+                controller: _locationController,
+                decoration: const InputDecoration(
+                  labelText: 'Location',
+                  hintText: 'Enter preferred location',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.location_on),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Budget Range
+              TextFormField(
+                controller: _budgetRangeController,
+                decoration: const InputDecoration(
+                  labelText: 'Budget Range',
+                  hintText: 'e.g., 50L - 1Cr',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.attach_money),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Property Type
+              DropdownButtonFormField<String>(
+                value: _selectedPropertyType,
+                decoration: const InputDecoration(
+                  labelText: 'Property Type',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.category),
+                ),
+                items: PropertyType.values
+                    .map(
+                      (type) => DropdownMenuItem<String>(
+                        value: type.name,
+                        child: Text(type.name.toUpperCase()),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedPropertyType = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Category Type
+              DropdownButtonFormField<String>(
+                value: _selectedCategoryType,
+                decoration: const InputDecoration(
+                  labelText: 'Category Type',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.label),
+                ),
+                items: CategoryType.values
+                    .map(
+                      (type) => DropdownMenuItem<String>(
+                        value: type.name,
+                        child: Text(type.name.toUpperCase()),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedCategoryType = value;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isLoading ? null : _saveProjectLocation,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save Changes'),
+        ),
+      ],
     );
   }
 }
@@ -1381,6 +2308,20 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
         _statusId == 'b50e8400-e29b-41d4-a716-446655440011'; // Hot
   }
 
+  bool _shouldShowCreateBookingButton() {
+    // Show button when main disposition is customer and sub disposition is selected
+    if (_statusId == null || _subStatusId == null) return false;
+
+    // We need to check if the main disposition name contains "customer"
+    // Since we don't have the name directly, we'll use a different approach
+    // We'll check this in the onChanged callback and store the main disposition name
+    return _isMainDispositionCustomer &&
+        _subStatusId != null &&
+        _subStatusId!.isNotEmpty;
+  }
+
+  bool _isMainDispositionCustomer = false;
+
   Future<String?> _getLeadUuidFromLeadId(String leadId) async {
     try {
       final response = await supabase.Supabase.instance.client
@@ -1438,10 +2379,28 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
                                   ),
                             )
                             .toList(),
-                        onChanged: (String? v) => setState(() {
-                          _statusId = v;
-                          _subStatusId = null;
-                        }),
+                        onChanged: (String? v) async {
+                          setState(() {
+                            _statusId = v;
+                            _subStatusId = null;
+                            _isMainDispositionCustomer = false;
+                          });
+
+                          // Check if the selected main disposition is "customer"
+                          if (v != null && v.isNotEmpty) {
+                            try {
+                              final mainDispositionName =
+                                  await _getDispositionName(v, true);
+                              setState(() {
+                                _isMainDispositionCustomer = mainDispositionName
+                                    .toLowerCase()
+                                    .contains('customer');
+                              });
+                            } catch (e) {
+                              print('Error getting main disposition name: $e');
+                            }
+                          }
+                        },
                         decoration: const InputDecoration(
                           labelText: 'Main Disposition',
                           hintText: 'Select main disposition',
@@ -1692,6 +2651,75 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
                 validator: (String? v) =>
                     v == null || v.trim().isEmpty ? 'Required' : null,
               ),
+              // Show Create Booking button when main disposition is customer and sub disposition is selected
+              if (_shouldShowCreateBookingButton()) ...<Widget>[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            FontAwesomeIcons.bookOpen,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Ready to Create Booking',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'This lead has been marked as a customer. You can now create a booking.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _onCreateBooking,
+                          icon: const Icon(FontAwesomeIcons.plus),
+                          label: const Text('Create Booking'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -1831,12 +2859,10 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
       if (parent != null) {
         parent.refreshLead();
 
-        // Check if disposition is customer/booking done and show create booking button
+        // Check if disposition is customer and show create booking button
         final lowerMain = mainDispositionName.toLowerCase();
-        final lowerSub = subDispositionName.toLowerCase();
 
-        if (lowerMain.contains('customer') &&
-            lowerSub.contains('booking done')) {
+        if (lowerMain.contains('customer')) {
           // Show create booking button with a slight delay to ensure dialog is closed
           Future.delayed(const Duration(milliseconds: 500), () {
             if (parent.mounted) {
@@ -1846,9 +2872,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
                     children: [
                       const Icon(Icons.book_online, color: Colors.white),
                       const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text('Lead marked as Customer Booking Done'),
-                      ),
+                      const Expanded(child: Text('Lead marked as Customer')),
                       ElevatedButton(
                         onPressed: () {
                           ScaffoldMessenger.of(
@@ -1903,6 +2927,22 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
           ),
         );
       }
+    }
+  }
+
+  void _onCreateBooking() {
+    // Close the disposition dialog first
+    Navigator.of(context).pop();
+
+    // Find the parent LeadDetailScreen and show the create booking dialog
+    final parent = context.findAncestorStateOfType<_LeadDetailScreenState>();
+    if (parent != null) {
+      // Use a slight delay to ensure the disposition dialog is closed
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (parent.mounted) {
+          parent._showCreateBookingDialog();
+        }
+      });
     }
   }
 
