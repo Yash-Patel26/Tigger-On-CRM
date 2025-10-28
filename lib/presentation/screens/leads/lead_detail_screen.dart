@@ -18,6 +18,7 @@ import '../../widgets/lead_detail_tabs/task_tab.dart';
 import '../../widgets/lead_detail_tabs/question_tab.dart';
 import '../../widgets/lead_detail_tabs/property_option_tab.dart';
 import '../../widgets/lead_detail_tabs/ticket_tab.dart';
+import 'timeline/tabbed_timeline_card.dart';
 
 class LeadDetailScreen extends StatefulWidget {
   const LeadDetailScreen({super.key, required this.leadId});
@@ -362,7 +363,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                         child: _ContactCompact(lead: lead),
                       ),
                       const SizedBox(height: 12),
-                      _CollapsibleCard(
+                      _StaticCard(
                         title: 'Preferred Project & Location',
                         action: IconButton(
                           onPressed: () =>
@@ -439,7 +440,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 
                       _CollapsibleCard(
                         title: 'Timeline',
-                        child: _TabbedTimelineCard(leadId: lead.id),
+                        child: TabbedTimelineCard(leadId: lead.id),
                       ),
                       const SizedBox(height: 12),
                       _CollapsibleCard(
@@ -3480,7 +3481,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
     try {
       final client = supabase.Supabase.instance.client;
       final response = await client
-          .from('ticket_disposition_mains')
+          .from('ticket_disposition_main')
           .select('id,name,description')
           .order('name', ascending: true);
       return List<Map<String, dynamic>>.from(response);
@@ -3496,7 +3497,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
     try {
       final client = supabase.Supabase.instance.client;
       final response = await client
-          .from('ticket_disposition_subs')
+          .from('ticket_disposition_sub')
           .select('id,name,description,main_id')
           .eq('main_id', mainId)
           .order('name', ascending: true);
@@ -4419,253 +4420,7 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
   }
 }
 
-class _TabbedTimelineCard extends StatefulWidget {
-  const _TabbedTimelineCard({required this.leadId});
-  final String leadId;
-
-  @override
-  State<_TabbedTimelineCard> createState() => _TabbedTimelineCardState();
-}
-
-class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  Map<String, List<Map<String, dynamic>>> _activitiesByType = {};
-  bool _isLoading = true;
-  supabase.RealtimeChannel? _timelineChannel;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 8, vsync: this);
-    _loadActivities();
-    _subscribeToTimelineUpdates();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _timelineChannel?.unsubscribe();
-    super.dispose();
-  }
-
-  Future<void> _loadActivities() async {
-    try {
-      final response = await LeadRepository().getLeadTimeline(widget.leadId);
-      final activities = response.data ?? [];
-
-      if (mounted) {
-        setState(() {
-          _activitiesByType = _categorizeActivities(activities);
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Map<String, List<Map<String, dynamic>>> _categorizeActivities(
-    List<Map<String, dynamic>> activities,
-  ) {
-    final Map<String, List<Map<String, dynamic>>> categorized = {
-      'disposition': [],
-      'call': [],
-      'allocation': [],
-      'sms': [],
-      'email': [],
-      'whatsapp': [],
-      'visitor': [],
-      'offline': [],
-    };
-
-    for (final activity in activities) {
-      // Use type field which contains the actual activity type
-      final type = activity['type'] as String?;
-
-      // Handle null or empty types
-      if (type == null || type.isEmpty) {
-        continue;
-      }
-
-      switch (type.toLowerCase()) {
-        case 'disposition_change':
-          categorized['disposition']!.add(activity);
-          break;
-        case 'call_initiated':
-        case 'call':
-          categorized['call']!.add(activity);
-          break;
-        case 'allocation':
-          categorized['allocation']!.add(activity);
-          break;
-        case 'sms':
-          categorized['sms']!.add(activity);
-          break;
-        case 'email':
-          categorized['email']!.add(activity);
-          break;
-        case 'whatsapp':
-          categorized['whatsapp']!.add(activity);
-          break;
-        case 'visitor':
-          categorized['visitor']!.add(activity);
-          break;
-        case 'offline':
-          categorized['offline']!.add(activity);
-          break;
-        default:
-          // Add unknown activities to a default category
-          categorized['offline']!.add(activity);
-          break;
-      }
-    }
-
-    return categorized;
-  }
-
-  void _subscribeToTimelineUpdates() {
-    // Subscribe to real-time updates for timeline activities
-    final client = supabase.Supabase.instance.client;
-    _timelineChannel = client.channel(
-      'public:lead_activities:${widget.leadId}',
-    );
-
-    _timelineChannel!
-        .onPostgresChanges(
-          event: supabase.PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'lead_activities',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'lead_id',
-            value: widget.leadId,
-          ),
-          callback: (PostgresChangePayload payload) {
-            if (!mounted) return;
-            _loadActivities();
-          },
-        )
-        .subscribe();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabs: const [
-            Tab(text: 'All'),
-            Tab(text: 'Disposition'),
-            Tab(text: 'Call'),
-            Tab(text: 'Allocation'),
-            Tab(text: 'SMS'),
-            Tab(text: 'Email'),
-            Tab(text: 'WhatsApp'),
-            Tab(text: 'Other'),
-          ],
-        ),
-        SizedBox(
-          height: 300, // Fixed height for the content area
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildActivityList(_getAllActivities()),
-              _buildActivityList(_activitiesByType['disposition'] ?? []),
-              _buildActivityList(_activitiesByType['call'] ?? []),
-              _buildActivityList(_activitiesByType['allocation'] ?? []),
-              _buildActivityList(_activitiesByType['sms'] ?? []),
-              _buildActivityList(_activitiesByType['email'] ?? []),
-              _buildActivityList(_activitiesByType['whatsapp'] ?? []),
-              _buildActivityList(_activitiesByType['offline'] ?? []),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  List<Map<String, dynamic>> _getAllActivities() {
-    final allActivities = <Map<String, dynamic>>[];
-    // Exclude disposition activities from the "All" tab
-    for (final entry in _activitiesByType.entries) {
-      if (entry.key != 'disposition') {
-        allActivities.addAll(entry.value);
-      }
-    }
-    allActivities.sort((a, b) {
-      final aTime = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(1970);
-      final bTime = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(1970);
-      return bTime.compareTo(aTime);
-    });
-    return allActivities;
-  }
-
-  Widget _buildActivityList(List<Map<String, dynamic>> activities) {
-    if (activities.isEmpty) {
-      return const Center(child: Text('No activities found'));
-    }
-
-    return ListView.builder(
-      itemCount: activities.length,
-      itemBuilder: (context, index) {
-        final activity = activities[index];
-        return _buildActivityCard(activity);
-      },
-    );
-  }
-
-  Widget _buildActivityCard(Map<String, dynamic> activity) {
-    final type = activity['type'] as String? ?? 'Unknown';
-    final description = activity['description'] as String? ?? 'No description';
-    final createdAt = activity['created_at'] as String? ?? '';
-    final performedBy = activity['performed_by_name'] as String? ?? 'Unknown';
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: ListTile(
-        leading: CircleAvatar(child: Text(type[0].toUpperCase())),
-        title: Text(type.replaceAll('_', ' ').toUpperCase()),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(description),
-            const SizedBox(height: 4),
-            Text(
-              'By: $performedBy',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (createdAt.isNotEmpty)
-              Text(
-                _formatDateTime(createdAt),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatDateTime(String dateTimeString) {
-    try {
-      final dateTime = DateTime.parse(dateTimeString);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
-    } catch (e) {
-      return dateTimeString;
-    }
-  }
-}
+// extracted Tabbed Timeline implementation moved to timeline/tabbed_timeline_card.dart
 
 class CrossSellTab extends StatefulWidget {
   const CrossSellTab({super.key, required this.leadId});
