@@ -18,6 +18,7 @@ import '../../widgets/lead_detail_tabs/task_tab.dart';
 import '../../widgets/lead_detail_tabs/question_tab.dart';
 import '../../widgets/lead_detail_tabs/property_option_tab.dart';
 import '../../widgets/lead_detail_tabs/ticket_tab.dart';
+import 'timeline/tabbed_timeline_card.dart';
 
 class LeadDetailScreen extends StatefulWidget {
   const LeadDetailScreen({super.key, required this.leadId});
@@ -140,6 +141,8 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             ],
           ),
           actions: <Widget>[
+            if (supabase.Supabase.instance.client.auth.currentUser?.email ==
+                'netleaf@software.com')
             IconButton(
               tooltip: 'Assign',
               icon: Icon(
@@ -362,7 +365,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                         child: _ContactCompact(lead: lead),
                       ),
                       const SizedBox(height: 12),
-                      _CollapsibleCard(
+                      _StaticCard(
                         title: 'Preferred Project & Location',
                         action: IconButton(
                           onPressed: () =>
@@ -381,7 +384,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                         title: 'Basic Details',
                         action: IconButton(
                           onPressed: () =>
-                              _showEditPersonalInfoDialog(context, lead),
+                              _showEditBasicInfoDialog(context, lead),
                           icon: const Icon(
                             FontAwesomeIcons.penToSquare,
                             size: 20,
@@ -396,7 +399,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                         title: 'Professional Details',
                         action: IconButton(
                           onPressed: () =>
-                              _showEditPersonalInfoDialog(context, lead),
+                              _showEditProfessionalInfoDialog(context, lead),
                           icon: const Icon(
                             FontAwesomeIcons.penToSquare,
                             size: 20,
@@ -411,7 +414,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                         title: 'Permanent Address',
                         action: IconButton(
                           onPressed: () =>
-                              _showEditPersonalInfoDialog(context, lead),
+                              _showEditPermanentAddressDialog(context, lead),
                           icon: const Icon(
                             FontAwesomeIcons.penToSquare,
                             size: 20,
@@ -439,7 +442,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 
                       _CollapsibleCard(
                         title: 'Timeline',
-                        child: _TabbedTimelineCard(leadId: lead.id),
+                        child: TabbedTimelineCard(leadId: lead.id),
                       ),
                       const SizedBox(height: 12),
                       _CollapsibleCard(
@@ -768,10 +771,24 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     );
   }
 
-  void _showEditPersonalInfoDialog(BuildContext context, Lead lead) {
+  void _showEditBasicInfoDialog(BuildContext context, Lead lead) {
     showDialog(
       context: context,
-      builder: (context) => _EditPersonalInfoDialog(lead: lead),
+      builder: (context) => _EditBasicInfoDialog(lead: lead),
+    );
+  }
+
+  void _showEditProfessionalInfoDialog(BuildContext context, Lead lead) {
+    showDialog(
+      context: context,
+      builder: (context) => _EditProfessionalInfoDialog(lead: lead),
+    );
+  }
+
+  void _showEditPermanentAddressDialog(BuildContext context, Lead lead) {
+    showDialog(
+      context: context,
+      builder: (context) => _EditPermanentAddressDialog(lead: lead),
     );
   }
 
@@ -1017,46 +1034,30 @@ class _EditContactDialogState extends State<_EditContactDialog> {
   }
 }
 
-class _EditPersonalInfoDialog extends StatefulWidget {
-  const _EditPersonalInfoDialog({required this.lead});
+class _EditBasicInfoDialog extends StatefulWidget {
+  const _EditBasicInfoDialog({required this.lead});
   final Lead lead;
 
   @override
-  State<_EditPersonalInfoDialog> createState() =>
-      _EditPersonalInfoDialogState();
+  State<_EditBasicInfoDialog> createState() => _EditBasicInfoDialogState();
 }
 
-class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
+class _EditBasicInfoDialogState extends State<_EditBasicInfoDialog> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
   late TextEditingController _dobController;
   late TextEditingController _ageController;
   late TextEditingController _genderController;
   late TextEditingController _maritalStatusController;
-  late TextEditingController _employmentTypeController;
-  late TextEditingController _itrFilingStatusController;
-  late TextEditingController _occupationController;
-  late TextEditingController _addressController;
-  late TextEditingController _cityController;
-  late TextEditingController _stateController;
-  late TextEditingController _pincodeController;
-  late TextEditingController _countryController;
-  late TextEditingController _locationController;
-
-  bool _isLoading = false;
-  bool _isLoadingMasterData = true;
   DateTime? _selectedDob;
 
-  // Master data lists
   List<GenderMaster> _genders = [];
   List<MaritalStatusMaster> _maritalStatuses = [];
-  List<EmploymentTypeMaster> _employmentTypes = [];
-  List<ItrFilingStatusMaster> _itrFilingStatuses = [];
+  bool _isLoading = false;
+  bool _isLoadingMasterData = true;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.lead.name ?? '');
     _dobController = TextEditingController(
       text: widget.lead.dob?.toIso8601String().split('T')[0] ?? '',
     );
@@ -1067,23 +1068,6 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
     _maritalStatusController = TextEditingController(
       text: widget.lead.maritalStatus ?? '',
     );
-    _employmentTypeController = TextEditingController(
-      text: widget.lead.employmentType ?? '',
-    );
-    _itrFilingStatusController = TextEditingController(
-      text: widget.lead.itrFilingStatus ?? '',
-    );
-    _occupationController = TextEditingController(
-      text: widget.lead.occupation ?? '',
-    );
-    _addressController = TextEditingController(text: widget.lead.address ?? '');
-    _cityController = TextEditingController(text: widget.lead.city ?? '');
-    _stateController = TextEditingController(text: widget.lead.state ?? '');
-    _pincodeController = TextEditingController(text: widget.lead.pincode ?? '');
-    _countryController = TextEditingController(text: widget.lead.country ?? '');
-    _locationController = TextEditingController(
-      text: widget.lead.location ?? '',
-    );
     _selectedDob = widget.lead.dob;
     _loadMasterData();
   }
@@ -1093,53 +1077,25 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
       final results = await Future.wait([
         MasterDataService.getGenderMaster(),
         MasterDataService.getMaritalStatusMaster(),
-        MasterDataService.getEmploymentTypeMaster(),
-        MasterDataService.getItrFilingStatusMaster(),
       ]);
-
-      if (mounted) {
+      if (!mounted) return;
         setState(() {
           _genders = results[0] as List<GenderMaster>;
           _maritalStatuses = results[1] as List<MaritalStatusMaster>;
-          _employmentTypes = results[2] as List<EmploymentTypeMaster>;
-          _itrFilingStatuses = results[3] as List<ItrFilingStatusMaster>;
           _isLoadingMasterData = false;
         });
-      }
-    } catch (e) {
-      if (mounted) {
+    } catch (_) {
+      if (!mounted) return;
         setState(() {
           _isLoadingMasterData = false;
         });
-      }
     }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _dobController.dispose();
-    _ageController.dispose();
-    _genderController.dispose();
-    _maritalStatusController.dispose();
-    _employmentTypeController.dispose();
-    _itrFilingStatusController.dispose();
-    _occupationController.dispose();
-    _addressController.dispose();
-    _cityController.dispose();
-    _stateController.dispose();
-    _pincodeController.dispose();
-    _countryController.dispose();
-    _locationController.dispose();
-    super.dispose();
   }
 
   Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate:
-          _selectedDob ??
-          DateTime.now().subtract(const Duration(days: 365 * 25)),
+      initialDate: _selectedDob ?? DateTime.now(),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
     );
@@ -1147,7 +1103,6 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
       setState(() {
         _selectedDob = picked;
         _dobController.text = picked.toIso8601String().split('T')[0];
-        // Auto-calculate age
         final now = DateTime.now();
         int age = now.year - picked.year;
         if (now.month < picked.month ||
@@ -1159,18 +1114,11 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
     }
   }
 
-  Future<void> _savePersonalInfo() async {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     try {
       await DatabaseService.patchLead(widget.lead.id, {
-        'name': _nameController.text.trim().isNotEmpty
-            ? _nameController.text.trim()
-            : null,
         'dob': _selectedDob?.toIso8601String().split('T')[0],
         'age': _ageController.text.trim().isNotEmpty
             ? int.tryParse(_ageController.text.trim())
@@ -1181,65 +1129,25 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
         'marital_status': _maritalStatusController.text.trim().isNotEmpty
             ? _maritalStatusController.text.trim()
             : null,
-        'employment_type': _employmentTypeController.text.trim().isNotEmpty
-            ? _employmentTypeController.text.trim()
-            : null,
-        'itr_filing_status': _itrFilingStatusController.text.trim().isNotEmpty
-            ? _itrFilingStatusController.text.trim()
-            : null,
-        'occupation': _occupationController.text.trim().isNotEmpty
-            ? _occupationController.text.trim()
-            : null,
-        'address': _addressController.text.trim().isNotEmpty
-            ? _addressController.text.trim()
-            : null,
-        'city': _cityController.text.trim().isNotEmpty
-            ? _cityController.text.trim()
-            : null,
-        'state_name': _stateController.text.trim().isNotEmpty
-            ? _stateController.text.trim()
-            : null,
-        'pincode': _pincodeController.text.trim().isNotEmpty
-            ? _pincodeController.text.trim()
-            : null,
-        'country': _countryController.text.trim().isNotEmpty
-            ? _countryController.text.trim()
-            : null,
-        'location': _locationController.text.trim().isNotEmpty
-            ? _locationController.text.trim()
-            : null,
       });
-
-      if (mounted) {
+      if (!mounted) return;
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Personal information updated successfully'),
+          content: Text('Basic information updated'),
             backgroundColor: Colors.green,
           ),
         );
-        // Refresh the lead data
-        final parent = context
-            .findAncestorStateOfType<_LeadDetailScreenState>();
-        if (parent != null) {
-          parent.refreshLead();
-        }
-      }
     } catch (e) {
-      if (mounted) {
+      if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update personal information: $e'),
+          content: Text('Failed to update basic info: $e'),
             backgroundColor: Colors.red,
           ),
         );
-      }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -1250,40 +1158,38 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
       surfaceTintColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
       scrollable: true,
-      title: const Text('Edit Personal Information'),
+      title: const Text('Edit Basic Information'),
       content: _isLoadingMasterData
           ? const SizedBox(
               height: 200,
               child: Center(child: CircularProgressIndicator()),
             )
           : ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640, minWidth: 360),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-                    // Basic Details Section
-              _buildSectionCard(
-                      title: 'Basic Details',
-                children: [
+              constraints: const BoxConstraints(maxWidth: 640, minWidth: 360),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         InkWell(
                           onTap: _selectDate,
-                          child: InputDecorator(
-                            decoration: const InputDecoration(
+                      child: const InputDecorator(
+                        decoration: InputDecoration(
                               labelText: 'Date of Birth',
                               border: OutlineInputBorder(),
                               suffixIcon: Icon(Icons.calendar_today),
                             ),
-                            child: Text(
+                        child: SizedBox.shrink(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
                               _dobController.text.isEmpty
                                   ? 'Select Date'
                                   : _dobController.text,
-                            ),
-                          ),
-                  ),
-                  const SizedBox(height: 12),
+                        ),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _ageController,
                           keyboardType: TextInputType.number,
@@ -1306,17 +1212,16 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           value: _genderController.text.isEmpty
                               ? null
                               : _genderController.text,
-                          items: _genders.map((gender) {
-                            return DropdownMenuItem<String>(
-                              value: gender.name,
-                              child: Text(gender.name),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _genderController.text = value ?? '';
-                            });
-                          },
+                      items: _genders
+                          .map(
+                            (g) => DropdownMenuItem(
+                              value: g.name,
+                              child: Text(g.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) =>
+                          setState(() => _genderController.text = v ?? ''),
                           decoration: const InputDecoration(
                             labelText: 'Gender',
                             border: OutlineInputBorder(),
@@ -1327,66 +1232,192 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           value: _maritalStatusController.text.isEmpty
                               ? null
                               : _maritalStatusController.text,
-                          items: _maritalStatuses.map((status) {
-                            return DropdownMenuItem<String>(
-                              value: status.name,
-                              child: Text(status.name),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _maritalStatusController.text = value ?? '';
-                            });
-                          },
+                      items: _maritalStatuses
+                          .map(
+                            (s) => DropdownMenuItem(
+                              value: s.name,
+                              child: Text(s.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setState(
+                        () => _maritalStatusController.text = v ?? '',
+                      ),
                           decoration: const InputDecoration(
                             labelText: 'Marital Status',
                             border: OutlineInputBorder(),
                           ),
-                  ),
-                ],
+                        ),
+                      ],
+                    ),
               ),
-              const SizedBox(height: 16),
+            ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isLoading ? null : _save,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save Changes'),
+        ),
+      ],
+    );
+  }
+}
 
-                    // Professional Details Section
-              _buildSectionCard(
-                      title: 'Professional Details',
-                children: [
+class _EditProfessionalInfoDialog extends StatefulWidget {
+  const _EditProfessionalInfoDialog({required this.lead});
+  final Lead lead;
+
+  @override
+  State<_EditProfessionalInfoDialog> createState() =>
+      _EditProfessionalInfoDialogState();
+}
+
+class _EditProfessionalInfoDialogState
+    extends State<_EditProfessionalInfoDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _employmentTypeController;
+  late TextEditingController _itrFilingStatusController;
+  late TextEditingController _occupationController;
+  bool _isLoading = false;
+  bool _isLoadingMasterData = true;
+  List<EmploymentTypeMaster> _employmentTypes = [];
+  List<ItrFilingStatusMaster> _itrFilingStatuses = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _employmentTypeController = TextEditingController(
+      text: widget.lead.employmentType ?? '',
+    );
+    _itrFilingStatusController = TextEditingController(
+      text: widget.lead.itrFilingStatus ?? '',
+    );
+    _occupationController = TextEditingController(
+      text: widget.lead.occupation ?? '',
+    );
+    _loadMasterData();
+  }
+
+  Future<void> _loadMasterData() async {
+    try {
+      final results = await Future.wait([
+        MasterDataService.getEmploymentTypeMaster(),
+        MasterDataService.getItrFilingStatusMaster(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _employmentTypes = results[0] as List<EmploymentTypeMaster>;
+        _itrFilingStatuses = results[1] as List<ItrFilingStatusMaster>;
+        _isLoadingMasterData = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingMasterData = false);
+    }
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+    try {
+      await DatabaseService.patchLead(widget.lead.id, {
+        'employment_type': _employmentTypeController.text.trim().isNotEmpty
+            ? _employmentTypeController.text.trim()
+            : null,
+        'itr_filing_status': _itrFilingStatusController.text.trim().isNotEmpty
+            ? _itrFilingStatusController.text.trim()
+            : null,
+        'occupation': _occupationController.text.trim().isNotEmpty
+            ? _occupationController.text.trim()
+            : null,
+      });
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Professional information updated'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update professional info: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      scrollable: true,
+      title: const Text('Edit Professional Information'),
+      content: _isLoadingMasterData
+          ? const SizedBox(
+              height: 200,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640, minWidth: 360),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         DropdownButtonFormField<String>(
                           value: _employmentTypeController.text.isEmpty
                               ? null
                               : _employmentTypeController.text,
-                          items: _employmentTypes.map((type) {
-                            return DropdownMenuItem<String>(
-                              value: type.name,
-                              child: Text(type.name),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _employmentTypeController.text = value ?? '';
-                            });
-                          },
+                      items: _employmentTypes
+                          .map(
+                            (e) => DropdownMenuItem<String>(
+                              value: e.name,
+                              child: Text(e.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setState(
+                        () => _employmentTypeController.text = v ?? '',
+                      ),
                           decoration: const InputDecoration(
                             labelText: 'Employment Type',
                             border: OutlineInputBorder(),
                           ),
-                  ),
-                  const SizedBox(height: 12),
+                        ),
+                        const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
                           value: _itrFilingStatusController.text.isEmpty
                               ? null
                               : _itrFilingStatusController.text,
-                          items: _itrFilingStatuses.map((status) {
-                            return DropdownMenuItem<String>(
-                              value: status.name,
-                              child: Text(status.name),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _itrFilingStatusController.text = value ?? '';
-                            });
-                          },
+                      items: _itrFilingStatuses
+                          .map(
+                            (e) => DropdownMenuItem<String>(
+                              value: e.name,
+                              child: Text(e.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setState(
+                        () => _itrFilingStatusController.text = v ?? '',
+                      ),
                           decoration: const InputDecoration(
                             labelText: 'ITR Filing Status',
                             border: OutlineInputBorder(),
@@ -1398,25 +1429,146 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           decoration: const InputDecoration(
                             labelText: 'Occupation',
                             border: OutlineInputBorder(),
+                          ),
                         ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-                    // Permanent Address Section
-              _buildSectionCard(
-                      title: 'Permanent Address',
-                children: [
-                  TextFormField(
-                    controller: _addressController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'Address',
-                      border: OutlineInputBorder(),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
+              ),
+            ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isLoading ? null : _save,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save Changes'),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditPermanentAddressDialog extends StatefulWidget {
+  const _EditPermanentAddressDialog({required this.lead});
+  final Lead lead;
+
+  @override
+  State<_EditPermanentAddressDialog> createState() =>
+      _EditPermanentAddressDialogState();
+}
+
+class _EditPermanentAddressDialogState
+    extends State<_EditPermanentAddressDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _addressController;
+  late TextEditingController _cityController;
+  late TextEditingController _stateController;
+  late TextEditingController _pincodeController;
+  late TextEditingController _countryController;
+  late TextEditingController _locationController;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _addressController = TextEditingController(text: widget.lead.address ?? '');
+    _cityController = TextEditingController(text: widget.lead.city ?? '');
+    _stateController = TextEditingController(text: widget.lead.state ?? '');
+    _pincodeController = TextEditingController(text: widget.lead.pincode ?? '');
+    _countryController = TextEditingController(text: widget.lead.country ?? '');
+    _locationController = TextEditingController(
+      text: widget.lead.location ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _pincodeController.dispose();
+    _countryController.dispose();
+    _locationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+    try {
+      await DatabaseService.patchLead(widget.lead.id, {
+        'address': _addressController.text.trim().isNotEmpty
+            ? _addressController.text.trim()
+            : null,
+        'city': _cityController.text.trim().isNotEmpty
+            ? _cityController.text.trim()
+            : null,
+        'state_name': _stateController.text.trim().isNotEmpty
+            ? _stateController.text.trim()
+            : null,
+        'pincode': _pincodeController.text.trim().isNotEmpty
+            ? _pincodeController.text.trim()
+            : null,
+        'country': _countryController.text.trim().isNotEmpty
+            ? _countryController.text.trim()
+            : null,
+        'location': _locationController.text.trim().isNotEmpty
+            ? _locationController.text.trim()
+            : null,
+      });
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Permanent address updated'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update address: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      scrollable: true,
+      title: const Text('Edit Permanent Address'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640, minWidth: 360),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: _addressController,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Address',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _countryController,
                           decoration: const InputDecoration(
@@ -1439,8 +1591,8 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                             labelText: 'City',
                             border: OutlineInputBorder(),
                           ),
-                  ),
-                  const SizedBox(height: 12),
+                        ),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _locationController,
                           decoration: const InputDecoration(
@@ -1458,27 +1610,24 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           ),
                           validator: (value) {
                             if (value != null && value.isNotEmpty) {
-                              if (value.length != 6 ||
-                                  !RegExp(r'^\d+$').hasMatch(value)) {
-                                return 'Enter valid 6-digit pincode';
-                              }
+                    final bool isSixDigits =
+                        value.length == 6 && int.tryParse(value) != null;
+                    if (!isSixDigits) return 'Enter valid 6-digit pincode';
                             }
                             return null;
                           },
-                        ),
-                      ],
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: _isLoading ? null : _savePersonalInfo,
+          onPressed: _isLoading ? null : _save,
           child: _isLoading
               ? const SizedBox(
                   width: 20,
@@ -1488,38 +1637,6 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
               : const Text('Save Changes'),
         ),
       ],
-    );
-  }
-
-  Widget _buildSectionCard({
-    required String title,
-    required List<Widget> children,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...children,
-        ],
-      ),
     );
   }
 }
@@ -1537,7 +1654,9 @@ class _EditRequirementsDialogState extends State<_EditRequirementsDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _requirementsController;
   late TextEditingController _notesController;
-  late TextEditingController _budgetRangeController;
+  String? _selectedBudget;
+  List<BudgetMaster> _budgets = [];
+  bool _isLoadingBudgets = true;
 
   bool _isLoading = false;
 
@@ -1548,17 +1667,32 @@ class _EditRequirementsDialogState extends State<_EditRequirementsDialog> {
       text: widget.lead.requirements ?? '',
     );
     _notesController = TextEditingController(text: widget.lead.notes ?? '');
-    _budgetRangeController = TextEditingController(
-      text: widget.lead.budgetRange ?? '',
-    );
+    _selectedBudget = widget.lead.budgetRange;
+    _loadBudgets();
   }
 
   @override
   void dispose() {
     _requirementsController.dispose();
     _notesController.dispose();
-    _budgetRangeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadBudgets() async {
+    try {
+      final List<BudgetMaster> budgets =
+          await MasterDataService.getBudgetMaster();
+      if (!mounted) return;
+      setState(() {
+        _budgets = budgets;
+        _isLoadingBudgets = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingBudgets = false;
+      });
+    }
   }
 
   Future<void> _saveRequirements() async {
@@ -1576,8 +1710,9 @@ class _EditRequirementsDialogState extends State<_EditRequirementsDialog> {
         'notes': _notesController.text.trim().isNotEmpty
             ? _notesController.text.trim()
             : null,
-        'budget_range': _budgetRangeController.text.trim().isNotEmpty
-            ? _budgetRangeController.text.trim()
+        'budget_range':
+            (_selectedBudget != null && _selectedBudget!.trim().isNotEmpty)
+            ? _selectedBudget!.trim()
             : null,
       });
 
@@ -1630,11 +1765,30 @@ class _EditRequirementsDialogState extends State<_EditRequirementsDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextFormField(
-                controller: _budgetRangeController,
+              _isLoadingBudgets
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  : DropdownButtonFormField<String>(
+                      value:
+                          (_selectedBudget != null &&
+                              _selectedBudget!.isNotEmpty)
+                          ? _selectedBudget
+                          : null,
+                      items: _budgets
+                          .map(
+                            (b) => DropdownMenuItem<String>(
+                              value: b.name,
+                              child: Text(b.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setState(() => _selectedBudget = v),
                 decoration: const InputDecoration(
                   labelText: 'Budget Range',
-                  hintText: 'e.g., 50L - 1Cr',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.attach_money),
                 ),
@@ -2025,16 +2179,16 @@ class _ContactCompact extends StatelessWidget {
               _buildInfoRow(context, 'Purchase Plan', lead.budgetRange!),
             if (lead.nextFollowUpDate != null)
               _buildInfoRow(
-                    context,
+                context,
                 'Follow Up',
                 lead.nextFollowUpDate!.toIso8601String().split('T')[0],
               )
             else if (lead.followUpCount > 0)
               _buildInfoRow(
-                    context,
+                context,
                 'Follow Up',
                 '${lead.followUpCount} times',
-                  ),
+              ),
             _buildInfoRow(context, 'Status', lead.status.name.toUpperCase()),
           ],
         ),
@@ -2053,7 +2207,7 @@ class _ContactCompact extends StatelessWidget {
             child: Text(
               '$label:',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w600,
                 color: Colors.grey[600],
               ),
             ),
@@ -2143,22 +2297,22 @@ class _LazyProjectLocationCompactState
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
             width: 120,
-          child: Text(
-            '$label:',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
+            child: Text(
+              '$label:',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[600],
+              ),
             ),
           ),
-        ),
-        Expanded(
-          child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
-        ),
-      ],
+          Expanded(
+            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+        ],
       ),
     );
   }
@@ -2205,11 +2359,11 @@ class _BasicDetailsCard extends StatelessWidget {
             width: 120,
             child: Text(
               '$label:',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[600],
-                ),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[600],
               ),
+            ),
           ),
           Expanded(
             child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
@@ -2556,19 +2710,19 @@ class _StaticCard extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                   if (action != null) ...[action!, const SizedBox(width: 8)],
                 ],
               ),
-                Padding(
+              Padding(
                 padding: const EdgeInsets.only(top: 10, bottom: 12),
                 child: Divider(color: primary.withOpacity(0.15), height: 1),
-                ),
+              ),
               child,
             ],
           ),
@@ -3480,7 +3634,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
     try {
       final client = supabase.Supabase.instance.client;
       final response = await client
-          .from('ticket_disposition_mains')
+          .from('ticket_disposition_main')
           .select('id,name,description')
           .order('name', ascending: true);
       return List<Map<String, dynamic>>.from(response);
@@ -3496,7 +3650,7 @@ class _DisposeLeadDialogState extends State<_DisposeLeadDialog> {
     try {
       final client = supabase.Supabase.instance.client;
       final response = await client
-          .from('ticket_disposition_subs')
+          .from('ticket_disposition_sub')
           .select('id,name,description,main_id')
           .eq('main_id', mainId)
           .order('name', ascending: true);
@@ -4419,253 +4573,7 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
   }
 }
 
-class _TabbedTimelineCard extends StatefulWidget {
-  const _TabbedTimelineCard({required this.leadId});
-  final String leadId;
-
-  @override
-  State<_TabbedTimelineCard> createState() => _TabbedTimelineCardState();
-}
-
-class _TabbedTimelineCardState extends State<_TabbedTimelineCard>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  Map<String, List<Map<String, dynamic>>> _activitiesByType = {};
-  bool _isLoading = true;
-  supabase.RealtimeChannel? _timelineChannel;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 8, vsync: this);
-    _loadActivities();
-    _subscribeToTimelineUpdates();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _timelineChannel?.unsubscribe();
-    super.dispose();
-  }
-
-  Future<void> _loadActivities() async {
-    try {
-      final response = await LeadRepository().getLeadTimeline(widget.leadId);
-      final activities = response.data ?? [];
-
-      if (mounted) {
-        setState(() {
-          _activitiesByType = _categorizeActivities(activities);
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Map<String, List<Map<String, dynamic>>> _categorizeActivities(
-    List<Map<String, dynamic>> activities,
-  ) {
-    final Map<String, List<Map<String, dynamic>>> categorized = {
-      'disposition': [],
-      'call': [],
-      'allocation': [],
-      'sms': [],
-      'email': [],
-      'whatsapp': [],
-      'visitor': [],
-      'offline': [],
-    };
-
-    for (final activity in activities) {
-      // Use type field which contains the actual activity type
-      final type = activity['type'] as String?;
-
-      // Handle null or empty types
-      if (type == null || type.isEmpty) {
-        continue;
-      }
-
-      switch (type.toLowerCase()) {
-        case 'disposition_change':
-          categorized['disposition']!.add(activity);
-          break;
-        case 'call_initiated':
-        case 'call':
-          categorized['call']!.add(activity);
-          break;
-        case 'allocation':
-          categorized['allocation']!.add(activity);
-          break;
-        case 'sms':
-          categorized['sms']!.add(activity);
-          break;
-        case 'email':
-          categorized['email']!.add(activity);
-          break;
-        case 'whatsapp':
-          categorized['whatsapp']!.add(activity);
-          break;
-        case 'visitor':
-          categorized['visitor']!.add(activity);
-          break;
-        case 'offline':
-          categorized['offline']!.add(activity);
-          break;
-        default:
-          // Add unknown activities to a default category
-          categorized['offline']!.add(activity);
-          break;
-      }
-    }
-
-    return categorized;
-  }
-
-  void _subscribeToTimelineUpdates() {
-    // Subscribe to real-time updates for timeline activities
-    final client = supabase.Supabase.instance.client;
-    _timelineChannel = client.channel(
-      'public:lead_activities:${widget.leadId}',
-    );
-
-    _timelineChannel!
-        .onPostgresChanges(
-          event: supabase.PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'lead_activities',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'lead_id',
-            value: widget.leadId,
-          ),
-          callback: (PostgresChangePayload payload) {
-            if (!mounted) return;
-            _loadActivities();
-          },
-        )
-        .subscribe();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabs: const [
-            Tab(text: 'All'),
-            Tab(text: 'Disposition'),
-            Tab(text: 'Call'),
-            Tab(text: 'Allocation'),
-            Tab(text: 'SMS'),
-            Tab(text: 'Email'),
-            Tab(text: 'WhatsApp'),
-            Tab(text: 'Other'),
-          ],
-        ),
-        SizedBox(
-          height: 300, // Fixed height for the content area
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildActivityList(_getAllActivities()),
-              _buildActivityList(_activitiesByType['disposition'] ?? []),
-              _buildActivityList(_activitiesByType['call'] ?? []),
-              _buildActivityList(_activitiesByType['allocation'] ?? []),
-              _buildActivityList(_activitiesByType['sms'] ?? []),
-              _buildActivityList(_activitiesByType['email'] ?? []),
-              _buildActivityList(_activitiesByType['whatsapp'] ?? []),
-              _buildActivityList(_activitiesByType['offline'] ?? []),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  List<Map<String, dynamic>> _getAllActivities() {
-    final allActivities = <Map<String, dynamic>>[];
-    // Exclude disposition activities from the "All" tab
-    for (final entry in _activitiesByType.entries) {
-      if (entry.key != 'disposition') {
-        allActivities.addAll(entry.value);
-      }
-    }
-    allActivities.sort((a, b) {
-      final aTime = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(1970);
-      final bTime = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(1970);
-      return bTime.compareTo(aTime);
-    });
-    return allActivities;
-  }
-
-  Widget _buildActivityList(List<Map<String, dynamic>> activities) {
-    if (activities.isEmpty) {
-      return const Center(child: Text('No activities found'));
-    }
-
-    return ListView.builder(
-      itemCount: activities.length,
-      itemBuilder: (context, index) {
-        final activity = activities[index];
-        return _buildActivityCard(activity);
-      },
-    );
-  }
-
-  Widget _buildActivityCard(Map<String, dynamic> activity) {
-    final type = activity['type'] as String? ?? 'Unknown';
-    final description = activity['description'] as String? ?? 'No description';
-    final createdAt = activity['created_at'] as String? ?? '';
-    final performedBy = activity['performed_by_name'] as String? ?? 'Unknown';
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: ListTile(
-        leading: CircleAvatar(child: Text(type[0].toUpperCase())),
-        title: Text(type.replaceAll('_', ' ').toUpperCase()),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(description),
-            const SizedBox(height: 4),
-            Text(
-              'By: $performedBy',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (createdAt.isNotEmpty)
-              Text(
-                _formatDateTime(createdAt),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatDateTime(String dateTimeString) {
-    try {
-      final dateTime = DateTime.parse(dateTimeString);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
-    } catch (e) {
-      return dateTimeString;
-    }
-  }
-}
+// extracted Tabbed Timeline implementation moved to timeline/tabbed_timeline_card.dart
 
 class CrossSellTab extends StatefulWidget {
   const CrossSellTab({super.key, required this.leadId});
