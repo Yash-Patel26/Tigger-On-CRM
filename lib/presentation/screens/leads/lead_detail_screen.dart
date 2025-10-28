@@ -1257,17 +1257,17 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
               child: Center(child: CircularProgressIndicator()),
             )
           : ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640, minWidth: 360),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+              constraints: const BoxConstraints(maxWidth: 640, minWidth: 360),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     // Basic Details Section
-              _buildSectionCard(
+                    _buildSectionCard(
                       title: 'Basic Details',
-                children: [
+                      children: [
                         InkWell(
                           onTap: _selectDate,
                           child: InputDecorator(
@@ -1282,8 +1282,8 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                                   : _dobController.text,
                             ),
                           ),
-                  ),
-                  const SizedBox(height: 12),
+                        ),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _ageController,
                           keyboardType: TextInputType.number,
@@ -1342,15 +1342,15 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                             labelText: 'Marital Status',
                             border: OutlineInputBorder(),
                           ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
 
                     // Professional Details Section
-              _buildSectionCard(
+                    _buildSectionCard(
                       title: 'Professional Details',
-                children: [
+                      children: [
                         DropdownButtonFormField<String>(
                           value: _employmentTypeController.text.isEmpty
                               ? null
@@ -1370,8 +1370,8 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                             labelText: 'Employment Type',
                             border: OutlineInputBorder(),
                           ),
-                  ),
-                  const SizedBox(height: 12),
+                        ),
+                        const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
                           value: _itrFilingStatusController.text.isEmpty
                               ? null
@@ -1398,25 +1398,25 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           decoration: const InputDecoration(
                             labelText: 'Occupation',
                             border: OutlineInputBorder(),
+                          ),
                         ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
 
                     // Permanent Address Section
-              _buildSectionCard(
+                    _buildSectionCard(
                       title: 'Permanent Address',
-                children: [
-                  TextFormField(
-                    controller: _addressController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'Address',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                      children: [
+                        TextFormField(
+                          controller: _addressController,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Address',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _countryController,
                           decoration: const InputDecoration(
@@ -1439,8 +1439,8 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                             labelText: 'City',
                             border: OutlineInputBorder(),
                           ),
-                  ),
-                  const SizedBox(height: 12),
+                        ),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _locationController,
                           decoration: const InputDecoration(
@@ -1467,11 +1467,11 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           },
                         ),
                       ],
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
@@ -2025,16 +2025,16 @@ class _ContactCompact extends StatelessWidget {
               _buildInfoRow(context, 'Purchase Plan', lead.budgetRange!),
             if (lead.nextFollowUpDate != null)
               _buildInfoRow(
-                    context,
+                context,
                 'Follow Up',
                 lead.nextFollowUpDate!.toIso8601String().split('T')[0],
               )
             else if (lead.followUpCount > 0)
               _buildInfoRow(
-                    context,
+                context,
                 'Follow Up',
                 '${lead.followUpCount} times',
-                  ),
+              ),
             _buildInfoRow(context, 'Status', lead.status.name.toUpperCase()),
           ],
         ),
@@ -2053,7 +2053,7 @@ class _ContactCompact extends StatelessWidget {
             child: Text(
               '$label:',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w600,
                 color: Colors.grey[600],
               ),
             ),
@@ -2143,22 +2143,22 @@ class _LazyProjectLocationCompactState
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
             width: 120,
-          child: Text(
-            '$label:',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
+            child: Text(
+              '$label:',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[600],
+              ),
             ),
           ),
-        ),
-        Expanded(
-          child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
-        ),
-      ],
+          Expanded(
+            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+        ],
       ),
     );
   }
@@ -2205,11 +2205,11 @@ class _BasicDetailsCard extends StatelessWidget {
             width: 120,
             child: Text(
               '$label:',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[600],
-                ),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[600],
               ),
+            ),
           ),
           Expanded(
             child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
@@ -2556,19 +2556,19 @@ class _StaticCard extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                   if (action != null) ...[action!, const SizedBox(width: 8)],
                 ],
               ),
-                Padding(
+              Padding(
                 padding: const EdgeInsets.only(top: 10, bottom: 12),
                 child: Divider(color: primary.withOpacity(0.15), height: 1),
-                ),
+              ),
               child,
             ],
           ),
