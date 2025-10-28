@@ -1251,22 +1251,33 @@ class _LeadCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () =>
-                          _showAssignDialog(context, leadData.leadId),
-                      icon: const Icon(Icons.assignment_ind_outlined, size: 16),
-                      label: const Text('Assign'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  if (supabase
+                          .Supabase
+                          .instance
+                          .client
+                          .auth
+                          .currentUser
+                          ?.email ==
+                      'netleaf@software.com')
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () =>
+                            _showAssignDialog(context, leadData.leadId),
+                        icon: const Icon(
+                          Icons.assignment_ind_outlined,
+                          size: 16,
+                        ),
+                        label: const Text('Assign'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(height: 6),

@@ -3,10 +3,7 @@ import '../../../../data/services/database_service.dart';
 import '../../../../data/services/master_data_service.dart';
 import '../../../../data/models/models.dart';
 
-/// Create Property Option Screen
-///
-/// This screen is extracted from lead_detail_screen.dart to improve code organization.
-/// It provides a form to create property options.
+
 class CreatePropertyOptionScreen extends StatefulWidget {
   const CreatePropertyOptionScreen({super.key});
   @override

@@ -141,6 +141,8 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             ],
           ),
           actions: <Widget>[
+            if (supabase.Supabase.instance.client.auth.currentUser?.email ==
+                'netleaf@software.com')
             IconButton(
               tooltip: 'Assign',
               icon: Icon(
@@ -1077,16 +1079,16 @@ class _EditBasicInfoDialogState extends State<_EditBasicInfoDialog> {
         MasterDataService.getMaritalStatusMaster(),
       ]);
       if (!mounted) return;
-      setState(() {
-        _genders = results[0] as List<GenderMaster>;
-        _maritalStatuses = results[1] as List<MaritalStatusMaster>;
-        _isLoadingMasterData = false;
-      });
+        setState(() {
+          _genders = results[0] as List<GenderMaster>;
+          _maritalStatuses = results[1] as List<MaritalStatusMaster>;
+          _isLoadingMasterData = false;
+        });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _isLoadingMasterData = false;
-      });
+        setState(() {
+          _isLoadingMasterData = false;
+        });
     }
   }
 
@@ -1129,21 +1131,21 @@ class _EditBasicInfoDialogState extends State<_EditBasicInfoDialog> {
             : null,
       });
       if (!mounted) return;
-      Navigator.of(context).pop(true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        Navigator.of(context).pop(true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
           content: Text('Basic information updated'),
-          backgroundColor: Colors.green,
-        ),
-      );
+            backgroundColor: Colors.green,
+          ),
+        );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
           content: Text('Failed to update basic info: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+            backgroundColor: Colors.red,
+          ),
+        );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -1169,47 +1171,47 @@ class _EditBasicInfoDialogState extends State<_EditBasicInfoDialog> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    InkWell(
-                      onTap: _selectDate,
+                      children: [
+                        InkWell(
+                          onTap: _selectDate,
                       child: const InputDecorator(
                         decoration: InputDecoration(
-                          labelText: 'Date of Birth',
-                          border: OutlineInputBorder(),
-                          suffixIcon: Icon(Icons.calendar_today),
-                        ),
+                              labelText: 'Date of Birth',
+                              border: OutlineInputBorder(),
+                              suffixIcon: Icon(Icons.calendar_today),
+                            ),
                         child: SizedBox.shrink(),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _dobController.text.isEmpty
-                          ? 'Select Date'
-                          : _dobController.text,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _ageController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Age',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value != null && value.isNotEmpty) {
-                          final age = int.tryParse(value);
-                          if (age == null || age < 0 || age > 120) {
-                            return 'Enter valid age';
-                          }
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: _genderController.text.isEmpty
-                          ? null
-                          : _genderController.text,
+                              _dobController.text.isEmpty
+                                  ? 'Select Date'
+                                  : _dobController.text,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _ageController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Age',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value != null && value.isNotEmpty) {
+                              final age = int.tryParse(value);
+                              if (age == null || age < 0 || age > 120) {
+                                return 'Enter valid age';
+                              }
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: _genderController.text.isEmpty
+                              ? null
+                              : _genderController.text,
                       items: _genders
                           .map(
                             (g) => DropdownMenuItem(
@@ -1220,16 +1222,16 @@ class _EditBasicInfoDialogState extends State<_EditBasicInfoDialog> {
                           .toList(),
                       onChanged: (v) =>
                           setState(() => _genderController.text = v ?? ''),
-                      decoration: const InputDecoration(
-                        labelText: 'Gender',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: _maritalStatusController.text.isEmpty
-                          ? null
-                          : _maritalStatusController.text,
+                          decoration: const InputDecoration(
+                            labelText: 'Gender',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: _maritalStatusController.text.isEmpty
+                              ? null
+                              : _maritalStatusController.text,
                       items: _maritalStatuses
                           .map(
                             (s) => DropdownMenuItem(
@@ -1241,13 +1243,13 @@ class _EditBasicInfoDialogState extends State<_EditBasicInfoDialog> {
                       onChanged: (v) => setState(
                         () => _maritalStatusController.text = v ?? '',
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'Marital Status',
-                        border: OutlineInputBorder(),
-                      ),
+                          decoration: const InputDecoration(
+                            labelText: 'Marital Status',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
               ),
             ),
       actions: [
@@ -1379,11 +1381,11 @@ class _EditProfessionalInfoDialogState
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      value: _employmentTypeController.text.isEmpty
-                          ? null
-                          : _employmentTypeController.text,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          value: _employmentTypeController.text.isEmpty
+                              ? null
+                              : _employmentTypeController.text,
                       items: _employmentTypes
                           .map(
                             (e) => DropdownMenuItem<String>(
@@ -1395,16 +1397,16 @@ class _EditProfessionalInfoDialogState
                       onChanged: (v) => setState(
                         () => _employmentTypeController.text = v ?? '',
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'Employment Type',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: _itrFilingStatusController.text.isEmpty
-                          ? null
-                          : _itrFilingStatusController.text,
+                          decoration: const InputDecoration(
+                            labelText: 'Employment Type',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: _itrFilingStatusController.text.isEmpty
+                              ? null
+                              : _itrFilingStatusController.text,
                       items: _itrFilingStatuses
                           .map(
                             (e) => DropdownMenuItem<String>(
@@ -1416,21 +1418,21 @@ class _EditProfessionalInfoDialogState
                       onChanged: (v) => setState(
                         () => _itrFilingStatusController.text = v ?? '',
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'ITR Filing Status',
-                        border: OutlineInputBorder(),
-                      ),
+                          decoration: const InputDecoration(
+                            labelText: 'ITR Filing Status',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _occupationController,
+                          decoration: const InputDecoration(
+                            labelText: 'Occupation',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _occupationController,
-                      decoration: const InputDecoration(
-                        labelText: 'Occupation',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ),
       actions: [
@@ -1557,68 +1559,68 @@ class _EditPermanentAddressDialogState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _addressController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Address',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _countryController,
-                decoration: const InputDecoration(
-                  labelText: 'Country',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _stateController,
-                decoration: const InputDecoration(
-                  labelText: 'State',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _cityController,
-                decoration: const InputDecoration(
-                  labelText: 'City',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _locationController,
-                decoration: const InputDecoration(
-                  labelText: 'Location',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _pincodeController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Pincode',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value != null && value.isNotEmpty) {
+                      children: [
+                        TextFormField(
+                          controller: _addressController,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Address',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _countryController,
+                          decoration: const InputDecoration(
+                            labelText: 'Country',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _stateController,
+                          decoration: const InputDecoration(
+                            labelText: 'State',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _cityController,
+                          decoration: const InputDecoration(
+                            labelText: 'City',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _locationController,
+                          decoration: const InputDecoration(
+                            labelText: 'Location',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _pincodeController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Pincode',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value != null && value.isNotEmpty) {
                     final bool isSixDigits =
                         value.length == 6 && int.tryParse(value) != null;
                     if (!isSixDigits) return 'Enter valid 6-digit pincode';
-                  }
-                  return null;
-                },
+                            }
+                            return null;
+                          },
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
@@ -1785,12 +1787,12 @@ class _EditRequirementsDialogState extends State<_EditRequirementsDialog> {
                           )
                           .toList(),
                       onChanged: (v) => setState(() => _selectedBudget = v),
-                      decoration: const InputDecoration(
-                        labelText: 'Budget Range',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.attach_money),
-                      ),
-                    ),
+                decoration: const InputDecoration(
+                  labelText: 'Budget Range',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.attach_money),
+                ),
+              ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _requirementsController,
