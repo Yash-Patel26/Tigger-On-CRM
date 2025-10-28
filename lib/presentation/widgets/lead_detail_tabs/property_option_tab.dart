@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../data/services/database_service.dart';
 import '../../../../data/models/models.dart';
+import '../../../../shared/utils/helpers.dart';
 import '../../../presentation/screens/property/create_property_option_screen.dart';
 
 class PropertyOptionTab extends StatefulWidget {
@@ -178,24 +179,10 @@ class _PropertyOptionTabState extends State<PropertyOptionTab> {
     );
     if (result != null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.home, color: Colors.white),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '✅ Property option created successfully! Property has been added.',
-                  style: TextStyle(fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 4),
-          behavior: SnackBarBehavior.floating,
-        ),
+      await Helpers.showSuccessDialog(
+        context,
+        title: 'Property option created successfully',
+        message: 'Property has been added.',
       );
     }
   }

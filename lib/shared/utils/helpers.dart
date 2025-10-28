@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../data/services/supabase_service.dart';
@@ -316,6 +317,36 @@ class Helpers {
     } else {
       return '${words[0][0]}${words[words.length - 1][0]}'.toUpperCase();
     }
+  }
+
+  // Show a standard success dialog
+  static Future<void> showSuccessDialog(
+    BuildContext context, {
+    required String title,
+    String? message,
+  }) async {
+    if (!context.mounted) return;
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          title: Row(
+            children: <Widget>[
+              const Icon(Icons.check_circle, color: Colors.green),
+              const SizedBox(width: 8),
+              Expanded(child: Text(title)),
+            ],
+          ),
+          content: message != null ? Text(message) : null,
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // Capitalize first letter of each word

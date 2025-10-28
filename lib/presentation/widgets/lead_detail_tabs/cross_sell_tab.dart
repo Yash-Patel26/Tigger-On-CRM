@@ -4,7 +4,7 @@ import '../../../../data/services/database_service.dart';
 import '../../../../data/services/database_service_masters.dart' as masters;
 import '../../../../data/models/models.dart';
 import '../../../../core/config/supabase_config.dart';
-
+import '../../../../shared/utils/helpers.dart';
 
 class CrossSellTab extends StatefulWidget {
   const CrossSellTab({super.key, required this.leadId});
@@ -439,16 +439,10 @@ class _CrossSellTabState extends State<CrossSellTab> {
                           if (!mounted) return;
                           _loadCrossSells();
                           Navigator.of(ctx).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                '✅ Cross sell created successfully! A new lead has been linked.',
-                                style: TextStyle(fontWeight: FontWeight.w500),
-                              ),
-                              backgroundColor: Colors.green,
-                              duration: Duration(seconds: 4),
-                              behavior: SnackBarBehavior.floating,
-                            ),
+                          await Helpers.showSuccessDialog(
+                            context,
+                            title: 'Cross sell created successfully',
+                            message: 'A new lead has been linked.',
                           );
                         } catch (e) {
                           if (!mounted) return;

@@ -348,9 +348,18 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      _SectionCard(
-                        title: '',
-                        children: <Widget>[_ContactCompact(lead: lead)],
+                      _StaticCard(
+                        title: 'Contact Information',
+                        action: IconButton(
+                          onPressed: () =>
+                              _showEditContactDialog(context, lead),
+                          icon: const Icon(
+                            FontAwesomeIcons.penToSquare,
+                            size: 20,
+                          ),
+                          tooltip: 'Edit Contact Information',
+                        ),
+                        child: _ContactCompact(lead: lead),
                       ),
                       const SizedBox(height: 12),
                       _CollapsibleCard(
@@ -369,7 +378,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                       const SizedBox(height: 12),
 
                       _CollapsibleCard(
-                        title: 'Personal Information',
+                        title: 'Basic Details',
                         action: IconButton(
                           onPressed: () =>
                               _showEditPersonalInfoDialog(context, lead),
@@ -377,9 +386,39 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                             FontAwesomeIcons.penToSquare,
                             size: 20,
                           ),
-                          tooltip: 'Edit Personal Information',
+                          tooltip: 'Edit Basic Details',
                         ),
-                        child: _PersonalInfoCard(lead: lead),
+                        child: _BasicDetailsCard(lead: lead),
+                      ),
+                      const SizedBox(height: 12),
+
+                      _CollapsibleCard(
+                        title: 'Professional Details',
+                        action: IconButton(
+                          onPressed: () =>
+                              _showEditPersonalInfoDialog(context, lead),
+                          icon: const Icon(
+                            FontAwesomeIcons.penToSquare,
+                            size: 20,
+                          ),
+                          tooltip: 'Edit Professional Details',
+                        ),
+                        child: _ProfessionalDetailsCard(lead: lead),
+                      ),
+                      const SizedBox(height: 12),
+
+                      _CollapsibleCard(
+                        title: 'Permanent Address',
+                        action: IconButton(
+                          onPressed: () =>
+                              _showEditPersonalInfoDialog(context, lead),
+                          icon: const Icon(
+                            FontAwesomeIcons.penToSquare,
+                            size: 20,
+                          ),
+                          tooltip: 'Edit Permanent Address',
+                        ),
+                        child: _PermanentAddressCard(lead: lead),
                       ),
                       const SizedBox(height: 12),
 
@@ -722,6 +761,13 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     }
   }
 
+  void _showEditContactDialog(BuildContext context, Lead lead) {
+    showDialog(
+      context: context,
+      builder: (context) => _EditContactDialog(lead: lead),
+    );
+  }
+
   void _showEditPersonalInfoDialog(BuildContext context, Lead lead) {
     showDialog(
       context: context,
@@ -740,6 +786,233 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => _EditProjectLocationDialog(lead: lead),
+    );
+  }
+}
+
+class _EditContactDialog extends StatefulWidget {
+  const _EditContactDialog({required this.lead});
+  final Lead lead;
+
+  @override
+  State<_EditContactDialog> createState() => _EditContactDialogState();
+}
+
+class _EditContactDialogState extends State<_EditContactDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _firstNameController;
+  late TextEditingController _middleNameController;
+  late TextEditingController _lastNameController;
+  late TextEditingController _emailController;
+  late TextEditingController _phoneController;
+  late TextEditingController _alternatePhoneController;
+
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Parse the name or customerName into first, middle, last
+    final nameParts = (widget.lead.name ?? widget.lead.customerName)
+        .trim()
+        .split(' ');
+    _firstNameController = TextEditingController(
+      text: nameParts.isNotEmpty ? nameParts[0] : '',
+    );
+    _middleNameController = TextEditingController(
+      text: nameParts.length > 2 ? nameParts[1] : '',
+    );
+    _lastNameController = TextEditingController(
+      text: nameParts.length > 1 ? nameParts.last : '',
+    );
+    _emailController = TextEditingController(text: widget.lead.email);
+    _phoneController = TextEditingController(text: widget.lead.phone);
+    _alternatePhoneController = TextEditingController(
+      text: widget.lead.alternatePhone ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _middleNameController.dispose();
+    _lastNameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _alternatePhoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveContactInfo() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Construct full name
+      final parts = [_firstNameController.text.trim()];
+      if (_middleNameController.text.trim().isNotEmpty) {
+        parts.add(_middleNameController.text.trim());
+      }
+      if (_lastNameController.text.trim().isNotEmpty) {
+        parts.add(_lastNameController.text.trim());
+      }
+      final fullName = parts.join(' ');
+
+      await DatabaseService.patchLead(widget.lead.id, {
+        'name': fullName,
+        'customer_name': fullName,
+        'email': _emailController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'alternate_phone': _alternatePhoneController.text.trim().isNotEmpty
+            ? _alternatePhoneController.text.trim()
+            : null,
+      });
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Contact information updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Refresh the lead data
+        final parent = context
+            .findAncestorStateOfType<_LeadDetailScreenState>();
+        if (parent != null) {
+          parent.refreshLead();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update contact information: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      scrollable: true,
+      title: const Text('Edit Contact Information'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640, minWidth: 360),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: _firstNameController,
+                decoration: const InputDecoration(
+                  labelText: 'First Name *',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'First name is required';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _middleNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Middle Name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _lastNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Last Name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Email *',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Email is required';
+                  }
+                  if (!RegExp(
+                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                  ).hasMatch(value)) {
+                    return 'Enter a valid email address';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number *',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Phone number is required';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _alternatePhoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Alternate Phone Number',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isLoading ? null : _saveContactInfo,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save Changes'),
+        ),
+      ],
     );
   }
 }
@@ -984,25 +1257,17 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
               child: Center(child: CircularProgressIndicator()),
             )
           : ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 640, minWidth: 360),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Basic Information Section
-                    _buildSectionCard(
-                      title: 'Basic Information',
-                      children: [
-                        TextFormField(
-                          controller: _nameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Full Name',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
+        constraints: const BoxConstraints(maxWidth: 640, minWidth: 360),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+                    // Basic Details Section
+              _buildSectionCard(
+                      title: 'Basic Details',
+                children: [
                         InkWell(
                           onTap: _selectDate,
                           child: InputDecorator(
@@ -1017,8 +1282,8 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                                   : _dobController.text,
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
+                  ),
+                  const SizedBox(height: 12),
                         TextFormField(
                           controller: _ageController,
                           keyboardType: TextInputType.number,
@@ -1057,14 +1322,7 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                             border: OutlineInputBorder(),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Employment Information Section
-                    _buildSectionCard(
-                      title: 'Employment Information',
-                      children: [
+                        const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
                           value: _maritalStatusController.text.isEmpty
                               ? null
@@ -1084,8 +1342,15 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                             labelText: 'Marital Status',
                             border: OutlineInputBorder(),
                           ),
-                        ),
-                        const SizedBox(height: 12),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+                    // Professional Details Section
+              _buildSectionCard(
+                      title: 'Professional Details',
+                children: [
                         DropdownButtonFormField<String>(
                           value: _employmentTypeController.text.isEmpty
                               ? null
@@ -1105,8 +1370,8 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                             labelText: 'Employment Type',
                             border: OutlineInputBorder(),
                           ),
-                        ),
-                        const SizedBox(height: 12),
+                  ),
+                  const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
                           value: _itrFilingStatusController.text.isEmpty
                               ? null
@@ -1133,21 +1398,37 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                           decoration: const InputDecoration(
                             labelText: 'Occupation',
                             border: OutlineInputBorder(),
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+                    // Permanent Address Section
+              _buildSectionCard(
+                      title: 'Permanent Address',
+                children: [
+                  TextFormField(
+                    controller: _addressController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Address',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _countryController,
+                          decoration: const InputDecoration(
+                            labelText: 'Country',
+                            border: OutlineInputBorder(),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Address Information Section
-                    _buildSectionCard(
-                      title: 'Address Information',
-                      children: [
+                        const SizedBox(height: 12),
                         TextFormField(
-                          controller: _addressController,
-                          maxLines: 2,
+                          controller: _stateController,
                           decoration: const InputDecoration(
-                            labelText: 'Address',
+                            labelText: 'State',
                             border: OutlineInputBorder(),
                           ),
                         ),
@@ -1158,12 +1439,12 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                             labelText: 'City',
                             border: OutlineInputBorder(),
                           ),
-                        ),
-                        const SizedBox(height: 12),
+                  ),
+                  const SizedBox(height: 12),
                         TextFormField(
-                          controller: _stateController,
+                          controller: _locationController,
                           decoration: const InputDecoration(
-                            labelText: 'State',
+                            labelText: 'Location',
                             border: OutlineInputBorder(),
                           ),
                         ),
@@ -1185,28 +1466,12 @@ class _EditPersonalInfoDialogState extends State<_EditPersonalInfoDialog> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _countryController,
-                          decoration: const InputDecoration(
-                            labelText: 'Country',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _locationController,
-                          decoration: const InputDecoration(
-                            labelText: 'Location',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
                       ],
-                    ),
-                  ],
-                ),
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
@@ -1709,6 +1974,8 @@ class _ContactCompact extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayName = lead.name ?? lead.customerName;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1721,9 +1988,7 @@ class _ContactCompact extends StatelessWidget {
                   radius: 30,
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   child: Text(
-                    lead.customerName.isNotEmpty
-                        ? lead.customerName[0].toUpperCase()
-                        : '?',
+                    displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -1737,82 +2002,64 @@ class _ContactCompact extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        lead.customerName,
+                        displayName,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        lead.phone,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      if (lead.email.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          lead.email,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey[600]),
-                        ),
-                      ],
                     ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildInfoChip(
+            _buildInfoRow(context, 'Mobile Number', lead.phone),
+            if (lead.alternatePhone != null && lead.alternatePhone!.isNotEmpty)
+              _buildInfoRow(context, 'Alternate Number', lead.alternatePhone!),
+            if (lead.email.isNotEmpty)
+              _buildInfoRow(context, 'Email', lead.email),
+            _buildInfoRow(context, 'Allocated To', lead.assignedToName),
+            if (lead.location != null && lead.location!.isNotEmpty)
+              _buildInfoRow(context, 'Customer Location', lead.location!),
+            if (lead.budgetRange != null && lead.budgetRange!.isNotEmpty)
+              _buildInfoRow(context, 'Purchase Plan', lead.budgetRange!),
+            if (lead.nextFollowUpDate != null)
+              _buildInfoRow(
                     context,
-                    'Status',
-                    lead.status.name.toUpperCase(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildInfoChip(
+                'Follow Up',
+                lead.nextFollowUpDate!.toIso8601String().split('T')[0],
+              )
+            else if (lead.followUpCount > 0)
+              _buildInfoRow(
                     context,
-                    'Source',
-                    lead.source.name.toUpperCase(),
+                'Follow Up',
+                '${lead.followUpCount} times',
                   ),
-                ),
-              ],
-            ),
+            _buildInfoRow(context, 'Status', lead.status.name.toUpperCase()),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInfoChip(BuildContext context, String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-        ),
-      ),
-      child: Column(
+  Widget _buildInfoRow(BuildContext context, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary,
+                color: Colors.grey[600],
+              ),
             ),
           ),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+          Expanded(
+            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
       ),
@@ -1851,17 +2098,41 @@ class _LazyProjectLocationCompactState
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (lead.projectName != null && lead.projectName!.isNotEmpty) ...[
-              _buildInfoRow(context, 'Project', lead.projectName!),
-              const SizedBox(height: 8),
-            ],
-            if (lead.location != null && lead.location!.isNotEmpty) ...[
+            if (lead.categoryType.toString().split('.').last.isNotEmpty)
+              _buildInfoRow(
+                context,
+                'Category',
+                lead.categoryType.toString().split('.').last.toUpperCase(),
+              ),
+            if (lead.propertyType.toString().split('.').last.isNotEmpty)
+              _buildInfoRow(
+                context,
+                'Property Type',
+                lead.propertyType
+                    .toString()
+                    .split('.')
+                    .last
+                    .replaceAll('_', ' ')
+                    .split(' ')
+                    .map(
+                      (word) =>
+                          word[0].toUpperCase() +
+                          word.substring(1).toLowerCase(),
+                    )
+                    .join(' '),
+              ),
+            if (lead.stateName != null && lead.stateName!.isNotEmpty)
+              _buildInfoRow(context, 'State', lead.stateName!)
+            else if (lead.state != null && lead.state!.isNotEmpty)
+              _buildInfoRow(context, 'State', lead.state!),
+            if (lead.city != null && lead.city!.isNotEmpty)
+              _buildInfoRow(context, 'City', lead.city!),
+            if (lead.location != null && lead.location!.isNotEmpty)
               _buildInfoRow(context, 'Location', lead.location!),
-              const SizedBox(height: 8),
-            ],
-            if (lead.budgetRange != null && lead.budgetRange!.isNotEmpty) ...[
-              _buildInfoRow(context, 'Budget Range', lead.budgetRange!),
-            ],
+            if (lead.projectName != null && lead.projectName!.isNotEmpty)
+              _buildInfoRow(context, 'Project Name', lead.projectName!),
+            if (lead.budgetRange != null && lead.budgetRange!.isNotEmpty)
+              _buildInfoRow(context, 'Budget', lead.budgetRange!),
           ],
         );
       },
@@ -1869,11 +2140,13 @@ class _LazyProjectLocationCompactState
   }
 
   Widget _buildInfoRow(BuildContext context, String label, String value) {
-    return Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 100,
+            width: 120,
           child: Text(
             '$label:',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -1886,12 +2159,14 @@ class _LazyProjectLocationCompactState
           child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
         ),
       ],
+      ),
     );
   }
 }
 
-class _PersonalInfoCard extends StatelessWidget {
-  const _PersonalInfoCard({required this.lead});
+// Basic Details Card
+class _BasicDetailsCard extends StatelessWidget {
+  const _BasicDetailsCard({required this.lead});
   final Lead lead;
 
   @override
@@ -1902,29 +2177,131 @@ class _PersonalInfoCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildInfoRow(context, 'Customer Name', lead.customerName),
-            _buildInfoRow(context, 'Phone', lead.phone),
-            if (lead.email.isNotEmpty)
-              _buildInfoRow(context, 'Email', lead.email),
-            if (lead.location != null && lead.location!.isNotEmpty)
-              _buildInfoRow(context, 'Location', lead.location!),
-            if (lead.budgetRange != null && lead.budgetRange!.isNotEmpty)
-              _buildInfoRow(context, 'Budget Range', lead.budgetRange!),
-            if (lead.requirements != null && lead.requirements!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Requirements:',
+            if (lead.dob != null)
+              _buildInfoRow(
+                context,
+                'Date of Birth',
+                lead.dob!.toIso8601String().split('T')[0],
+              ),
+            if (lead.age != null)
+              _buildInfoRow(context, 'Age', lead.age!.toString()),
+            if (lead.gender != null && lead.gender!.isNotEmpty)
+              _buildInfoRow(context, 'Gender', lead.gender!),
+            if (lead.maritalStatus != null && lead.maritalStatus!.isNotEmpty)
+              _buildInfoRow(context, 'Marital Status', lead.maritalStatus!),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(BuildContext context, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: Colors.grey[600],
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                lead.requirements!,
-                style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          Expanded(
+            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Professional Details Card
+class _ProfessionalDetailsCard extends StatelessWidget {
+  const _ProfessionalDetailsCard({required this.lead});
+  final Lead lead;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (lead.employmentType != null && lead.employmentType!.isNotEmpty)
+              _buildInfoRow(context, 'Employment Type', lead.employmentType!),
+            if (lead.itrFilingStatus != null &&
+                lead.itrFilingStatus!.isNotEmpty)
+              _buildInfoRow(
+                context,
+                'ITR Filing Status',
+                lead.itrFilingStatus!,
               ),
-            ],
+            if (lead.occupation != null && lead.occupation!.isNotEmpty)
+              _buildInfoRow(context, 'Occupation', lead.occupation!),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(BuildContext context, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Permanent Address Card
+class _PermanentAddressCard extends StatelessWidget {
+  const _PermanentAddressCard({required this.lead});
+  final Lead lead;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (lead.address != null && lead.address!.isNotEmpty)
+              _buildInfoRow(context, 'Address', lead.address!),
+            if (lead.country != null && lead.country!.isNotEmpty)
+              _buildInfoRow(context, 'Country', lead.country!),
+            if (lead.stateName != null && lead.stateName!.isNotEmpty)
+              _buildInfoRow(context, 'State', lead.stateName!)
+            else if (lead.state != null && lead.state!.isNotEmpty)
+              _buildInfoRow(context, 'State', lead.state!),
+            if (lead.city != null && lead.city!.isNotEmpty)
+              _buildInfoRow(context, 'City', lead.city!),
+            if (lead.location != null && lead.location!.isNotEmpty)
+              _buildInfoRow(context, 'Location', lead.location!),
+            if (lead.pincode != null && lead.pincode!.isNotEmpty)
+              _buildInfoRow(context, 'Pincode', lead.pincode!),
           ],
         ),
       ),
@@ -2135,20 +2512,32 @@ class _ActivityCompactState extends State<_ActivityCompact> {
   }
 }
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.children});
-
+class _CollapsibleCard extends StatefulWidget {
+  const _CollapsibleCard({
+    required this.title,
+    required this.child,
+    this.action,
+  });
   final String title;
-  final List<Widget> children;
+  final Widget child;
+  final Widget? action;
+  @override
+  State<_CollapsibleCard> createState() => _CollapsibleCardState();
+}
+
+class _StaticCard extends StatelessWidget {
+  const _StaticCard({required this.title, required this.child, this.action});
+  final String title;
+  final Widget child;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
-    final bool showTitle = title.trim().isNotEmpty;
-    final Color accent = const Color(0xFF1E88E5); // blue accent for this screen
+    final Color primary = Theme.of(context).colorScheme.primary;
     return Stack(
       children: <Widget>[
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
@@ -2162,41 +2551,31 @@ class _SectionCard extends StatelessWidget {
             ],
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              if (showTitle)
-                Text(
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
                   title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF111111),
                   ),
                 ),
-              if (showTitle)
+                  ),
+                  if (action != null) ...[action!, const SizedBox(width: 8)],
+                ],
+              ),
                 Padding(
-                  padding: const EdgeInsets.only(top: 10, bottom: 14),
-                  child: Divider(color: accent.withOpacity(0.15), height: 1),
+                padding: const EdgeInsets.only(top: 10, bottom: 12),
+                child: Divider(color: primary.withOpacity(0.15), height: 1),
                 ),
-              ...children,
+              child,
             ],
           ),
         ),
       ],
     );
   }
-}
-
-class _CollapsibleCard extends StatefulWidget {
-  const _CollapsibleCard({
-    required this.title,
-    required this.child,
-    this.action,
-  });
-  final String title;
-  final Widget child;
-  final Widget? action;
-  @override
-  State<_CollapsibleCard> createState() => _CollapsibleCardState();
 }
 
 class _LazyCollapsibleCard extends StatefulWidget {

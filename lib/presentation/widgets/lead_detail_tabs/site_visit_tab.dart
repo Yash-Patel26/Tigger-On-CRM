@@ -6,10 +6,6 @@ import '../../../../data/models/models.dart';
 import '../../../../shared/utils/helpers.dart';
 import '../../../presentation/screens/projects/site_visit_detail_screen.dart';
 
-/// Site Visit Tab Widget
-///
-/// This widget is extracted from lead_detail_screen.dart to improve code organization.
-/// It displays and manages site visits for a lead.
 class SiteVisitTab extends StatefulWidget {
   const SiteVisitTab({super.key, required this.leadId});
 
@@ -585,26 +581,10 @@ class _SiteVisitTabState extends State<SiteVisitTab> {
                           if (!mounted) return;
                           _loadSiteVisits();
                           Navigator.of(ctx).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Row(
-                                children: [
-                                  Icon(Icons.location_on, color: Colors.white),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '✅ Site visit created successfully! Visit has been scheduled.',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: Colors.green,
-                              duration: Duration(seconds: 4),
-                              behavior: SnackBarBehavior.floating,
-                            ),
+                          await Helpers.showSuccessDialog(
+                            context,
+                            title: 'Site visit created successfully',
+                            message: 'Visit has been scheduled.',
                           );
                         } catch (e) {
                           if (!mounted) return;

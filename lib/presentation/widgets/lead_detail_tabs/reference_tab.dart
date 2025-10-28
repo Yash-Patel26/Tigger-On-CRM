@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../data/services/database_service.dart';
 import '../../../../data/models/models.dart';
+import '../../../../shared/utils/helpers.dart';
 import '../../../presentation/screens/leads/lead_detail_screen.dart';
 
 /// Reference Tab Widget
-/// 
+///
 /// This widget is extracted from lead_detail_screen.dart to improve code organization.
 /// It displays and manages references (referrals to and by the lead).
 class ReferenceTab extends StatefulWidget {
@@ -166,145 +167,147 @@ class _ReferenceTabState extends State<ReferenceTab> {
   Widget _referredToCard(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _refsFutureTo,
-      builder: (
-        BuildContext context,
-        AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
-      ) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-        if (snapshot.hasError) {
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+      builder:
+          (
+            BuildContext context,
+            AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
+          ) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(),
                 ),
-              ],
-            ),
-            child: const Center(child: Text('Failed to load')),
-          );
-        }
-        final List<Map<String, dynamic>> items =
-            snapshot.data ?? <Map<String, dynamic>>[];
-        if (items.isEmpty) {
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+              );
+            }
+            if (snapshot.hasError) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: const Center(child: Text("Didn't Refer To Anyone")),
-          );
-        }
-        return Column(
-          children: items
-              .map(
-                (Map<String, dynamic> r) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _refCard(
-                    context,
-                    r.map((k, v) => MapEntry(k, v?.toString() ?? '')),
-                    'Referred To Name',
-                  ),
+                child: const Center(child: Text('Failed to load')),
+              );
+            }
+            final List<Map<String, dynamic>> items =
+                snapshot.data ?? <Map<String, dynamic>>[];
+            if (items.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-              )
-              .toList(),
-        );
-      },
+                child: const Center(child: Text("Didn't Refer To Anyone")),
+              );
+            }
+            return Column(
+              children: items
+                  .map(
+                    (Map<String, dynamic> r) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _refCard(
+                        context,
+                        r.map((k, v) => MapEntry(k, v?.toString() ?? '')),
+                        'Referred To Name',
+                      ),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
     );
   }
 
   Widget _referredByCard(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _refsFutureBy,
-      builder: (
-        BuildContext context,
-        AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
-      ) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-        if (snapshot.hasError) {
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+      builder:
+          (
+            BuildContext context,
+            AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
+          ) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(),
                 ),
-              ],
-            ),
-            child: const Center(child: Text('Failed to load')),
-          );
-        }
-        final items = snapshot.data ?? <Map<String, dynamic>>[];
-        if (items.isEmpty) {
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+              );
+            }
+            if (snapshot.hasError) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: const Center(child: Text("Didn't Refer By Anyone")),
-          );
-        }
-        return Column(
-          children: items
-              .map(
-                (Map<String, dynamic> r) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _refCard(
-                    context,
-                    r.map((k, v) => MapEntry(k, v?.toString() ?? '')),
-                    'Referred By Name',
-                  ),
+                child: const Center(child: Text('Failed to load')),
+              );
+            }
+            final items = snapshot.data ?? <Map<String, dynamic>>[];
+            if (items.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-              )
-              .toList(),
-        );
-      },
+                child: const Center(child: Text("Didn't Refer By Anyone")),
+              );
+            }
+            return Column(
+              children: items
+                  .map(
+                    (Map<String, dynamic> r) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _refCard(
+                        context,
+                        r.map((k, v) => MapEntry(k, v?.toString() ?? '')),
+                        'Referred By Name',
+                      ),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
     );
   }
 
@@ -538,26 +541,10 @@ class _ReferenceTabState extends State<ReferenceTab> {
                         if (!mounted) return;
                         _loadReferences();
                         Navigator.of(ctx).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Row(
-                              children: [
-                                Icon(Icons.people, color: Colors.white),
-                                SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '✅ Reference created successfully! A new lead has been linked.',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            backgroundColor: Colors.green,
-                            duration: Duration(seconds: 4),
-                            behavior: SnackBarBehavior.floating,
-                          ),
+                        await Helpers.showSuccessDialog(
+                          context,
+                          title: 'Reference created successfully',
+                          message: 'A new lead has been linked.',
                         );
                       } catch (e) {
                         if (!mounted) return;

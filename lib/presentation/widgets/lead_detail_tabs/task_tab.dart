@@ -21,6 +21,8 @@ class _TaskTabState extends State<TaskTab> {
   @override
   void initState() {
     super.initState();
+    // Initialize the future immediately to avoid LateInitializationError on first build
+    _tasksFuture = Future.value(<Task>[]);
     _loadTasks();
   }
 
@@ -44,33 +46,8 @@ class _TaskTabState extends State<TaskTab> {
 
       _tasksFuture = Future.value(filteredTasks);
 
-      // Then sync with backend API
-      try {
-        final TaskService taskService = TaskService();
-        final apiResponse = await taskService.getTasks(
-          leadId: widget.leadId,
-          limit: 200,
-        );
-
-        if (apiResponse.success && apiResponse.data != null) {
-          // Filter out disposition-related follow-up tasks from API response too
-          final filteredApiTasks = apiResponse.data!.where((task) {
-            return !(task.title.toLowerCase().startsWith('follow-up:') &&
-                task.description.toLowerCase().contains(
-                  'follow-up task created from disposition',
-                ));
-          }).toList();
-
-          // Update local database with backend data if needed
-          // This ensures data consistency between local and backend
-          setState(() {
-            _tasksFuture = Future.value(filteredApiTasks);
-          });
-        }
-      } catch (apiError) {
-        // Log API error but don't fail the operation
-        print('Backend sync failed: $apiError');
-      }
+      // Optionally sync with a custom backend here.
+      // Skipped for Supabase REST to avoid 400s on unsupported query params.
     } catch (e) {
       print('Failed to load tasks: $e');
     }
@@ -428,29 +405,10 @@ class _TaskTabState extends State<TaskTab> {
                       if (!mounted) return;
                       await _loadTasks();
                       Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Row(
-                            children: <Widget>[
-                              const Icon(
-                                Icons.check_circle,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '✅ Task status updated to ${selectedStatus.displayName}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          backgroundColor: Colors.green,
-                          duration: const Duration(seconds: 3),
-                          behavior: SnackBarBehavior.floating,
-                        ),
+                      await Helpers.showSuccessDialog(
+                        context,
+                        title:
+                            'Task status updated to ${selectedStatus.displayName}',
                       );
                     } catch (e) {
                       if (!mounted) return;
@@ -750,24 +708,9 @@ class _TaskTabState extends State<TaskTab> {
                       if (!mounted) return;
                       await _loadTasks();
                       Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Row(
-                            children: <Widget>[
-                              Icon(Icons.check_circle, color: Colors.white),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '✅ Task updated successfully',
-                                  style: TextStyle(fontWeight: FontWeight.w500),
-                                ),
-                              ),
-                            ],
-                          ),
-                          backgroundColor: Colors.green,
-                          duration: Duration(seconds: 3),
-                          behavior: SnackBarBehavior.floating,
-                        ),
+                      await Helpers.showSuccessDialog(
+                        context,
+                        title: 'Task updated successfully',
                       );
                     } catch (e) {
                       if (!mounted) return;
@@ -1032,24 +975,10 @@ class _TaskTabState extends State<TaskTab> {
                       if (!mounted) return;
                       await _loadTasks();
                       Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Row(
-                            children: [
-                              Icon(Icons.task_alt, color: Colors.white),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '✅ Task created successfully! Task has been assigned.',
-                                  style: TextStyle(fontWeight: FontWeight.w500),
-                                ),
-                              ),
-                            ],
-                          ),
-                          backgroundColor: Colors.green,
-                          duration: Duration(seconds: 4),
-                          behavior: SnackBarBehavior.floating,
-                        ),
+                      await Helpers.showSuccessDialog(
+                        context,
+                        title: 'Task created successfully',
+                        message: 'Task has been assigned.',
                       );
                     } catch (e) {
                       if (!mounted) return;
