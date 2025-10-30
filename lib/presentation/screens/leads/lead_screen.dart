@@ -143,9 +143,12 @@ class _LeadScreenState extends State<LeadScreen> {
       final todayEnd = todayStart.add(const Duration(days: 1));
 
       // Load all leads to calculate stats
+      final bool isPrivileged = await Helpers.isAdminOrHead();
+      final String? currentUserId = Helpers.getCurrentUserId();
       final response = await _leadRepository.getLeads(
         page: 1,
         limit: 1000, // Get more leads to calculate accurate stats
+        assignedTo: isPrivileged ? null : currentUserId,
       );
 
       if (response.success && response.data != null) {
@@ -218,12 +221,16 @@ class _LeadScreenState extends State<LeadScreen> {
         }
       }
 
+      final bool isPrivileged = await Helpers.isAdminOrHead();
+      final String? currentUserId = Helpers.getCurrentUserId();
+
       final response = await _leadRepository.getLeads(
         search: _search.isNotEmpty ? _search : null,
         status: statusFilter,
         page: page,
         limit: _pageSize,
         forceRefresh: true, // Force refresh to get latest data
+        assignedTo: isPrivileged ? null : currentUserId,
       );
 
       if (response.success && response.data != null) {
@@ -1251,33 +1258,33 @@ class _LeadCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  if (supabase
-                          .Supabase
-                          .instance
-                          .client
-                          .auth
-                          .currentUser
-                          ?.email ==
-                      'netleaf@software.com')
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () =>
-                            _showAssignDialog(context, leadData.leadId),
-                        icon: const Icon(
-                          Icons.assignment_ind_outlined,
-                          size: 16,
-                        ),
-                        label: const Text('Assign'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                  FutureBuilder<bool>(
+                    future: Helpers.canAssignLeads(),
+                    builder: (context, snapshot) {
+                      if (snapshot.data == true) {
+                        return Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () =>
+                                _showAssignDialog(context, leadData.leadId),
+                            icon: const Icon(
+                              Icons.assignment_ind_outlined,
+                              size: 16,
+                            ),
+                            label: const Text('Assign'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
                 ],
               ),
               const SizedBox(height: 6),
@@ -1778,89 +1785,134 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      surfaceTintColor: Colors.transparent,
-      title: const Text('Assign Lead'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520, minWidth: 320),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Text('Assign To'),
-              const SizedBox(height: 6),
-              FutureBuilder<List<Map<String, dynamic>>>(
-                future: DatabaseServiceUsersAndDisposition.getAssignableUsers(),
-                builder:
-                    (
-                      BuildContext context,
-                      AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
-                    ) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const CircularProgressIndicator();
-                      }
-                      if (snapshot.hasError) {
-                        return Text('Error: ${snapshot.error}');
-                      }
-                      final List<Map<String, dynamic>> users =
-                          snapshot.data ?? <Map<String, dynamic>>[];
-                      return DropdownButtonFormField<String>(
-                        initialValue: _selectedUserId,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: 'Select user',
-                        ),
-                        items: users.map((Map<String, dynamic> user) {
-                          return DropdownMenuItem<String>(
-                            value: user['id'] as String,
-                            child: Text(user['name'] as String),
-                          );
-                        }).toList(),
-                        onChanged: (String? value) {
-                          setState(() {
-                            _selectedUserId = value;
-                            _selectedUserName =
-                                users.firstWhere(
-                                      (Map<String, dynamic> user) =>
-                                          user['id'] == value,
-                                    )['name']
-                                    as String;
-                          });
-                        },
-                        validator: (String? value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please select a user';
-                          }
-                          return null;
-                        },
-                      );
-                    },
-              ),
-              const SizedBox(height: 12),
-              const Text('Description'),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _descCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  hintText: 'Assignment description',
-                  border: OutlineInputBorder(),
-                ),
+    return FutureBuilder<bool>(
+      future: Helpers.canAssignLeads(),
+      builder: (context, snapshot) {
+        if (snapshot.data != true) {
+          return AlertDialog(
+            title: const Text('Access Denied'),
+            content: const Text('Only admin and head users can assign leads.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
               ),
             ],
+          );
+        }
+
+        return AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          surfaceTintColor: Colors.transparent,
+          title: const Text('Assign Lead'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520, minWidth: 320),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text('Assign To'),
+                  const SizedBox(height: 6),
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future:
+                        DatabaseServiceUsersAndDisposition.getAssignableUsers(),
+                    builder:
+                        (
+                          BuildContext context,
+                          AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
+                        ) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const CircularProgressIndicator();
+                          }
+                          if (snapshot.hasError) {
+                            return Text('Error: ${snapshot.error}');
+                          }
+                          final String? currentUserId =
+                              Helpers.getCurrentUserId();
+                          // Raw list
+                          List<Map<String, dynamic>> users =
+                              snapshot.data ?? <Map<String, dynamic>>[];
+                          // Exclude admin/head from assignees if role field present
+                          users = users.where((u) {
+                            final role = (u['role'] as String?)?.toLowerCase();
+                            if (role == 'admin' || role == 'head') return false;
+                            return true;
+                          }).toList();
+                          // Prevent assigning to self (especially for admin/head)
+                          users = users
+                              .where(
+                                (u) => (u['id'] as String?) != currentUserId,
+                              )
+                              .toList();
+
+                          return DropdownButtonFormField<String>(
+                            initialValue: _selectedUserId,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              hintText: 'Select user',
+                            ),
+                            items: users.map((Map<String, dynamic> user) {
+                              final role = user['role'] as String?;
+                              return DropdownMenuItem<String>(
+                                value: user['id'] as String,
+                                child: Text(
+                                  role != null && role.isNotEmpty
+                                      ? '${user['name']} (${role.toString()})'
+                                      : (user['name'] as String),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (String? value) {
+                              setState(() {
+                                _selectedUserId = value;
+                                _selectedUserName =
+                                    users.firstWhere(
+                                          (Map<String, dynamic> user) =>
+                                              user['id'] == value,
+                                        )['name']
+                                        as String;
+                              });
+                            },
+                            validator: (String? value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please select a user';
+                              }
+                              // Block self-assign as an extra guard
+                              if (value == Helpers.getCurrentUserId()) {
+                                return 'You cannot assign a lead to yourself';
+                              }
+                              return null;
+                            },
+                          );
+                        },
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Description'),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _descCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      hintText: 'Assignment description',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(onPressed: _onAssign, child: const Text('Assign')),
-      ],
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(onPressed: _onAssign, child: const Text('Assign')),
+          ],
+        );
+      },
     );
   }
 

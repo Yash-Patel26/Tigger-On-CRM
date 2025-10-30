@@ -141,15 +141,21 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             ],
           ),
           actions: <Widget>[
-            if (supabase.Supabase.instance.client.auth.currentUser?.email ==
-                'netleaf@software.com')
-            IconButton(
-              tooltip: 'Assign',
-              icon: Icon(
-                FontAwesomeIcons.userPlus,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              onPressed: () => _showAssignDialog(context),
+            FutureBuilder<bool>(
+              future: Helpers.canAssignLeads(),
+              builder: (context, snapshot) {
+                if (snapshot.data == true) {
+                  return IconButton(
+                    tooltip: 'Assign',
+                    icon: Icon(
+                      FontAwesomeIcons.userPlus,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    onPressed: () => _showAssignDialog(context),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
             ),
             IconButton(
               tooltip: 'Dispose Lead',
@@ -1079,16 +1085,16 @@ class _EditBasicInfoDialogState extends State<_EditBasicInfoDialog> {
         MasterDataService.getMaritalStatusMaster(),
       ]);
       if (!mounted) return;
-        setState(() {
-          _genders = results[0] as List<GenderMaster>;
-          _maritalStatuses = results[1] as List<MaritalStatusMaster>;
-          _isLoadingMasterData = false;
-        });
+      setState(() {
+        _genders = results[0] as List<GenderMaster>;
+        _maritalStatuses = results[1] as List<MaritalStatusMaster>;
+        _isLoadingMasterData = false;
+      });
     } catch (_) {
       if (!mounted) return;
-        setState(() {
-          _isLoadingMasterData = false;
-        });
+      setState(() {
+        _isLoadingMasterData = false;
+      });
     }
   }
 
@@ -1131,21 +1137,21 @@ class _EditBasicInfoDialogState extends State<_EditBasicInfoDialog> {
             : null,
       });
       if (!mounted) return;
-        Navigator.of(context).pop(true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+      Navigator.of(context).pop(true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
           content: Text('Basic information updated'),
-            backgroundColor: Colors.green,
-          ),
-        );
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
           content: Text('Failed to update basic info: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -1171,47 +1177,47 @@ class _EditBasicInfoDialogState extends State<_EditBasicInfoDialog> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        InkWell(
-                          onTap: _selectDate,
+                  children: [
+                    InkWell(
+                      onTap: _selectDate,
                       child: const InputDecorator(
                         decoration: InputDecoration(
-                              labelText: 'Date of Birth',
-                              border: OutlineInputBorder(),
-                              suffixIcon: Icon(Icons.calendar_today),
-                            ),
+                          labelText: 'Date of Birth',
+                          border: OutlineInputBorder(),
+                          suffixIcon: Icon(Icons.calendar_today),
+                        ),
                         child: SizedBox.shrink(),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                              _dobController.text.isEmpty
-                                  ? 'Select Date'
-                                  : _dobController.text,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _ageController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Age',
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) {
-                            if (value != null && value.isNotEmpty) {
-                              final age = int.tryParse(value);
-                              if (age == null || age < 0 || age > 120) {
-                                return 'Enter valid age';
-                              }
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          value: _genderController.text.isEmpty
-                              ? null
-                              : _genderController.text,
+                      _dobController.text.isEmpty
+                          ? 'Select Date'
+                          : _dobController.text,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _ageController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Age',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value != null && value.isNotEmpty) {
+                          final age = int.tryParse(value);
+                          if (age == null || age < 0 || age > 120) {
+                            return 'Enter valid age';
+                          }
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _genderController.text.isEmpty
+                          ? null
+                          : _genderController.text,
                       items: _genders
                           .map(
                             (g) => DropdownMenuItem(
@@ -1222,16 +1228,16 @@ class _EditBasicInfoDialogState extends State<_EditBasicInfoDialog> {
                           .toList(),
                       onChanged: (v) =>
                           setState(() => _genderController.text = v ?? ''),
-                          decoration: const InputDecoration(
-                            labelText: 'Gender',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          value: _maritalStatusController.text.isEmpty
-                              ? null
-                              : _maritalStatusController.text,
+                      decoration: const InputDecoration(
+                        labelText: 'Gender',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _maritalStatusController.text.isEmpty
+                          ? null
+                          : _maritalStatusController.text,
                       items: _maritalStatuses
                           .map(
                             (s) => DropdownMenuItem(
@@ -1243,13 +1249,13 @@ class _EditBasicInfoDialogState extends State<_EditBasicInfoDialog> {
                       onChanged: (v) => setState(
                         () => _maritalStatusController.text = v ?? '',
                       ),
-                          decoration: const InputDecoration(
-                            labelText: 'Marital Status',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'Marital Status',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
+                  ],
+                ),
               ),
             ),
       actions: [
@@ -1381,11 +1387,11 @@ class _EditProfessionalInfoDialogState
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        DropdownButtonFormField<String>(
-                          value: _employmentTypeController.text.isEmpty
-                              ? null
-                              : _employmentTypeController.text,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: _employmentTypeController.text.isEmpty
+                          ? null
+                          : _employmentTypeController.text,
                       items: _employmentTypes
                           .map(
                             (e) => DropdownMenuItem<String>(
@@ -1397,16 +1403,16 @@ class _EditProfessionalInfoDialogState
                       onChanged: (v) => setState(
                         () => _employmentTypeController.text = v ?? '',
                       ),
-                          decoration: const InputDecoration(
-                            labelText: 'Employment Type',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          value: _itrFilingStatusController.text.isEmpty
-                              ? null
-                              : _itrFilingStatusController.text,
+                      decoration: const InputDecoration(
+                        labelText: 'Employment Type',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _itrFilingStatusController.text.isEmpty
+                          ? null
+                          : _itrFilingStatusController.text,
                       items: _itrFilingStatuses
                           .map(
                             (e) => DropdownMenuItem<String>(
@@ -1418,21 +1424,21 @@ class _EditProfessionalInfoDialogState
                       onChanged: (v) => setState(
                         () => _itrFilingStatusController.text = v ?? '',
                       ),
-                          decoration: const InputDecoration(
-                            labelText: 'ITR Filing Status',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _occupationController,
-                          decoration: const InputDecoration(
-                            labelText: 'Occupation',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'ITR Filing Status',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _occupationController,
+                      decoration: const InputDecoration(
+                        labelText: 'Occupation',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
       actions: [
@@ -1559,68 +1565,68 @@ class _EditPermanentAddressDialogState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextFormField(
-                          controller: _addressController,
-                          maxLines: 2,
-                          decoration: const InputDecoration(
-                            labelText: 'Address',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _countryController,
-                          decoration: const InputDecoration(
-                            labelText: 'Country',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _stateController,
-                          decoration: const InputDecoration(
-                            labelText: 'State',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _cityController,
-                          decoration: const InputDecoration(
-                            labelText: 'City',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _locationController,
-                          decoration: const InputDecoration(
-                            labelText: 'Location',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _pincodeController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Pincode',
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) {
-                            if (value != null && value.isNotEmpty) {
+            children: [
+              TextFormField(
+                controller: _addressController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Address',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _countryController,
+                decoration: const InputDecoration(
+                  labelText: 'Country',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _stateController,
+                decoration: const InputDecoration(
+                  labelText: 'State',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _cityController,
+                decoration: const InputDecoration(
+                  labelText: 'City',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _locationController,
+                decoration: const InputDecoration(
+                  labelText: 'Location',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _pincodeController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Pincode',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value != null && value.isNotEmpty) {
                     final bool isSixDigits =
                         value.length == 6 && int.tryParse(value) != null;
                     if (!isSixDigits) return 'Enter valid 6-digit pincode';
-                            }
-                            return null;
-                          },
-                    ),
-                  ],
-                ),
+                  }
+                  return null;
+                },
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
@@ -1787,12 +1793,12 @@ class _EditRequirementsDialogState extends State<_EditRequirementsDialog> {
                           )
                           .toList(),
                       onChanged: (v) => setState(() => _selectedBudget = v),
-                decoration: const InputDecoration(
-                  labelText: 'Budget Range',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.attach_money),
-                ),
-              ),
+                      decoration: const InputDecoration(
+                        labelText: 'Budget Range',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.attach_money),
+                      ),
+                    ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _requirementsController,
@@ -4375,81 +4381,130 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      surfaceTintColor: Colors.transparent,
-      title: const Text('Assign Lead'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520, minWidth: 320),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              FutureBuilder<List<Map<String, dynamic>>>(
-                future: _getAssignableUsers(),
-                builder:
-                    (
-                      BuildContext _,
-                      AsyncSnapshot<List<Map<String, dynamic>>> snap,
-                    ) {
-                      if (snap.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (snap.hasError) return const Text('Failed to load');
-                      final List<Map<String, dynamic>> users =
-                          snap.data ?? <Map<String, dynamic>>[];
-                      return DropdownButtonFormField<String>(
-                        initialValue: _selectedUserId,
-                        isExpanded: true,
-                        items: users
-                            .map(
-                              (Map<String, dynamic> u) =>
-                                  DropdownMenuItem<String>(
-                                    value: (u['id'] ?? '') as String,
-                                    child: Text((u['name'] ?? '-') as String),
-                                  ),
-                            )
-                            .toList(),
-                        onChanged: (String? v) => setState(() {
-                          _selectedUserId = v;
-                          final Map<String, dynamic> sel = users.firstWhere(
-                            (Map<String, dynamic> e) => e['id'] == v,
-                            orElse: () => <String, dynamic>{},
-                          );
-                          _selectedUserName = (sel['name'] ?? '-') as String;
-                        }),
-                        decoration: const InputDecoration(
-                          labelText: 'Assign to',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (String? v) =>
-                            v == null || v.isEmpty ? 'Required' : null,
-                      );
-                    },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _descCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  hintText: 'Add assignment note',
-                  border: OutlineInputBorder(),
-                ),
+    return FutureBuilder<bool>(
+      future: Helpers.canAssignLeads(),
+      builder: (context, snapshot) {
+        if (snapshot.data != true) {
+          return AlertDialog(
+            title: const Text('Access Denied'),
+            content: const Text('Only admin and head users can assign leads.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
               ),
             ],
+          );
+        }
+
+        return AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          surfaceTintColor: Colors.transparent,
+          title: const Text('Assign Lead'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520, minWidth: 320),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: _getAssignableUsers(),
+                    builder:
+                        (
+                          BuildContext _,
+                          AsyncSnapshot<List<Map<String, dynamic>>> snap,
+                        ) {
+                          if (snap.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (snap.hasError)
+                            return const Text('Failed to load');
+                          final String? currentUserId =
+                              Helpers.getCurrentUserId();
+                          List<Map<String, dynamic>> users =
+                              snap.data ?? <Map<String, dynamic>>[];
+                          // Exclude admin/head assignees if role present
+                          users = users.where((u) {
+                            final role = (u['role'] as String?)?.toLowerCase();
+                            if (role == 'admin' || role == 'head') return false;
+                            return true;
+                          }).toList();
+                          // Prevent assigning to self
+                          users = users
+                              .where(
+                                (u) => (u['id'] as String?) != currentUserId,
+                              )
+                              .toList();
+
+                          return DropdownButtonFormField<String>(
+                            initialValue: _selectedUserId,
+                            isExpanded: true,
+                            items: users
+                                .map(
+                                  (Map<String, dynamic> u) =>
+                                      DropdownMenuItem<String>(
+                                        value: (u['id'] ?? '') as String,
+                                        child: Text(() {
+                                          final role = u['role'] as String?;
+                                          final name =
+                                              (u['name'] ?? '-') as String;
+                                          return role != null && role.isNotEmpty
+                                              ? '$name (${role.toString()})'
+                                              : name;
+                                        }()),
+                                      ),
+                                )
+                                .toList(),
+                            onChanged: (String? v) => setState(() {
+                              _selectedUserId = v;
+                              final Map<String, dynamic> sel = users.firstWhere(
+                                (Map<String, dynamic> e) => e['id'] == v,
+                                orElse: () => <String, dynamic>{},
+                              );
+                              _selectedUserName =
+                                  (sel['name'] ?? '-') as String;
+                            }),
+                            decoration: const InputDecoration(
+                              labelText: 'Assign to',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (String? v) {
+                              if (v == null || v.isEmpty) return 'Required';
+                              if (v == Helpers.getCurrentUserId()) {
+                                return 'You cannot assign a lead to yourself';
+                              }
+                              return null;
+                            },
+                          );
+                        },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _descCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      hintText: 'Add assignment note',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(onPressed: _onAssign, child: const Text('Assign')),
-      ],
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(onPressed: _onAssign, child: const Text('Assign')),
+          ],
+        );
+      },
     );
   }
 
