@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+// Keeping system sound import out since we're using custom sound service now
+import 'notification_sound_service.dart';
 import '../../data/models/app_notification.dart';
 
 class NotificationStore extends ChangeNotifier {
@@ -10,11 +12,16 @@ class NotificationStore extends ChangeNotifier {
 
   void add(AppNotification n) {
     _items.insert(0, n);
+    // Try to play custom sound from Supabase; silently fallback if unavailable
+    NotificationSoundService.instance.play();
     notifyListeners();
   }
 
   void addAll(Iterable<AppNotification> list) {
     _items.insertAll(0, list);
+    if (list.isNotEmpty) {
+      NotificationSoundService.instance.play();
+    }
     notifyListeners();
   }
 

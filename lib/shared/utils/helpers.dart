@@ -642,4 +642,35 @@ class Helpers {
   static String? getCurrentUserId() {
     return supabase.Supabase.instance.client.auth.currentUser?.id;
   }
+
+  /// Get current user role from public.users table
+  static Future<String?> getCurrentUserRole() async {
+    try {
+      final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+      if (currentUser?.id != null) {
+        final response = await supabase.Supabase.instance.client
+            .from('users')
+            .select('role')
+            .eq('id', currentUser!.id)
+            .eq('is_active', true)
+            .maybeSingle();
+
+        return response?['role'] as String?;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Check if current user has admin or head role
+  static Future<bool> isAdminOrHead() async {
+    final role = await getCurrentUserRole();
+    return role == 'admin' || role == 'head';
+  }
+
+  /// Check if current user can assign leads (admin or head only)
+  static Future<bool> canAssignLeads() async {
+    return await isAdminOrHead();
+  }
 }
