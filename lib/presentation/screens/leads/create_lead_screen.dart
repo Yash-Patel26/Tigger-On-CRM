@@ -4,6 +4,8 @@ import '../../../../data/services/master_data_service.dart';
 import '../../../../data/services/lead_duplicate_service.dart';
 import '../../../../data/services/lead_service.dart';
 import '../../../../data/models/models.dart';
+import '../../../../shared/utils/helpers.dart';
+import '../../../../shared/utils/timezone.dart';
 
 class CreateLeadScreen extends StatefulWidget {
   const CreateLeadScreen({super.key});
@@ -198,29 +200,15 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
     if (date == null) return 'N/A';
     try {
       final DateTime dateTime = DateTime.parse(date.toString());
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+      return Helpers.formatDate(dateTime, pattern: 'dd/MM/yyyy');
     } catch (e) {
       return 'N/A';
     }
   }
 
   String _formatISTDateTime(DateTime dateTime) {
-    // Convert to IST (UTC+5:30)
-    final istDateTime = dateTime.toUtc().add(
-      const Duration(hours: 5, minutes: 30),
-    );
-
-    // Format date
-    final day = istDateTime.day.toString().padLeft(2, '0');
-    final month = istDateTime.month.toString().padLeft(2, '0');
-    final year = istDateTime.year;
-
-    // Format time
-    final hour = istDateTime.hour.toString().padLeft(2, '0');
-    final minute = istDateTime.minute.toString().padLeft(2, '0');
-    final second = istDateTime.second.toString().padLeft(2, '0');
-
-    return '$day/$month/$year at $hour:$minute:$second IST';
+    final ist = TimezoneUtil.toIST(dateTime);
+    return '${Helpers.formatDateTime(ist, pattern: 'dd/MM/yyyy HH:mm:ss')} IST';
   }
 
   void _showSuccessDialog(BuildContext context) {

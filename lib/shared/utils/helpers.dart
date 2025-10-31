@@ -10,6 +10,7 @@ import '../../data/services/supabase_service.dart';
 import '../../data/services/location_service.dart';
 import '../services/permission_manager.dart';
 import '../../core/constants/constants.dart';
+import 'timezone.dart';
 
 class Helpers {
   static const MethodChannel _recorderChannel = MethodChannel(
@@ -223,7 +224,8 @@ class Helpers {
 
   // Format date
   static String formatDate(DateTime date, {String pattern = 'dd-MM-yyyy'}) {
-    return _formatDateTime(date, pattern);
+    final DateTime ist = TimezoneUtil.toIST(date);
+    return _formatDateTime(ist, pattern);
   }
 
   // Format date and time
@@ -231,12 +233,14 @@ class Helpers {
     DateTime dateTime, {
     String pattern = 'dd-MM-yyyy HH:mm',
   }) {
-    return _formatDateTime(dateTime, pattern);
+    final DateTime ist = TimezoneUtil.toIST(dateTime);
+    return _formatDateTime(ist, pattern);
   }
 
   // Format time
   static String formatTime(DateTime time, {String pattern = 'HH:mm'}) {
-    return _formatDateTime(time, pattern);
+    final DateTime ist = TimezoneUtil.toIST(time);
+    return _formatDateTime(ist, pattern);
   }
 
   // Helper method to format number with commas
@@ -279,8 +283,9 @@ class Helpers {
 
   // Get relative time (e.g., "2 hours ago", "3 days ago")
   static String getRelativeTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
+    final DateTime nowIst = TimezoneUtil.nowIST();
+    final DateTime dtIst = TimezoneUtil.toIST(dateTime);
+    final difference = nowIst.difference(dtIst);
 
     if (difference.inDays > 365) {
       final years = (difference.inDays / 365).floor();

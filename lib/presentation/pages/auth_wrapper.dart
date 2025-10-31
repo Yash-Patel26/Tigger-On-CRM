@@ -4,6 +4,7 @@ import '../../shared/managers/auth_state_manager.dart';
 import '../../presentation/pages/splash_screen.dart';
 import '../../presentation/screens/auth/email_login_screen.dart';
 import '../../presentation/screens/dashboard/home_screen.dart';
+import 'role_gate.dart';
 import '../../core/utils/page_transitions.dart';
 import '../../data/services/follow_up_notification_service.dart';
 import '../../shared/managers/notification_manager.dart';
@@ -75,7 +76,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
               _notificationsInitialized = true;
             }
           }
-          return const HomeScreen();
+          return const RoleGate(child: HomeScreen());
         } else {
           debugPrint('AuthWrapper: Showing EmailLoginScreen');
           return const EmailLoginScreen();

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:tigger/data/models/site_visit_model.dart';
 import 'package:tigger/data/models/meeting_status_model.dart';
 import 'package:tigger/data/services/site_visit_service.dart';
+import 'package:tigger/shared/utils/helpers.dart';
+import 'package:tigger/shared/utils/timezone.dart';
+import 'package:tigger/data/services/lead_service.dart';
 
 class SiteVisitDetailScreen extends StatefulWidget {
   final String siteVisitId;
@@ -40,6 +43,7 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
   void initState() {
     super.initState();
     _siteVisitService = SiteVisitService();
+    _enforceAccessOnInit();
 
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 300),
@@ -73,6 +77,56 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
 
     // Fetch meeting status options from backend
     _fetchMeetingStatusOptions();
+  }
+
+  Future<void> _enforceAccessOnInit() async {
+    try {
+      final bool isAdminHead = await Helpers.isAdminOrHead();
+      if (isAdminHead) return;
+
+      final String? currentUserId = Helpers.getCurrentUserId();
+      if (currentUserId == null || currentUserId.isEmpty) {
+        _denyAccess();
+        return;
+      }
+
+      final String leadId =
+          widget.siteVisitData['leadId'] ??
+          widget.siteVisitData['lead_id'] ??
+          '';
+      if (leadId.isEmpty) {
+        // If we cannot resolve lead, be safe and deny
+        _denyAccess();
+        return;
+      }
+
+      final leadResponse = await LeadService().getLead(leadId);
+      if (!(leadResponse.success) || leadResponse.data == null) {
+        _denyAccess();
+        return;
+      }
+
+      final assignedTo = leadResponse.data!.assignedTo;
+      if (assignedTo != currentUserId) {
+        _denyAccess();
+        return;
+      }
+    } catch (_) {
+      _denyAccess();
+    }
+  }
+
+  void _denyAccess() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You are not authorized to view this site visit'),
+        ),
+      );
+      Navigator.of(context).maybePop();
+    });
   }
 
   @override
@@ -591,7 +645,9 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
   String _formatDateTime(String? dateTimeString) {
     if (dateTimeString == null || dateTimeString.isEmpty) return 'N/A';
     try {
-      final DateTime dateTime = DateTime.parse(dateTimeString);
+      final DateTime dateTime = TimezoneUtil.toIST(
+        DateTime.parse(dateTimeString),
+      );
       final String day = dateTime.day.toString().padLeft(2, '0');
       final String month = _getMonthName(dateTime.month);
       final String year = dateTime.year.toString();
@@ -1144,7 +1200,7 @@ class _SiteVisitDetailScreenState extends State<SiteVisitDetailScreen>
   }
 
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+    return Helpers.formatDate(date, pattern: 'dd/MM/yyyy');
   }
 
   IconData _getIconData(String iconName) {

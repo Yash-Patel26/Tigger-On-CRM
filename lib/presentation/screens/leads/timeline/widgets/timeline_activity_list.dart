@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../../shared/utils/helpers.dart';
+import '../../../../../shared/utils/timezone.dart';
 
 class TimelineActivityList extends StatelessWidget {
   const TimelineActivityList({super.key, required this.activities});
@@ -58,7 +60,8 @@ class _ActivityCard extends StatelessWidget {
   String _formatDateTime(String dateTimeString) {
     try {
       final dateTime = DateTime.parse(dateTimeString);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+      final ist = TimezoneUtil.toIST(dateTime);
+      return Helpers.formatDateTime(ist, pattern: 'dd/MM/yyyy HH:mm');
     } catch (_) {
       return dateTimeString;
     }

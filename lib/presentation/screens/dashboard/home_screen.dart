@@ -22,6 +22,7 @@ import '../active_tasks_screen.dart';
 import 'call_stats_detail_screen.dart';
 import '../../../../shared/utils/helpers.dart';
 import '../../../../data/services/database_service.dart';
+import '../../../../shared/utils/role_aware_data.dart';
 
 Color panelColor(BuildContext context) {
   final bool isDark = Theme.of(context).brightness == Brightness.dark;
@@ -79,12 +80,14 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      // Load leads count
-      final List<Lead> leads = await DatabaseService.getLeads();
+      // Load leads count (role-aware)
+      final List<Lead> leads = await RoleAwareData.getLeads(context);
       final int leadsCount = leads.length;
 
-      // Load meetings today (site visits and bookings)
-      final List<SiteVisit> siteVisits = await DatabaseService.getSiteVisits();
+      // Load meetings today (role-aware site visits; bookings unchanged)
+      final List<SiteVisit> siteVisits = await RoleAwareData.getSiteVisits(
+        context,
+      );
       final List<Booking> bookings = await DatabaseService.getBookings();
 
       final DateTime today = DateTime.now();
@@ -102,14 +105,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 b.bookingDate.isBefore(endOfDay);
           }).length;
 
-      // Load active projects
+      // Load active projects (projects are global)
       final List<Project> projects = await DatabaseService.getProjects();
       final int activeProjects = projects
           .where((p) => p.status == ProjectStatus.underConstruction)
           .length;
 
-      // Load active tasks
-      final List<Task> tasks = await DatabaseService.getTasks();
+      // Load active tasks (role-aware)
+      final List<Task> tasks = await RoleAwareData.getTasks(context);
       final int activeTasks = tasks
           .where(
             (t) =>
@@ -118,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
           )
           .length;
 
-      // Load team members count from users table
+      // Load team members count from users table (unchanged)
       final List<Map<String, dynamic>> users =
           await DatabaseServiceUsersAndDisposition.getAssignableUsers();
       final int teamMembers = users.length;
