@@ -184,23 +184,50 @@ class DatabaseServiceMasters {
     String? assignedToName,
   }) async {
     try {
-      // Create a follow-up task based on disposition
-      await _client.from('tasks').insert({
-        'title': 'Follow-up: $mainDispositionName - $subDispositionName',
-        'description':
-            'Follow-up task created from disposition: $mainDispositionName - $subDispositionName',
-        'type': 'followUp',
-        'task_type': 'follow_up',
-        'priority': 'medium',
-        'status': 'pending',
+      // Update lead follow-up fields instead of creating a task
+      final DateTime now = DateTime.now();
+      final DateTime next = now.add(const Duration(days: 1));
+
+      // Read current follow_up_count and increment client-side
+      int currentCount = 0;
+      try {
+        final existing = await _client
+            .from('leads')
+            .select('follow_up_count')
+            .eq('id', leadId)
+            .maybeSingle();
+        if (existing != null) {
+          currentCount = (existing['follow_up_count'] as int?) ?? 0;
+        }
+      } catch (_) {}
+
+      await _client
+          .from('leads')
+          .update({
+            'last_follow_up_date': now.toIso8601String(),
+            'next_follow_up_date': next.toIso8601String(),
+            'follow_up_count': currentCount + 1,
+            if (assignedTo != null) 'assigned_to': assignedTo,
+            if (assignedToName != null) 'assigned_to_name': assignedToName,
+            'updated_by': performedBy,
+            'updated_by_name': performedByName,
+          })
+          .eq('id', leadId);
+
+      // Log an activity for auditing
+      await _client.from('lead_activities').insert({
         'lead_id': leadId,
-        'assigned_to': assignedTo,
-        'assigned_to_name': assignedToName,
-        'created_by': performedBy,
-        'created_by_name': performedByName,
-        'due_date': DateTime.now()
-            .add(const Duration(days: 1))
-            .toIso8601String(),
+        'type': 'follow_up',
+        'action': 'scheduled',
+        'description':
+            'Follow-up scheduled from disposition: $mainDispositionName - $subDispositionName',
+        'performed_by': performedBy,
+        'performed_by_name': performedByName,
+        'metadata': {
+          'next_follow_up_date': next.toIso8601String(),
+          if (assignedTo != null) 'assigned_to': assignedTo,
+          if (assignedToName != null) 'assigned_to_name': assignedToName,
+        },
       });
     } catch (e) {
       throw Exception('Failed to create disposition follow-up: $e');
