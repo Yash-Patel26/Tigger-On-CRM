@@ -6,6 +6,8 @@ import '../../presentation/screens/auth/email_login_screen.dart';
 import '../../presentation/screens/dashboard/home_screen.dart';
 import '../../core/utils/page_transitions.dart';
 import '../../data/services/follow_up_notification_service.dart';
+import '../../shared/managers/notification_manager.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 /// Wrapper widget that handles authentication state and routing
 class AuthWrapper extends StatefulWidget {
@@ -16,6 +18,7 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  bool _notificationsInitialized = false;
   @override
   void initState() {
     super.initState();
@@ -63,6 +66,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // Route based on authentication status
         if (authManager.isAuthenticated) {
           debugPrint('AuthWrapper: Showing HomeScreen');
+          // Initialize NotificationManager once per session
+          if (!_notificationsInitialized) {
+            final String? uid =
+                supabase.Supabase.instance.client.auth.currentUser?.id;
+            if (uid != null) {
+              NotificationManager().initialize(uid);
+              _notificationsInitialized = true;
+            }
+          }
           return const HomeScreen();
         } else {
           debugPrint('AuthWrapper: Showing EmailLoginScreen');
