@@ -11,6 +11,8 @@ import '../../data/services/location_service.dart';
 import '../services/permission_manager.dart';
 import '../../core/constants/constants.dart';
 import 'timezone.dart';
+import '../../data/services/call_service.dart';
+import '../../data/services/database_service_masters.dart' as masters;
 
 class Helpers {
   static const MethodChannel _recorderChannel = MethodChannel(
@@ -87,6 +89,84 @@ class Helpers {
     _callInProgress = false;
     await _connectivitySub?.cancel();
     _connectivitySub = null;
+  }
+
+  // One-stop call flow: create calls row, place call, upload recording, update calls, and log lead activity
+  static Future<void> placeCallAndLog({
+    required String phone,
+    String? leadId,
+    String direction = 'outbound',
+  }) async {
+    final String cleaned = phone.replaceAll(RegExp(r'[^\d+]'), '');
+
+    // Identify current user
+    final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+    final String initiatedBy =
+        currentUser?.id ?? '00000000-0000-0000-0000-000000000000';
+    final String initiatedByName =
+        (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
+
+    String? callId;
+    try {
+      // Create a call row (RPC) so we can later attach recording/status
+      callId = await CallService.logCall(
+        phone: cleaned,
+        direction: direction,
+        leadId: leadId,
+        initiatedByName: initiatedByName,
+        metadata: <String, dynamic>{'initiated_by': initiatedBy},
+      );
+    } catch (e) {
+      // Surface error but continue with placing the call so UX isn’t blocked
+      // ignore: avoid_print
+      print('Error creating call record: $e');
+    }
+
+    // Place native call and start recording service
+    await placeCall(cleaned);
+
+    // Give native recorder time to finalize file
+    await Future<void>.delayed(const Duration(seconds: 2));
+
+    // Try to upload any available recording
+    String? recordingUrl;
+    try {
+      recordingUrl = await uploadLastRecordingToSupabase();
+    } catch (e) {
+      // ignore: avoid_print
+      print('Recording upload failed: $e');
+    }
+
+    // Update calls status with optional recording
+    try {
+      if (callId != null) {
+        await CallService.endCallWithRecording(
+          callId: callId,
+          status: 'completed',
+          recordingUrl: recordingUrl,
+          endedAt: DateTime.now(),
+        );
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error updating call completion: $e');
+    }
+
+    // Log activity against lead if available
+    if (leadId != null) {
+      try {
+        await masters.DatabaseServiceMasters.logCallInitiated(
+          leadId: leadId,
+          phoneNumber: cleaned,
+          performedBy: initiatedBy,
+          performedByName: initiatedByName,
+          recordingUrl: recordingUrl,
+        );
+      } catch (e) {
+        // ignore: avoid_print
+        print('Failed to log lead activity for call: $e');
+      }
+    }
   }
 
   // Call when you want to fetch the last recording and upload it to Supabase

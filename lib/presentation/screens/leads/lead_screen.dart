@@ -9,7 +9,7 @@ import 'lead_detail_screen.dart';
 import '../projects/add_site_visit_screen.dart';
 import '../../../../data/services/database_service.dart';
 import '../../../../data/models/models.dart';
-import '../../../../data/services/database_service_masters.dart' as masters;
+// import '../../../../data/services/database_service_masters.dart' as masters;
 // assign dialog implemented locally in this file for lead list
 
 // Lead data model for pagination - extends Lead model
@@ -1320,44 +1320,14 @@ class _LeadCard extends StatelessWidget {
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: () async {
-                        await Helpers.placeCall(leadData.phone);
-                        await Future<void>.delayed(const Duration(seconds: 2));
-                        final String? url =
-                            await Helpers.uploadLastRecordingToSupabase();
-
-                        // Log call activity (for MCP/call stats) with recording URL if available
-                        try {
-                          final currentUser = supabase
-                              .Supabase
-                              .instance
-                              .client
-                              .auth
-                              .currentUser;
-                          final String userId = currentUser?.id ?? 'system';
-                          final String userName =
-                              (currentUser?.userMetadata?['name'] as String?) ??
-                              'System User';
-
-                          await masters.DatabaseServiceMasters.logCallInitiated(
-                            leadId: leadData.id,
-                            phoneNumber: leadData.phone,
-                            performedBy: userId,
-                            performedByName: userName,
-                            recordingUrl: url,
-                          );
-                        } catch (e) {
-                          // ignore but surface via snackbar below
-                        }
-
+                        await Helpers.placeCallAndLog(
+                          phone: leadData.phone,
+                          leadId: leadData.id,
+                          direction: 'outbound',
+                        );
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                url != null
-                                    ? 'Call recorded and uploaded'
-                                    : 'Call completed',
-                              ),
-                            ),
+                            const SnackBar(content: Text('Call completed')),
                           );
                         }
                       },
