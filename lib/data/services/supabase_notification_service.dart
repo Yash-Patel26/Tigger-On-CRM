@@ -45,7 +45,7 @@ class SupabaseNotificationService {
     try {
       final response = await _client
           .from('notifications')
-          .insert(notification.toJson())
+          .insert(notification.toSupabaseJson())
           .select()
           .single();
 

@@ -160,7 +160,7 @@ class DatabaseServiceMasters {
         'action': 'disposition_applied',
         'description':
             'Disposition applied: $mainDispositionName - $subDispositionName',
-        'performed_by': performedBy,
+        'performed_by': _convertToUuid(performedBy),
         'performed_by_name': performedByName,
         'metadata': {
           'main_disposition': mainDispositionName,
@@ -188,31 +188,49 @@ class DatabaseServiceMasters {
       final DateTime now = DateTime.now();
       final DateTime next = now.add(const Duration(days: 1));
 
-      // Read current follow_up_count and increment client-side
-      int currentCount = 0;
-      try {
-        final existing = await _client
-            .from('leads')
-            .select('follow_up_count')
-            .eq('id', leadId)
-            .maybeSingle();
-        if (existing != null) {
-          currentCount = (existing['follow_up_count'] as int?) ?? 0;
-        }
-      } catch (_) {}
+      // Atomically increment follow_up_count using optimistic concurrency (CAS)
+      // Try a few times in case of concurrent updates
+      int attempts = 0;
+      while (true) {
+        attempts += 1;
+        int currentCount = 0;
+        try {
+          final existing = await _client
+              .from('leads')
+              .select('follow_up_count')
+              .eq('id', leadId)
+              .maybeSingle();
+          if (existing != null) {
+            currentCount = (existing['follow_up_count'] as int?) ?? 0;
+          }
+        } catch (_) {}
 
-      await _client
-          .from('leads')
-          .update({
-            'last_follow_up_date': now.toIso8601String(),
-            'next_follow_up_date': next.toIso8601String(),
-            'follow_up_count': currentCount + 1,
-            if (assignedTo != null) 'assigned_to': assignedTo,
-            if (assignedToName != null) 'assigned_to_name': assignedToName,
-            'updated_by': performedBy,
-            'updated_by_name': performedByName,
-          })
-          .eq('id', leadId);
+        // Attempt conditional update: only succeed if count hasn't changed
+        final List<dynamic> updated = await _client
+            .from('leads')
+            .update({
+              'last_follow_up_date': now.toIso8601String(),
+              'next_follow_up_date': next.toIso8601String(),
+              'follow_up_count': currentCount + 1,
+              if (assignedTo != null) 'assigned_to': assignedTo,
+              if (assignedToName != null) 'assigned_to_name': assignedToName,
+              'updated_by': _convertToUuid(performedBy),
+              'updated_by_name': performedByName,
+            })
+            .eq('id', leadId)
+            .eq('follow_up_count', currentCount)
+            .select('id');
+
+        if (updated.isNotEmpty) {
+          break; // success
+        }
+        if (attempts >= 3) {
+          throw Exception(
+            'Failed to update follow up count due to concurrency',
+          );
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+      }
 
       // Log an activity for auditing
       await _client.from('lead_activities').insert({
@@ -248,7 +266,7 @@ class DatabaseServiceMasters {
         'type': 'status_change',
         'action': 'status_updated',
         'description': 'Lead status changed from $oldStatus to $newStatus',
-        'performed_by': performedBy,
+        'performed_by': _convertToUuid(performedBy),
         'performed_by_name': performedByName,
         'metadata': {'old_status': oldStatus, 'new_status': newStatus},
       });
@@ -272,7 +290,7 @@ class DatabaseServiceMasters {
         'action': 'lead_assigned',
         'description':
             'Lead assigned from ${oldAssignee ?? 'Unassigned'} to ${newAssignee ?? 'Unassigned'}',
-        'performed_by': performedBy,
+        'performed_by': _convertToUuid(performedBy),
         'performed_by_name': performedByName,
         'metadata': {'old_assignee': oldAssignee, 'new_assignee': newAssignee},
       });
@@ -294,7 +312,7 @@ class DatabaseServiceMasters {
         'type': 'site_visit',
         'action': 'site_visit_scheduled',
         'description': 'Site visit scheduled',
-        'performed_by': performedBy,
+        'performed_by': _convertToUuid(performedBy),
         'performed_by_name': performedByName,
         'metadata': {'site_visit_id': siteVisitId},
       });

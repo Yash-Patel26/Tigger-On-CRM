@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../data/services/supabase_service.dart';
 import '../../data/services/location_service.dart';
+import '../services/permission_manager.dart';
 import '../../core/constants/constants.dart';
 
 class Helpers {
@@ -41,18 +41,10 @@ class Helpers {
         return;
       }
 
-      // Request required permissions
-      final Map<Permission, PermissionStatus> statuses = await <Permission>[
-        Permission.microphone,
-        Permission.phone,
-        Permission.notification,
-        Permission.location,
-      ].request();
-
-      final bool micGranted =
-          statuses[Permission.microphone]?.isGranted ?? false;
-      final bool phoneGranted = statuses[Permission.phone]?.isGranted ?? false;
-      if (!micGranted || !phoneGranted) {
+      // Ensure required permissions only once and avoid repeated prompts
+      final bool callPermsOk = await PermissionManager.ensureCallPermissions();
+      if (!callPermsOk) {
+        await PermissionManager.openSettingsIfPermanentlyDenied();
         return;
       }
 
