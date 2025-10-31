@@ -154,7 +154,16 @@ class SupabaseService {
     final fileName = filePath.split('/').last;
     final fullPath = '$destFolder/$fileName';
 
-    await client.storage.from(bucket).upload(fullPath, file);
+    await client.storage
+        .from(bucket)
+        .upload(
+          fullPath,
+          file,
+          fileOptions: supabase.FileOptions(
+            contentType: 'audio/m4a',
+            upsert: true,
+          ),
+        );
 
     final publicUrl = client.storage.from(bucket).getPublicUrl(fullPath);
     return publicUrl;
