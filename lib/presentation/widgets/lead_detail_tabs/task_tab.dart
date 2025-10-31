@@ -44,7 +44,9 @@ class _TaskTabState extends State<TaskTab> {
             ));
       }).toList();
 
-      _tasksFuture = Future.value(filteredTasks);
+      setState(() {
+        _tasksFuture = Future.value(filteredTasks);
+      });
 
       // Optionally sync with a custom backend here.
       // Skipped for Supabase REST to avoid 400s on unsupported query params.
