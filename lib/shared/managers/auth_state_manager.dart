@@ -13,6 +13,7 @@ class AuthStateManager extends ChangeNotifier {
   bool _isLoading = true;
   String? _error;
   supabase.User? _currentUser;
+  String? _userRole;
 
   // Getters
   bool get isInitialized => _isInitialized;
@@ -20,6 +21,10 @@ class AuthStateManager extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   supabase.User? get currentUser => _currentUser;
+  String? get userRole => _userRole;
+  bool get isAdmin => _userRole == 'admin';
+  bool get isHead => _userRole == 'head';
+  bool get isAdminOrHead => isAdmin || isHead;
 
   /// Initialize authentication state by checking for existing session
   Future<void> initialize() async {
@@ -50,6 +55,7 @@ class AuthStateManager extends ChangeNotifier {
             ).isAfter(DateTime.now())) {
           _isAuthenticated = true;
           _currentUser = user;
+          await _loadUserRole(user.id);
           debugPrint('User session restored: ${user.email}');
         } else {
           // Session expired, try to refresh
@@ -59,6 +65,7 @@ class AuthStateManager extends ChangeNotifier {
             if (response.session != null && response.user != null) {
               _isAuthenticated = true;
               _currentUser = response.user;
+              await _loadUserRole(response.user!.id);
               debugPrint('Session refreshed for: ${response.user!.email}');
             } else {
               _isAuthenticated = false;
@@ -99,8 +106,10 @@ class AuthStateManager extends ChangeNotifier {
 
     if (_isAuthenticated) {
       debugPrint('User authenticated: ${user!.email}');
+      _loadUserRole(user.id);
     } else {
       debugPrint('User signed out');
+      _userRole = null;
     }
 
     notifyListeners();
@@ -140,6 +149,7 @@ class AuthStateManager extends ChangeNotifier {
         if (user != null && session != null) {
           _isAuthenticated = true;
           _currentUser = user;
+          await _loadUserRole(user.id);
           debugPrint('Setting _isAuthenticated = true and notifying listeners');
           // Notify listeners immediately after successful login
           notifyListeners();
@@ -172,12 +182,28 @@ class AuthStateManager extends ChangeNotifier {
       await AuthService.signOut();
       _isAuthenticated = false;
       _currentUser = null;
+      _userRole = null;
       debugPrint('User signed out');
     } catch (e) {
       _setError('Sign out error: $e');
     } finally {
       _setLoading(false);
     }
+  }
+
+  Future<void> _loadUserRole(String userId) async {
+    try {
+      final roleResp = await supabase.Supabase.instance.client
+          .from('users')
+          .select('role')
+          .eq('id', userId)
+          .eq('is_active', true)
+          .maybeSingle();
+      _userRole = roleResp?['role'] as String?;
+    } catch (_) {
+      _userRole = null;
+    }
+    notifyListeners();
   }
 
   /// Refresh current session
@@ -219,5 +245,4 @@ class AuthStateManager extends ChangeNotifier {
     _error = error;
     notifyListeners();
   }
-
 }
