@@ -2036,8 +2036,10 @@ class _CustomersTabState extends State<CustomersTab> {
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
           tooltip: 'Call',
-          onPressed: () {
-            Helpers.placeCall(Helpers.safeString(customer.phone));
+          onPressed: () async {
+            await Helpers.placeCallAndLog(
+              phone: Helpers.safeString(customer.phone),
+            );
           },
           icon: const Icon(Icons.call_outlined, size: 16),
         ),

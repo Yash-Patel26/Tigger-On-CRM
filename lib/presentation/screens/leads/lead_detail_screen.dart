@@ -206,54 +206,11 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
                             assetPng: 'assets/icons/phone-call.png',
                             tooltip: 'Call',
                             onTap: () async {
-                              await Helpers.placeCall(lead.phone);
-                              await Future<void>.delayed(
-                                const Duration(seconds: 2),
+                              await Helpers.placeCallAndLog(
+                                phone: lead.phone,
+                                leadId: lead.id,
+                                direction: 'outbound',
                               );
-                              final String? url =
-                                  await Helpers.uploadLastRecordingToSupabase();
-
-                              // Log call activity with recording URL if available
-                              try {
-                                final currentUser = supabase
-                                    .Supabase
-                                    .instance
-                                    .client
-                                    .auth
-                                    .currentUser;
-                                final String userId =
-                                    currentUser?.id ?? 'system';
-                                final String userName =
-                                    (currentUser?.userMetadata?['name']
-                                        as String?) ??
-                                    'System User';
-
-                                await masters
-                                    .DatabaseServiceMasters.logCallInitiated(
-                                  leadId: lead.id,
-                                  phoneNumber: lead.phone,
-                                  performedBy: userId,
-                                  performedByName: userName,
-                                  recordingUrl: url,
-                                );
-                              } catch (e) {
-                                print(
-                                  'Warning: Failed to log call activity: $e',
-                                );
-                              }
-
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      url == null
-                                          ? 'No recording captured or upload failed'
-                                          : 'Recording uploaded',
-                                    ),
-                                    duration: const Duration(seconds: 3),
-                                  ),
-                                );
-                              }
                             },
                           ),
                           _IconAction(
@@ -265,24 +222,11 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
                                 initial: lead.phone,
                               );
                               if (number != null && number.trim().isNotEmpty) {
-                                await Helpers.placeCall(number.trim());
-                                await Future<void>.delayed(
-                                  const Duration(seconds: 2),
+                                await Helpers.placeCallAndLog(
+                                  phone: number.trim(),
+                                  leadId: lead.id,
+                                  direction: 'outbound',
                                 );
-                                final String? url =
-                                    await Helpers.uploadLastRecordingToSupabase();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        url == null
-                                            ? 'No recording captured or upload failed'
-                                            : 'Recording uploaded',
-                                      ),
-                                      duration: const Duration(seconds: 3),
-                                    ),
-                                  );
-                                }
                               }
                             },
                             rotateTurns: 2, // rotate 180° to differentiate
