@@ -190,6 +190,7 @@ class DatabaseServiceMasters {
         'description':
             'Follow-up task created from disposition: $mainDispositionName - $subDispositionName',
         'type': 'followUp',
+        'task_type': 'follow_up',
         'priority': 'medium',
         'status': 'pending',
         'lead_id': leadId,
@@ -316,6 +317,8 @@ class DatabaseServiceMasters {
         'performed_by_name': performedByName,
         'metadata': {
           'phone_number': phoneNumber,
+          // Also include common key 'phone' for consumers expecting this
+          'phone': phoneNumber,
           if (recordingUrl != null) 'recording_url': recordingUrl,
         },
       });

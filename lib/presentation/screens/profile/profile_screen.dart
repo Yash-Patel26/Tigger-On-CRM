@@ -7,6 +7,7 @@ import '../../../data/models/profile_model.dart';
 import '../../../shared/utils/validation_utils.dart';
 import '../../../shared/managers/auth_state_manager.dart';
 import 'edit_profile_screen.dart';
+import '../auth/email_login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -389,7 +390,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           listen: false,
                         );
                         await authManager.signOut();
-                        // AuthStateManager will handle navigation automatically
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                            builder: (_) => const EmailLoginScreen(),
+                          ),
+                          (route) => false,
+                        );
                       },
                       icon: const Icon(Icons.logout),
                       label: const Text('Log out'),
