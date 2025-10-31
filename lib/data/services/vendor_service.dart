@@ -137,16 +137,18 @@ class VendorService {
       if (pincode != null) updateData['pincode'] = pincode;
       if (country != null) updateData['country'] = country;
       if (companyType != null) updateData['company_type'] = companyType;
-      if (isReraRegistered != null)
+      if (isReraRegistered != null) {
         updateData['is_rera_registered'] = isReraRegistered;
+      }
       if (reraNumber != null) updateData['rera_number'] = reraNumber;
       if (gstin != null) updateData['gstin'] = gstin;
       if (gstinFilePath != null) updateData['gstin_file_path'] = gstinFilePath;
       if (pan != null) updateData['pan'] = pan;
       if (panFilePath != null) updateData['pan_file_path'] = panFilePath;
       if (aadhar != null) updateData['aadhar'] = aadhar;
-      if (aadharFilePath != null)
+      if (aadharFilePath != null) {
         updateData['aadhar_file_path'] = aadharFilePath;
+      }
       if (isActive != null) updateData['is_active'] = isActive;
       if (customFields != null) updateData['custom_fields'] = customFields;
 

@@ -1232,7 +1232,7 @@ class _EditBasicInfoDialogState extends State<_EditBasicInfoDialog> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: _genderController.text.isEmpty
+                      initialValue: _genderController.text.isEmpty
                           ? null
                           : _genderController.text,
                       items: _genders
@@ -1252,7 +1252,7 @@ class _EditBasicInfoDialogState extends State<_EditBasicInfoDialog> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: _maritalStatusController.text.isEmpty
+                      initialValue: _maritalStatusController.text.isEmpty
                           ? null
                           : _maritalStatusController.text,
                       items: _maritalStatuses
@@ -1406,7 +1406,7 @@ class _EditProfessionalInfoDialogState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DropdownButtonFormField<String>(
-                      value: _employmentTypeController.text.isEmpty
+                      initialValue: _employmentTypeController.text.isEmpty
                           ? null
                           : _employmentTypeController.text,
                       items: _employmentTypes
@@ -1427,7 +1427,7 @@ class _EditProfessionalInfoDialogState
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: _itrFilingStatusController.text.isEmpty
+                      initialValue: _itrFilingStatusController.text.isEmpty
                           ? null
                           : _itrFilingStatusController.text,
                       items: _itrFilingStatuses
@@ -1796,7 +1796,7 @@ class _EditRequirementsDialogState extends State<_EditRequirementsDialog> {
                       ),
                     )
                   : DropdownButtonFormField<String>(
-                      value:
+                      initialValue:
                           (_selectedBudget != null &&
                               _selectedBudget!.isNotEmpty)
                           ? _selectedBudget
@@ -2004,7 +2004,7 @@ class _EditProjectLocationDialogState
                 const Center(child: CircularProgressIndicator())
               else
                 DropdownButtonFormField<String>(
-                  value: _selectedProjectId,
+                  initialValue: _selectedProjectId,
                   decoration: const InputDecoration(
                     labelText: 'Select Project',
                     border: OutlineInputBorder(),
@@ -2076,7 +2076,7 @@ class _EditProjectLocationDialogState
 
               // Property Type
               DropdownButtonFormField<String>(
-                value: _selectedPropertyType,
+                initialValue: _selectedPropertyType,
                 decoration: const InputDecoration(
                   labelText: 'Property Type',
                   border: OutlineInputBorder(),
@@ -2100,7 +2100,7 @@ class _EditProjectLocationDialogState
 
               // Category Type
               DropdownButtonFormField<String>(
-                value: _selectedCategoryType,
+                initialValue: _selectedCategoryType,
                 decoration: const InputDecoration(
                   labelText: 'Category Type',
                   border: OutlineInputBorder(),
@@ -3907,7 +3907,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: _propertyType,
+                              initialValue: _propertyType,
                               decoration: const InputDecoration(
                                 labelText: 'Property Type *',
                                 border: OutlineInputBorder(),
@@ -3928,7 +3928,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: _category,
+                              initialValue: _category,
                               decoration: const InputDecoration(
                                 labelText: 'Category *',
                                 border: OutlineInputBorder(),
@@ -4073,7 +4073,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<PaymentMode>(
-                              value: _paymentMode,
+                              initialValue: _paymentMode,
                               decoration: const InputDecoration(
                                 labelText: 'Payment Mode *',
                                 border: OutlineInputBorder(),
@@ -4094,7 +4094,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: DropdownButtonFormField<BookingStatus>(
-                              value: _status,
+                              initialValue: _status,
                               decoration: const InputDecoration(
                                 labelText: 'Status *',
                                 border: OutlineInputBorder(),
@@ -4438,8 +4438,9 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
                               child: CircularProgressIndicator(),
                             );
                           }
-                          if (snap.hasError)
+                          if (snap.hasError) {
                             return const Text('Failed to load');
+                          }
                           final String? currentUserId =
                               Helpers.getCurrentUserId();
                           List<Map<String, dynamic>> users =
