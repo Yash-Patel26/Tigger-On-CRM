@@ -237,25 +237,32 @@ class BookingService {
       if (advanceAmount != null) updateData['advance_amount'] = advanceAmount;
       if (balanceAmount != null) updateData['balance_amount'] = balanceAmount;
       if (paymentMode != null) updateData['payment_mode'] = paymentMode.name;
-      if (paymentReference != null)
+      if (paymentReference != null) {
         updateData['payment_reference'] = paymentReference;
-      if (salesExecutiveId != null)
+      }
+      if (salesExecutiveId != null) {
         updateData['sales_executive_id'] = salesExecutiveId;
-      if (salesExecutiveName != null)
+      }
+      if (salesExecutiveName != null) {
         updateData['sales_executive_name'] = salesExecutiveName;
+      }
       if (commission != null) updateData['commission'] = commission;
       if (approvedBy != null) updateData['approved_by'] = approvedBy;
       if (approvedById != null) updateData['approved_by_id'] = approvedById;
-      if (approvedAt != null)
+      if (approvedAt != null) {
         updateData['approved_at'] = approvedAt.toIso8601String();
+      }
       if (status != null) updateData['status'] = status.name;
-      if (bookingDate != null)
+      if (bookingDate != null) {
         updateData['booking_date'] = bookingDate.toIso8601String();
-      if (possessionDate != null)
+      }
+      if (possessionDate != null) {
         updateData['possession_date'] = possessionDate.toIso8601String();
+      }
       if (notes != null) updateData['notes'] = notes;
-      if (termsAndConditions != null)
+      if (termsAndConditions != null) {
         updateData['terms_and_conditions'] = termsAndConditions;
+      }
       if (documents != null) updateData['documents'] = documents;
       if (customFields != null) updateData['custom_fields'] = customFields;
 

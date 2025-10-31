@@ -331,7 +331,7 @@ class _TaskTabState extends State<TaskTab> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<TaskStatus>(
-                        value: selectedStatus,
+                        initialValue: selectedStatus,
                         decoration: const InputDecoration(
                           labelText: 'Status *',
                           border: OutlineInputBorder(),
@@ -491,7 +491,7 @@ class _TaskTabState extends State<TaskTab> {
                         children: <Widget>[
                           Expanded(
                             child: DropdownButtonFormField<TaskPriority>(
-                              value: selectedPriority,
+                              initialValue: selectedPriority,
                               decoration: const InputDecoration(
                                 labelText: 'Priority *',
                                 border: OutlineInputBorder(),
@@ -516,7 +516,7 @@ class _TaskTabState extends State<TaskTab> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: DropdownButtonFormField<TaskStatus>(
-                              value: selectedStatus,
+                              initialValue: selectedStatus,
                               decoration: const InputDecoration(
                                 labelText: 'Status *',
                                 border: OutlineInputBorder(),
@@ -544,7 +544,7 @@ class _TaskTabState extends State<TaskTab> {
                         children: <Widget>[
                           Expanded(
                             child: DropdownButtonFormField<TaskType>(
-                              value: selectedType,
+                              initialValue: selectedType,
                               decoration: const InputDecoration(
                                 labelText: 'Type *',
                                 border: OutlineInputBorder(),
@@ -590,7 +590,7 @@ class _TaskTabState extends State<TaskTab> {
                                     final List<Map<String, dynamic>> users =
                                         snap.data ?? <Map<String, dynamic>>[];
                                     return DropdownButtonFormField<String>(
-                                      value: selectedAssignedTo,
+                                      initialValue: selectedAssignedTo,
                                       decoration: const InputDecoration(
                                         labelText: 'Assign To',
                                         border: OutlineInputBorder(),

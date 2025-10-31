@@ -341,7 +341,7 @@ class _TicketTabState extends State<TicketTab> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: priority,
+                    initialValue: priority,
                     decoration: const InputDecoration(
                       labelText: 'Priority *',
                       border: OutlineInputBorder(),
