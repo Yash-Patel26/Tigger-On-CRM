@@ -221,7 +221,7 @@ class DatabaseServiceMasters {
         'action': 'scheduled',
         'description':
             'Follow-up scheduled from disposition: $mainDispositionName - $subDispositionName',
-        'performed_by': performedBy,
+        'performed_by': _convertToUuid(performedBy),
         'performed_by_name': performedByName,
         'metadata': {
           'next_follow_up_date': next.toIso8601String(),
