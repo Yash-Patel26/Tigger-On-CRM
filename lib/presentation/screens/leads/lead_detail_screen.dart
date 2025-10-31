@@ -29,17 +29,22 @@ class LeadDetailScreen extends StatefulWidget {
   State<LeadDetailScreen> createState() => _LeadDetailScreenState();
 }
 
-class _LeadDetailScreenState extends State<LeadDetailScreen> {
+class _LeadDetailScreenState extends State<LeadDetailScreen>
+    with SingleTickerProviderStateMixin {
   final LeadRepository _leadRepository = LeadRepository();
 
   late Future<Lead> _leadFuture;
   RealtimeChannel? _leadRealtimeChannel;
+  late TabController _tabController;
+  final Set<int> _loadedTabs = <int>{0};
 
   @override
   void initState() {
     super.initState();
     _leadFuture = _fetchLead();
     _subscribeToLeadUpdates();
+    _tabController = TabController(length: 8, vsync: this);
+    _tabController.addListener(_onTabChanged);
   }
 
   Future<Lead> _fetchLead() async {
@@ -114,116 +119,158 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
   @override
   void dispose() {
     _leadRealtimeChannel?.unsubscribe();
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (!_tabController.indexIsChanging) {
+      final int idx = _tabController.index;
+      if (!_loadedTabs.contains(idx)) {
+        setState(() {
+          _loadedTabs.add(idx);
+        });
+      }
+    }
+  }
+
+  Widget _lazyTab(int index, Widget child, {Widget? placeholder}) {
+    if (_loadedTabs.contains(index)) return child;
+    return placeholder ?? const Center(child: Text('Select this tab to load'));
   }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 8,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFE1F0E4),
-        appBar: AppBar(
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              const Text('Lead Details', style: TextStyle(fontSize: 18)),
-              Text(
-                widget.leadId,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.normal,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
+    return Scaffold(
+      backgroundColor: const Color(0xFFE1F0E4),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Text('Lead Details', style: TextStyle(fontSize: 18)),
+            Text(
+              widget.leadId,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.normal,
               ),
-            ],
-          ),
-          actions: <Widget>[
-            FutureBuilder<bool>(
-              future: Helpers.canAssignLeads(),
-              builder: (context, snapshot) {
-                if (snapshot.data == true) {
-                  return IconButton(
-                    tooltip: 'Assign',
-                    icon: Icon(
-                      FontAwesomeIcons.userPlus,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    onPressed: () => _showAssignDialog(context),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-            IconButton(
-              tooltip: 'Dispose Lead',
-              icon: Icon(
-                FontAwesomeIcons.trashCan,
-                color: Theme.of(context).colorScheme.primary,
-                size: 20,
-              ),
-              onPressed: () => _showDisposeDialog(context),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ],
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(110),
-            child: Column(
-              children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
+        ),
+        actions: <Widget>[
+          FutureBuilder<bool>(
+            future: Helpers.canAssignLeads(),
+            builder: (context, snapshot) {
+              if (snapshot.data == true) {
+                return IconButton(
+                  tooltip: 'Assign',
+                  icon: Icon(
+                    FontAwesomeIcons.userPlus,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                  child: FutureBuilder<Lead>(
-                    future: _leadFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        final lead = snapshot.data!;
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: <Widget>[
-                            _IconAction(
-                              assetPng: 'assets/icons/phone-call.png',
-                              tooltip: 'Call',
-                              onTap: () async {
-                                await Helpers.placeCall(lead.phone);
+                  onPressed: () => _showAssignDialog(context),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          IconButton(
+            tooltip: 'Dispose Lead',
+            icon: Icon(
+              FontAwesomeIcons.trashCan,
+              color: Theme.of(context).colorScheme.primary,
+              size: 20,
+            ),
+            onPressed: () => _showDisposeDialog(context),
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(110),
+          child: Column(
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: FutureBuilder<Lead>(
+                  future: _leadFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) {
+                      final lead = snapshot.data!;
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: <Widget>[
+                          _IconAction(
+                            assetPng: 'assets/icons/phone-call.png',
+                            tooltip: 'Call',
+                            onTap: () async {
+                              await Helpers.placeCall(lead.phone);
+                              await Future<void>.delayed(
+                                const Duration(seconds: 2),
+                              );
+                              final String? url =
+                                  await Helpers.uploadLastRecordingToSupabase();
+
+                              // Log call activity with recording URL if available
+                              try {
+                                final currentUser = supabase
+                                    .Supabase
+                                    .instance
+                                    .client
+                                    .auth
+                                    .currentUser;
+                                final String userId =
+                                    currentUser?.id ?? 'system';
+                                final String userName =
+                                    (currentUser?.userMetadata?['name']
+                                        as String?) ??
+                                    'System User';
+
+                                await masters
+                                    .DatabaseServiceMasters.logCallInitiated(
+                                  leadId: lead.id,
+                                  phoneNumber: lead.phone,
+                                  performedBy: userId,
+                                  performedByName: userName,
+                                  recordingUrl: url,
+                                );
+                              } catch (e) {
+                                print(
+                                  'Warning: Failed to log call activity: $e',
+                                );
+                              }
+
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      url == null
+                                          ? 'No recording captured or upload failed'
+                                          : 'Recording uploaded',
+                                    ),
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                          _IconAction(
+                            assetPng: 'assets/icons/phone-call.png',
+                            tooltip: 'Edit Before Call',
+                            onTap: () async {
+                              final String? number = await _promptPhone(
+                                context,
+                                initial: lead.phone,
+                              );
+                              if (number != null && number.trim().isNotEmpty) {
+                                await Helpers.placeCall(number.trim());
                                 await Future<void>.delayed(
                                   const Duration(seconds: 2),
                                 );
                                 final String? url =
                                     await Helpers.uploadLastRecordingToSupabase();
-
-                                // Log call activity with recording URL if available
-                                try {
-                                  final currentUser = supabase
-                                      .Supabase
-                                      .instance
-                                      .client
-                                      .auth
-                                      .currentUser;
-                                  final String userId =
-                                      currentUser?.id ?? 'system';
-                                  final String userName =
-                                      (currentUser?.userMetadata?['name']
-                                          as String?) ??
-                                      'System User';
-
-                                  await masters
-                                      .DatabaseServiceMasters.logCallInitiated(
-                                    leadId: lead.id,
-                                    phoneNumber: lead.phone,
-                                    performedBy: userId,
-                                    performedByName: userName,
-                                    recordingUrl: url,
-                                  );
-                                } catch (e) {
-                                  print(
-                                    'Warning: Failed to log call activity: $e',
-                                  );
-                                }
-
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -236,247 +283,217 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                                     ),
                                   );
                                 }
-                              },
-                            ),
-                            _IconAction(
-                              assetPng: 'assets/icons/phone-call.png',
-                              tooltip: 'Edit Before Call',
-                              onTap: () async {
-                                final String? number = await _promptPhone(
-                                  context,
-                                  initial: lead.phone,
-                                );
-                                if (number != null &&
-                                    number.trim().isNotEmpty) {
-                                  await Helpers.placeCall(number.trim());
-                                  await Future<void>.delayed(
-                                    const Duration(seconds: 2),
-                                  );
-                                  final String? url =
-                                      await Helpers.uploadLastRecordingToSupabase();
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          url == null
-                                              ? 'No recording captured or upload failed'
-                                              : 'Recording uploaded',
-                                        ),
-                                        duration: const Duration(seconds: 3),
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                              rotateTurns: 2, // rotate 180° to differentiate
-                            ),
-                            _IconAction(
-                              assetPng: 'assets/icons/email.png',
-                              tooltip: 'Email',
-                              onTap: () => _launchEmail(lead.email, lead.id),
-                            ),
-                            _IconAction(
-                              assetPng: 'assets/icons/conversation.png',
-                              tooltip: 'SMS',
-                              onTap: () => _launchSms(lead.phone, lead.id),
-                            ),
-                            _IconAction(
-                              assetPng: 'assets/icons/whatsapp.png',
-                              tooltip: 'WhatsApp',
-                              onTap: () => _launchWhatsApp(lead.phone, lead.id),
-                            ),
-                            _IconAction(
-                              assetPng: 'assets/icons/whatsapp.png',
-                              tooltip: 'Offline WA',
-                              onTap: () =>
-                                  _launchWhatsAppWeb(lead.phone, lead.id),
-                            ),
-                          ],
-                        );
-                      } else if (snapshot.hasError) {
-                        return const Center(
-                          child: Text('Error loading lead data'),
-                        );
-                      } else {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                    },
-                  ),
+                              }
+                            },
+                            rotateTurns: 2, // rotate 180° to differentiate
+                          ),
+                          _IconAction(
+                            assetPng: 'assets/icons/email.png',
+                            tooltip: 'Email',
+                            onTap: () => _launchEmail(lead.email, lead.id),
+                          ),
+                          _IconAction(
+                            assetPng: 'assets/icons/conversation.png',
+                            tooltip: 'SMS',
+                            onTap: () => _launchSms(lead.phone, lead.id),
+                          ),
+                          _IconAction(
+                            assetPng: 'assets/icons/whatsapp.png',
+                            tooltip: 'WhatsApp',
+                            onTap: () => _launchWhatsApp(lead.phone, lead.id),
+                          ),
+                          _IconAction(
+                            assetPng: 'assets/icons/whatsapp.png',
+                            tooltip: 'Offline WA',
+                            onTap: () =>
+                                _launchWhatsAppWeb(lead.phone, lead.id),
+                          ),
+                        ],
+                      );
+                    } else if (snapshot.hasError) {
+                      return const Center(
+                        child: Text('Error loading lead data'),
+                      );
+                    } else {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                  },
                 ),
-                const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: TabBar(
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    padding: EdgeInsets.zero,
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                    labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-                    unselectedLabelStyle: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                    ),
-                    tabs: const <Tab>[
-                      Tab(text: 'Lead Detail'),
-                      Tab(text: 'Cross Sell'),
-                      Tab(text: 'Reference'),
-                      Tab(text: 'Site Visit'),
-                      Tab(text: 'Task'),
-                      Tab(text: 'Question'),
-                      Tab(text: 'Property Option'),
-                      Tab(text: 'Ticket'),
-                    ],
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: TabBar(
+                  controller: _tabController,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  padding: EdgeInsets.zero,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+                  unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
                   ),
+                  tabs: const <Tab>[
+                    Tab(text: 'Lead Detail'),
+                    Tab(text: 'Cross Sell'),
+                    Tab(text: 'Reference'),
+                    Tab(text: 'Site Visit'),
+                    Tab(text: 'Task'),
+                    Tab(text: 'Question'),
+                    Tab(text: 'Property Option'),
+                    Tab(text: 'Ticket'),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        body: FutureBuilder<Lead>(
-          future: _leadFuture,
-          builder: (BuildContext context, AsyncSnapshot<Lead> snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Failed to load lead: ${snapshot.error}',
-                    textAlign: TextAlign.center,
-                  ),
+      ),
+      body: FutureBuilder<Lead>(
+        future: _leadFuture,
+        builder: (BuildContext context, AsyncSnapshot<Lead> snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Failed to load lead: ${snapshot.error}',
+                  textAlign: TextAlign.center,
                 ),
-              );
-            }
-            final Lead lead = snapshot.data!;
-            return TabBarView(
-              children: <Widget>[
-                // Lead Detail tab
-                SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      _StaticCard(
-                        title: 'Contact Information',
-                        action: IconButton(
-                          onPressed: () =>
-                              _showEditContactDialog(context, lead),
-                          icon: const Icon(
-                            FontAwesomeIcons.penToSquare,
-                            size: 20,
-                          ),
-                          tooltip: 'Edit Contact Information',
-                        ),
-                        child: _ContactCompact(lead: lead),
-                      ),
-                      const SizedBox(height: 12),
-                      _StaticCard(
-                        title: 'Preferred Project & Location',
-                        action: IconButton(
-                          onPressed: () =>
-                              _showEditProjectLocationDialog(context, lead),
-                          icon: const Icon(
-                            FontAwesomeIcons.penToSquare,
-                            size: 20,
-                          ),
-                          tooltip: 'Edit Project & Location',
-                        ),
-                        child: _LazyProjectLocationCompact(leadId: lead.id),
-                      ),
-                      const SizedBox(height: 12),
-
-                      _CollapsibleCard(
-                        title: 'Basic Details',
-                        action: IconButton(
-                          onPressed: () =>
-                              _showEditBasicInfoDialog(context, lead),
-                          icon: const Icon(
-                            FontAwesomeIcons.penToSquare,
-                            size: 20,
-                          ),
-                          tooltip: 'Edit Basic Details',
-                        ),
-                        child: _BasicDetailsCard(lead: lead),
-                      ),
-                      const SizedBox(height: 12),
-
-                      _CollapsibleCard(
-                        title: 'Professional Details',
-                        action: IconButton(
-                          onPressed: () =>
-                              _showEditProfessionalInfoDialog(context, lead),
-                          icon: const Icon(
-                            FontAwesomeIcons.penToSquare,
-                            size: 20,
-                          ),
-                          tooltip: 'Edit Professional Details',
-                        ),
-                        child: _ProfessionalDetailsCard(lead: lead),
-                      ),
-                      const SizedBox(height: 12),
-
-                      _CollapsibleCard(
-                        title: 'Permanent Address',
-                        action: IconButton(
-                          onPressed: () =>
-                              _showEditPermanentAddressDialog(context, lead),
-                          icon: const Icon(
-                            FontAwesomeIcons.penToSquare,
-                            size: 20,
-                          ),
-                          tooltip: 'Edit Permanent Address',
-                        ),
-                        child: _PermanentAddressCard(lead: lead),
-                      ),
-                      const SizedBox(height: 12),
-
-                      _CollapsibleCard(
-                        title: 'Requirements & Notes',
-                        action: IconButton(
-                          onPressed: () =>
-                              _showEditRequirementsDialog(context, lead),
-                          icon: const Icon(
-                            FontAwesomeIcons.penToSquare,
-                            size: 20,
-                          ),
-                          tooltip: 'Edit Requirements & Notes',
-                        ),
-                        child: _RequirementNotesCard(leadId: lead.id),
-                      ),
-                      const SizedBox(height: 12),
-
-                      _CollapsibleCard(
-                        title: 'Timeline',
-                        child: TabbedTimelineCard(leadId: lead.id),
-                      ),
-                      const SizedBox(height: 12),
-                      _CollapsibleCard(
-                        title: 'Activity & Assignment History',
-                        child: _ActivityCompact(leadId: lead.id),
-                      ),
-                      const SizedBox(height: 72),
-                    ],
-                  ),
-                ),
-                // Cross Sell
-                CrossSellTab(leadId: lead.id),
-                // Reference
-                ReferenceTab(leadId: lead.id),
-                // Site Visit
-                SiteVisitTab(leadId: lead.id),
-                // Task
-                TaskTab(leadId: lead.id),
-                // Question
-                QuestionTab(leadId: lead.id),
-                // Property Option
-                const PropertyOptionTab(),
-                // Ticket
-                TicketTab(leadId: lead.id),
-              ],
+              ),
             );
-          },
-        ),
+          }
+          final Lead lead = snapshot.data!;
+          return TabBarView(
+            controller: _tabController,
+            children: <Widget>[
+              // Lead Detail tab
+              SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    _StaticCard(
+                      title: 'Contact Information',
+                      action: IconButton(
+                        onPressed: () => _showEditContactDialog(context, lead),
+                        icon: const Icon(
+                          FontAwesomeIcons.penToSquare,
+                          size: 20,
+                        ),
+                        tooltip: 'Edit Contact Information',
+                      ),
+                      child: _ContactCompact(lead: lead),
+                    ),
+                    const SizedBox(height: 12),
+                    _StaticCard(
+                      title: 'Preferred Project & Location',
+                      action: IconButton(
+                        onPressed: () =>
+                            _showEditProjectLocationDialog(context, lead),
+                        icon: const Icon(
+                          FontAwesomeIcons.penToSquare,
+                          size: 20,
+                        ),
+                        tooltip: 'Edit Project & Location',
+                      ),
+                      child: _LazyProjectLocationCompact(leadId: lead.id),
+                    ),
+                    const SizedBox(height: 12),
+
+                    _CollapsibleCard(
+                      title: 'Basic Details',
+                      action: IconButton(
+                        onPressed: () =>
+                            _showEditBasicInfoDialog(context, lead),
+                        icon: const Icon(
+                          FontAwesomeIcons.penToSquare,
+                          size: 20,
+                        ),
+                        tooltip: 'Edit Basic Details',
+                      ),
+                      child: _BasicDetailsCard(lead: lead),
+                    ),
+                    const SizedBox(height: 12),
+
+                    _CollapsibleCard(
+                      title: 'Professional Details',
+                      action: IconButton(
+                        onPressed: () =>
+                            _showEditProfessionalInfoDialog(context, lead),
+                        icon: const Icon(
+                          FontAwesomeIcons.penToSquare,
+                          size: 20,
+                        ),
+                        tooltip: 'Edit Professional Details',
+                      ),
+                      child: _ProfessionalDetailsCard(lead: lead),
+                    ),
+                    const SizedBox(height: 12),
+
+                    _CollapsibleCard(
+                      title: 'Permanent Address',
+                      action: IconButton(
+                        onPressed: () =>
+                            _showEditPermanentAddressDialog(context, lead),
+                        icon: const Icon(
+                          FontAwesomeIcons.penToSquare,
+                          size: 20,
+                        ),
+                        tooltip: 'Edit Permanent Address',
+                      ),
+                      child: _PermanentAddressCard(lead: lead),
+                    ),
+                    const SizedBox(height: 12),
+
+                    _CollapsibleCard(
+                      title: 'Requirements & Notes',
+                      action: IconButton(
+                        onPressed: () =>
+                            _showEditRequirementsDialog(context, lead),
+                        icon: const Icon(
+                          FontAwesomeIcons.penToSquare,
+                          size: 20,
+                        ),
+                        tooltip: 'Edit Requirements & Notes',
+                      ),
+                      child: _RequirementNotesCard(leadId: lead.id),
+                    ),
+                    const SizedBox(height: 12),
+
+                    _CollapsibleCard(
+                      title: 'Timeline',
+                      child: TabbedTimelineCard(leadId: lead.id),
+                    ),
+                    const SizedBox(height: 12),
+                    _CollapsibleCard(
+                      title: 'Activity & Assignment History',
+                      child: _ActivityCompact(leadId: lead.id),
+                    ),
+                    const SizedBox(height: 72),
+                  ],
+                ),
+              ),
+              // Cross Sell
+              _lazyTab(1, CrossSellTab(leadId: lead.id)),
+              // Reference
+              _lazyTab(2, ReferenceTab(leadId: lead.id)),
+              // Site Visit
+              _lazyTab(3, SiteVisitTab(leadId: lead.id)),
+              // Task
+              _lazyTab(4, TaskTab(leadId: lead.id)),
+              // Question
+              _lazyTab(5, QuestionTab(leadId: lead.id)),
+              // Property Option
+              _lazyTab(6, const PropertyOptionTab()),
+              // Ticket
+              _lazyTab(7, TicketTab(leadId: lead.id)),
+            ],
+          );
+        },
       ),
     );
   }
