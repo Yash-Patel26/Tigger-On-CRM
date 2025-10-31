@@ -149,6 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _subscribeNotifications() {
     final supabase.SupabaseClient client = supabase.Supabase.instance.client;
     final supabase.RealtimeChannel ch = client.channel('public:events');
+    final String? currentUserId = client.auth.currentUser?.id;
 
     void push(AppNotificationType type, String title, String message) {
       final store = context.read<NotificationStore>();
@@ -293,6 +294,32 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Subscribe to stats-related table changes for real-time updates
     _subscribeStatsUpdates();
+
+    // Also listen to user-scoped notifications table to reflect server-side notifications
+    // (e.g., lead assignments) in the in-app badge immediately
+    final supabase.RealtimeChannel notifCh = client.channel(
+      'public:notifications',
+    );
+    notifCh.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'notifications',
+      callback: (supabase.PostgresChangePayload payload) {
+        try {
+          final Map<String, dynamic>? newRow = payload.newRecord;
+          if (newRow == null) return;
+          final String? userId = newRow['user_id'] as String?;
+          if (currentUserId != null && userId == currentUserId) {
+            final String title = (newRow['title'] as String?) ?? 'Notification';
+            final String message = (newRow['message'] as String?) ?? '';
+            push(AppNotificationType.lead, title, message);
+          }
+        } catch (_) {
+          // Ignore malformed rows
+        }
+      },
+    );
+    notifCh.subscribe();
   }
 
   void _subscribeStatsUpdates() {
