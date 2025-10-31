@@ -1,5 +1,6 @@
 import '../../data/models/notification_model.dart';
 import '../../data/services/notification_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotificationHelper {
   // Create lead-related notifications
@@ -392,6 +393,38 @@ class NotificationHelper {
         'meeting_time': meetingTime.toIso8601String(),
       },
     );
+  }
+
+  /// Send notifications for an event to all active admin/head users.
+  static Future<void> notifyAdminsAndHeadsAboutEvent({
+    required String title,
+    required String message,
+    required NotificationType type,
+    NotificationPriority priority = NotificationPriority.medium,
+    String? relatedId,
+    String? relatedType,
+    String? actionUrl,
+    Map<String, dynamic>? data,
+  }) async {
+    final client = Supabase.instance.client;
+    final List<dynamic> adminsAndHeads = await client
+        .from('users')
+        .select('id')
+        .or('role.eq.admin,role.eq.head')
+        .eq('is_active', true);
+    for (final user in adminsAndHeads) {
+      await NotificationService.createNotification(
+        title: title,
+        message: message,
+        type: type,
+        priority: priority,
+        userId: user['id'] as String,
+        relatedId: relatedId,
+        relatedType: relatedType,
+        actionUrl: actionUrl,
+        data: data,
+      );
+    }
   }
 
   // Utility methods

@@ -86,7 +86,7 @@ class _CreatePropertyOptionScreenState
       final cities = await MasterDataService.getCities(stateId: stateId);
       setState(() {
         _cities = cities;
-        cityValue = ''; // Reset city when state changes
+        cityValue = ''; // Reset city when state changesanalyze 
         location = ''; // Reset location when state changes
       });
     } catch (e) {
