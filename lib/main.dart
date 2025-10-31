@@ -6,6 +6,7 @@ import 'core/constants/constants.dart';
 import 'presentation/pages/auth_wrapper.dart';
 import 'shared/managers/notification_store.dart';
 import 'shared/managers/auth_state_manager.dart';
+import 'shared/services/permission_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +15,9 @@ void main() async {
     url: AppConstants.supabaseUrl,
     anonKey: AppConstants.supabaseAnonKey,
   );
+
+  // Request core permissions once at startup on Android
+  await PermissionManager.ensureCorePermissions();
 
   runApp(const MyApp());
 }
