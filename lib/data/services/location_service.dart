@@ -8,14 +8,19 @@ class LocationService {
   static const String _ipApiUrl = 'http://ip-api.com/json';
   static const String _ipifyApiUrl = 'https://api.ipify.org?format=json';
 
-  /// Get device location using GPS
+  /// Get device location using GPS with highest practical accuracy and fallbacks
   static Future<Map<String, dynamic>?> getCurrentLocation() async {
     try {
       // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        // Location services are disabled.
-        return null;
+        // Try to prompt user to enable location services
+        try {
+          await Geolocator.openLocationSettings();
+        } catch (_) {}
+        // Re-check after prompt
+        serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) return null;
       }
 
       // Check location permissions
@@ -33,20 +38,33 @@ class LocationService {
         return null;
       }
 
-      // Get current position
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 10),
-      );
+      // Try high-accuracy first with a reasonable timeout
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.best,
+          timeLimit: const Duration(seconds: 15),
+        );
+      } catch (_) {
+        // If high-accuracy fails (e.g., GPS cold start), fall back to last known
+        position = await Geolocator.getLastKnownPosition();
+        // As a secondary attempt, request a quick, lower-accuracy fix
+        position ??= await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 10),
+        );
+      }
+
+      final Position pos = position;
 
       return {
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'accuracy': position.accuracy,
-        'altitude': position.altitude,
-        'heading': position.heading,
-        'speed': position.speed,
-        'timestamp': position.timestamp.toIso8601String(),
+        'latitude': pos.latitude,
+        'longitude': pos.longitude,
+        'accuracy': pos.accuracy,
+        'altitude': pos.altitude,
+        'heading': pos.heading,
+        'speed': pos.speed,
+        'timestamp': pos.timestamp.toIso8601String(),
       };
     } catch (e) {
       // Error getting location: $e
