@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import 'location_data_service.dart';
 
@@ -150,23 +151,98 @@ class SupabaseService {
     required String filePath,
     required String destFolder,
   }) async {
-    final file = File(filePath);
-    final fileName = filePath.split('/').last;
-    final fullPath = '$destFolder/$fileName';
+    try {
+      // Verify user is authenticated before upload
+      final currentUser = client.auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('User must be authenticated to upload recordings');
+      }
 
-    await client.storage
-        .from(bucket)
-        .upload(
-          fullPath,
-          file,
-          fileOptions: supabase.FileOptions(
-            contentType: 'audio/m4a',
-            upsert: true,
-          ),
+      // Verify session is valid
+      final session = client.auth.currentSession;
+      if (session == null) {
+        throw Exception('No active session found. Please log in again.');
+      }
+
+      print('User authenticated: ${currentUser.id}, uploading recording...');
+
+      final file = File(filePath);
+
+      if (!await file.exists()) {
+        throw Exception('Recording file does not exist: $filePath');
+      }
+
+      final fileSize = await file.length();
+      if (fileSize == 0) {
+        throw Exception('Recording file is empty: $filePath');
+      }
+
+      print('Preparing to upload recording: $filePath (${fileSize} bytes)');
+
+      final fileName = filePath.split('/').last;
+      // Use timestamp and UUID to ensure unique file names
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final uniqueFileName = '${timestamp}_$fileName';
+      final fullPath = '$destFolder/$uniqueFileName';
+
+      print('Reading file bytes...');
+      final Uint8List bytes = await file.readAsBytes();
+      print('File bytes read: ${bytes.length} bytes');
+
+      print('Uploading to Supabase Storage bucket: $bucket, path: $fullPath');
+      print('Using authenticated session for user: ${currentUser.id}');
+
+      // Upload with explicit content type
+      await client.storage
+          .from(bucket)
+          .uploadBinary(
+            fullPath,
+            bytes,
+            fileOptions: supabase.FileOptions(
+              contentType: 'audio/mp4', // M4A files use mp4 mime type
+              upsert: true,
+              cacheControl: '3600',
+            ),
+          );
+
+      print('Upload successful. Getting public URL...');
+      final publicUrl = client.storage.from(bucket).getPublicUrl(fullPath);
+      print('Public URL obtained: $publicUrl');
+
+      return publicUrl;
+    } catch (e, stackTrace) {
+      print('Error in uploadRecording: $e');
+      print('Stack trace: $stackTrace');
+
+      // Provide more specific error messages
+      if (e.toString().contains('row-level security') ||
+          e.toString().contains('403') ||
+          e.toString().contains('Unauthorized')) {
+        final currentUser = client.auth.currentUser;
+        final session = client.auth.currentSession;
+        print('RLS Error Details:');
+        print('  - Current User: ${currentUser?.id ?? "null"}');
+        print('  - Has Session: ${session != null}');
+        print('  - Session Expires At: ${session?.expiresAt}');
+
+        if (session != null && session.expiresAt != null) {
+          final expiresAt = DateTime.fromMillisecondsSinceEpoch(
+            session.expiresAt! * 1000,
+          );
+          final now = DateTime.now();
+          if (expiresAt.isBefore(now)) {
+            print('  - WARNING: Session has expired!');
+            throw Exception('Session expired. Please log in again.');
+          }
+        }
+
+        throw Exception(
+          'Upload failed due to permissions. User may not be authenticated or session expired.',
         );
+      }
 
-    final publicUrl = client.storage.from(bucket).getPublicUrl(fullPath);
-    return publicUrl;
+      rethrow;
+    }
   }
 
   // Safe profile creation method to handle 400 errors

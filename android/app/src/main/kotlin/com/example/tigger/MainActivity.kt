@@ -43,6 +43,27 @@ class MainActivity : FlutterActivity() {
                         result.error("REC_PATH_FAIL", e.message, null)
                     }
                 }
+                "isCallActive" -> {
+                    try {
+                        result.success(CallRecorderService.isCallActive)
+                    } catch (e: Exception) {
+                        result.error("CALL_STATE_FAIL", e.message, null)
+                    }
+                }
+                "hasCallEnded" -> {
+                    try {
+                        result.success(CallRecorderService.callEnded)
+                    } catch (e: Exception) {
+                        result.error("CALL_ENDED_FAIL", e.message, null)
+                    }
+                }
+                "isRecordingFinalized" -> {
+                    try {
+                        result.success(CallRecorderService.recordingFinalized)
+                    } catch (e: Exception) {
+                        result.error("REC_FINALIZED_FAIL", e.message, null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
