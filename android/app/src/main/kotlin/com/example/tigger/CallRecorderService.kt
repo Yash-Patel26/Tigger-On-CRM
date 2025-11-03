@@ -106,7 +106,7 @@ class CallRecorderService : Service() {
                         }
                         Log.d("CallRecorderService", "Stopping service after recording finalized")
                         stopSelf()
-                    }, 4000) // 4 seconds delay to ensure file is fully written
+                    }, 6000) // 6 seconds delay to ensure file is fully written on slower devices
                 }
                 TelephonyManager.CALL_STATE_RINGING -> {
                     Log.d("CallRecorderService", "CALL_STATE_RINGING")
@@ -131,21 +131,7 @@ class CallRecorderService : Service() {
         val number = intent?.getStringExtra(EXTRA_NUMBER) ?: "unknown"
         // Pre-create output path for consistent file naming; actual recording starts on OFFHOOK
         prepareOutput(number)
-        // Fallback: if OFFHOOK isn't observed within 5s, start recording anyway
-        if (!startFallbackPosted) {
-            startFallbackPosted = true
-            android.os.Handler(mainLooper).postDelayed({
-                if (!isRecording) {
-                    try {
-                        Log.w("CallRecorderService", "OFFHOOK not seen in time; starting fallback recording")
-                        startRecording(number)
-                        updateNotif("Recording call: $number")
-                    } catch (e: Exception) {
-                        Log.e("CallRecorderService", "Fallback startRecording failed: ${e.message}")
-                    }
-                }
-            }, 5000)
-        }
+        // Remove fallback auto-start recording to ensure we only record during an active call (OFFHOOK)
         return START_STICKY
     }
 
@@ -200,46 +186,114 @@ class CallRecorderService : Service() {
         }
     }
 
-    private fun prepareOutput(number: String) {
+    private fun prepareOutput(number: String, extension: String = "m4a") {
         val time = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val dir = File(getExternalFilesDir(Environment.DIRECTORY_MUSIC), "calls")
         if (!dir.exists()) dir.mkdirs()
-        val file = File(dir, "call_${number}_$time.m4a")
+        val file = File(dir, "call_${number}_$time.$extension")
         outputPath = file.absolutePath
         lastOutputPath = outputPath
     }
 
     private fun startRecording(number: String) {
         if (isRecording) return
-        if (outputPath == null) prepareOutput(number)
-        val r = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(this) else MediaRecorder()
+        if (outputPath == null) prepareOutput(number, "3gp")
+        var r = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(this) else MediaRecorder()
         recorder = r
         // route audio to speaker to improve remote-party pickup via mic
         try {
             wasSpeakerOn = audioManager?.isSpeakerphoneOn ?: false
+            // Set call audio mode for better mic capture during calls
+            audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
             audioManager?.isSpeakerphoneOn = true
         } catch (_: Exception) {}
-        // Prefer VOICE_COMMUNICATION (captures mic with echo cancellation); fallback to MIC
+        // Try VOICE_COMMUNICATION first (some devices route call audio better),
+        // then VOICE_RECOGNITION, then MIC; finally CAMCORDER as a last resort.
+        var sourceSet = false
         try {
             r.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION)
-        } catch (e1: Exception) {
-            Log.w("CallRecorderService", "VOICE_COMMUNICATION not available")
+            sourceSet = true
+        } catch (e: Exception) {
+            Log.w("CallRecorderService", "VOICE_COMMUNICATION source failed: ${e.message}")
+        }
+        if (!sourceSet) {
             try {
                 r.setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
-            } catch (e2: Exception) {
-                Log.w("CallRecorderService", "VOICE_RECOGNITION not available; fallback to MIC")
-                r.setAudioSource(MediaRecorder.AudioSource.MIC)
+                sourceSet = true
+            } catch (e: Exception) {
+                Log.w("CallRecorderService", "VOICE_RECOGNITION source failed: ${e.message}")
             }
         }
-        r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-        r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-        r.setAudioSamplingRate(44100)
-        r.setAudioEncodingBitRate(96000)
-        r.setOutputFile(outputPath)
-        r.prepare()
-        r.start()
-        isRecording = true
-        Log.d("CallRecorderService", "Recording started: $outputPath")
+        if (!sourceSet) {
+            try {
+                r.setAudioSource(MediaRecorder.AudioSource.MIC)
+                sourceSet = true
+            } catch (e: Exception) {
+                Log.w("CallRecorderService", "MIC source failed: ${e.message}")
+            }
+        }
+        if (!sourceSet) {
+            try {
+                r.setAudioSource(MediaRecorder.AudioSource.CAMCORDER)
+                sourceSet = true
+            } catch (e: Exception) {
+                Log.w("CallRecorderService", "CAMCORDER source failed: ${e.message}")
+            }
+        }
+        // Primary attempt: 3GP/AMR which is often allowed during calls
+        try {
+            r.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
+            r.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_WB)
+            try { r.setAudioChannels(1) } catch (_: Exception) {}
+            r.setOutputFile(outputPath)
+
+            // Listeners for diagnostics
+            try {
+                r.setOnErrorListener { _, what, extra ->
+                    Log.e("CallRecorderService", "MediaRecorder error: what=$what extra=$extra")
+                }
+                r.setOnInfoListener { _, what, extra ->
+                    Log.w("CallRecorderService", "MediaRecorder info: what=$what extra=$extra")
+                }
+            } catch (_: Exception) {}
+
+            r.prepare()
+            r.start()
+            isRecording = true
+            Log.d("CallRecorderService", "Recording started (AMR/3GP): $outputPath")
+            return
+        } catch (amrError: Exception) {
+            Log.e("CallRecorderService", "Primary 3GP/AMR failed: ${amrError.message}")
+            try { r.reset() } catch (_: Exception) {}
+            try { r.release() } catch (_: Exception) {}
+            recorder = null
+
+            // Secondary fallback: AAC/M4A
+            prepareOutput(number, "m4a")
+            r = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(this) else MediaRecorder()
+            recorder = r
+            try {
+                try { r.setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION) } catch (_: Exception) {}
+                try { r.setAudioSource(MediaRecorder.AudioSource.MIC) } catch (_: Exception) {}
+                r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                try { r.setAudioSamplingRate(44100) } catch (_: Exception) {}
+                try { r.setAudioEncodingBitRate(96000) } catch (_: Exception) {}
+                try { r.setAudioChannels(1) } catch (_: Exception) {}
+                r.setOutputFile(outputPath)
+                r.prepare()
+                r.start()
+                isRecording = true
+                Log.d("CallRecorderService", "Recording started (AAC/M4A fallback): $outputPath")
+                return
+            } catch (fallbackError: Exception) {
+                Log.e("CallRecorderService", "Secondary AAC/M4A failed: ${fallbackError.message}")
+                try { r.reset() } catch (_: Exception) {}
+                try { r.release() } catch (_: Exception) {}
+                recorder = null
+                isRecording = false
+            }
+        }
     }
 
     private fun stopRecording() {
@@ -251,7 +305,7 @@ class CallRecorderService : Service() {
                 
                 // Verify file was written properly
                 outputPath?.let { path ->
-                    val file = File(path)
+                    val file = java.io.File(path)
                     if (file.exists() && file.length() > 0) {
                         Log.d("CallRecorderService", "Recording file verified: $path (${file.length()} bytes)")
                     } else {
@@ -272,11 +326,12 @@ class CallRecorderService : Service() {
             isRecording = false
         }
         
-        // restore speakerphone
+        // restore audio mode and speakerphone
         try {
             audioManager?.isSpeakerphoneOn = wasSpeakerOn
+            audioManager?.mode = AudioManager.MODE_NORMAL
         } catch (e: Exception) {
-            Log.e("CallRecorderService", "Error restoring speakerphone: ${e.message}")
+            Log.e("CallRecorderService", "Error restoring audio mode: ${e.message}")
         }
         
         // keep lastOutputPath as is for Flutter to fetch
