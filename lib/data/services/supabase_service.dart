@@ -177,7 +177,7 @@ class SupabaseService {
         throw Exception('Recording file is empty: $filePath');
       }
 
-      print('Preparing to upload recording: $filePath (${fileSize} bytes)');
+      print('Preparing to upload recording: $filePath ($fileSize bytes)');
 
       final fileName = filePath.split('/').last;
       // Use timestamp and UUID to ensure unique file names
