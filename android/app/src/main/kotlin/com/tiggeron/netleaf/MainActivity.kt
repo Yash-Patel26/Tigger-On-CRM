@@ -1,4 +1,4 @@
-package com.example.tigger
+package com.tiggeron.netleaf
 
 import android.content.Intent
 import android.net.Uri
@@ -70,3 +70,4 @@ class MainActivity : FlutterActivity() {
     }
 
 }
+
