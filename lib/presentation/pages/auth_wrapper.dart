@@ -54,8 +54,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // Show splash screen only during initial app load (checking for existing session)
         // Not during login attempts
         if (!authManager.isInitialized) {
-          debugPrint('AuthWrapper: Showing splash screen');
-          return SplashScreen(nextPageBuilder: (_) => const AuthWrapper());
+          debugPrint('AuthWrapper: Showing splash placeholder (initializing)');
+          return const Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
         }
 
         // Show error screen if there's an error during initialization
