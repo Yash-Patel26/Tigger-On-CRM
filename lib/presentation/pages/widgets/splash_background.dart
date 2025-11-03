@@ -19,9 +19,9 @@ class SplashBackground extends StatelessWidget {
           begin: const Alignment(-0.9, -1.0),
           end: const Alignment(1.0, 0.9),
           colors: <Color>[
-            primary.withValues(alpha: isDark ? 0.10 : 0.12),
+            primary.withOpacity(isDark ? 0.10 : 0.12),
             surface,
-            secondary.withValues(alpha: isDark ? 0.08 : 0.10),
+            secondary.withOpacity(isDark ? 0.08 : 0.10),
           ],
           stops: const <double>[0.0, 0.55, 1.0],
         ),
@@ -33,7 +33,7 @@ class SplashBackground extends StatelessWidget {
             center: const Alignment(0.0, -0.2),
             radius: 0.9,
             colors: <Color>[
-              primary.withValues(alpha: isDark ? 0.10 : 0.08),
+              primary.withOpacity(isDark ? 0.10 : 0.08),
               Colors.transparent,
             ],
             stops: const <double>[0.0, 1.0],

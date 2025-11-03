@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'data/services/auth_service.dart';
 import 'core/constants/constants.dart';
 import 'presentation/pages/auth_wrapper.dart';
@@ -20,17 +21,18 @@ void main() async {
     anonKey: AppConstants.supabaseAnonKey,
   );
 
-  await Firebase.initializeApp();
+  if (!kIsWeb) {
+    await Firebase.initializeApp();
+  }
 
-  // Request core permissions once at startup on Android
-  await PermissionManager.ensureCorePermissions();
-
-  await PushNotificationService.instance.initialize();
-  await PushNotificationService.instance.requestAndroidPermissionIfNeeded();
-  final currentUser = supabase.Supabase.instance.client.auth.currentUser;
-  await PushNotificationService.instance.saveFcmTokenToSupabase(
-    currentUser?.id,
-  );
+  // Initialize push (Android only); request permissions after first frame
+  if (!kIsWeb) {
+    await PushNotificationService.instance.initialize();
+    final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+    await PushNotificationService.instance.saveFcmTokenToSupabase(
+      currentUser?.id,
+    );
+  }
 
   // Ensure Android 13+ notifications permission and initialize push
   // Defer full wiring to widget tree stage
@@ -286,16 +288,24 @@ class MyApp extends StatelessWidget {
     );
 
     // Attach foreground listener exactly once after first frame using the navigator context
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        final context = MyApp.navigatorKey.currentContext;
-        if (context == null) return;
-        final store = Provider.of<NotificationStore>(context, listen: false);
-        PushNotificationService.instance.handleForegroundMessage(
-          message,
-          store,
-        );
-      });
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Request permissions after first frame to avoid blocking splash (Android only)
+      if (!kIsWeb) {
+        await PermissionManager.ensureCorePermissions();
+        await PushNotificationService.instance
+            .requestAndroidPermissionIfNeeded();
+      }
+
+      if (!kIsWeb)
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+          final context = MyApp.navigatorKey.currentContext;
+          if (context == null) return;
+          final store = Provider.of<NotificationStore>(context, listen: false);
+          PushNotificationService.instance.handleForegroundMessage(
+            message,
+            store,
+          );
+        });
     });
 
     return MaterialApp(
@@ -306,25 +316,27 @@ class MyApp extends StatelessWidget {
       darkTheme: darkTheme,
       themeMode: ThemeMode.light,
       builder: (BuildContext context, Widget? child) {
-        // Handle app opened via notification
-        FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-          final ctx = MyApp.navigatorKey.currentContext;
-          if (ctx != null) {
-            Navigator.of(ctx).push(
-              MaterialPageRoute(builder: (_) => const NotificationScreen()),
-            );
-          }
-        });
-        FirebaseMessaging.instance.getInitialMessage().then((message) {
-          if (message != null) {
+        // Handle app opened via notification (Android only)
+        if (!kIsWeb)
+          FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
             final ctx = MyApp.navigatorKey.currentContext;
             if (ctx != null) {
               Navigator.of(ctx).push(
                 MaterialPageRoute(builder: (_) => const NotificationScreen()),
               );
             }
-          }
-        });
+          });
+        if (!kIsWeb)
+          FirebaseMessaging.instance.getInitialMessage().then((message) {
+            if (message != null) {
+              final ctx = MyApp.navigatorKey.currentContext;
+              if (ctx != null) {
+                Navigator.of(ctx).push(
+                  MaterialPageRoute(builder: (_) => const NotificationScreen()),
+                );
+              }
+            }
+          });
         final MediaQueryData mq = MediaQuery.of(context);
         final double width = mq.size.width;
         // Slightly up-scale text on small/mobile screens for readability.
