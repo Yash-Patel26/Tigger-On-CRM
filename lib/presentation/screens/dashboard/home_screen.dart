@@ -310,7 +310,6 @@ class _HomeScreenState extends State<HomeScreen> {
       callback: (supabase.PostgresChangePayload payload) {
         try {
           final Map<String, dynamic> newRow = payload.newRecord;
-          if (newRow == null) return;
           final String? userId = newRow['user_id'] as String?;
           if (currentUserId != null && userId == currentUserId) {
             final String title = (newRow['title'] as String?) ?? 'Notification';

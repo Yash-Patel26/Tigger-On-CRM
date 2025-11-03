@@ -393,7 +393,7 @@ class Helpers {
           }
         } catch (e) {
           uploadAttempts++;
-          print('Upload attempt ${uploadAttempts} failed: $e');
+          print('Upload attempt $uploadAttempts failed: $e');
           if (uploadAttempts < maxUploadAttempts) {
             print('Retrying upload in 2 seconds...');
             await Future<void>.delayed(const Duration(seconds: 2));
