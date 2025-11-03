@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "463231796341",
+    "project_id": "tigger-on-bb841",
+    "storage_bucket": "tigger-on-bb841.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:463231796341:android:606448ce5654e33b8ae43c",
+        "android_client_info": {
+          "package_name": "com.tiggeron.netleaf"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBnWhM7KcrSQ42-LRqd7KoREkrChej6WSs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

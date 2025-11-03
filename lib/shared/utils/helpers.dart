@@ -131,6 +131,16 @@ class Helpers {
     if (!started) {
       print('Call did not start within timeout. Skipping upload.');
     } else {
+      // Mark the call as connected in backend so other users (and self) see real-time status
+      try {
+        if (callId != null) {
+          await CallService.markCallConnected(callId: callId);
+        }
+      } catch (e) {
+        // ignore: avoid_print
+        print('Failed to mark call connected: $e');
+      }
+
       // Wait for call to end and recording to be finalized before uploading
       print('Call connected. Waiting for call to disconnect...');
       await _waitForCallToEnd();

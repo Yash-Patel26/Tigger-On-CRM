@@ -247,6 +247,54 @@ class DatabaseServiceMasters {
           if (assignedToName != null) 'assigned_to_name': assignedToName,
         },
       });
+
+      // Notify admin and head users about the follow-up
+      try {
+        final List<dynamic> recipients = await _client
+            .from('users')
+            .select('id, name, role, is_active')
+            .or('role.eq.admin,role.eq.head')
+            .eq('is_active', true);
+
+        if (recipients.isNotEmpty) {
+          final String title = 'Lead Follow-up Scheduled';
+          final String message =
+              'Follow-up set for lead $leadId by $performedByName: $mainDispositionName - $subDispositionName';
+
+          final List<Map<String, dynamic>> notifRows = recipients
+              .map<Map<String, dynamic>>(
+                (dynamic u) => <String, dynamic>{
+                  'title': title,
+                  'message': message,
+                  'type': 'reminder',
+                  'priority': 'medium',
+                  'status': 'unread',
+                  'user_id': u['id'],
+                  'related_id': leadId,
+                  'related_type': 'lead',
+                  'data': <String, dynamic>{
+                    'lead_id': leadId,
+                    'next_follow_up_date': next.toIso8601String(),
+                    'performed_by': _convertToUuid(performedBy),
+                    'performed_by_name': performedByName,
+                    if (assignedTo != null) 'assigned_to': assignedTo,
+                    if (assignedToName != null)
+                      'assigned_to_name': assignedToName,
+                    'disposition': <String, String>{
+                      'main': mainDispositionName,
+                      'sub': subDispositionName,
+                    },
+                  },
+                },
+              )
+              .toList();
+
+          // Bulk insert notifications for recipients
+          await _client.from('notifications').insert(notifRows);
+        }
+      } catch (e) {
+        // Best-effort notifications; do not fail the follow-up creation
+      }
     } catch (e) {
       throw Exception('Failed to create disposition follow-up: $e');
     }

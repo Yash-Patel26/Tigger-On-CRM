@@ -192,14 +192,35 @@ class SupabaseService {
       print('Uploading to Supabase Storage bucket: $bucket, path: $fullPath');
       print('Using authenticated session for user: ${currentUser.id}');
 
-      // Upload with explicit content type
+      // Determine content type from file extension for correct playback/processing
+      String contentType;
+      final lower = filePath.toLowerCase();
+      if (lower.endsWith('.m4a') || lower.endsWith('.mp4')) {
+        contentType = 'audio/mp4';
+      } else if (lower.endsWith('.3gp') || lower.endsWith('.3gpp')) {
+        contentType = 'audio/3gpp';
+      } else if (lower.endsWith('.amr') || lower.endsWith('.awb')) {
+        contentType = 'audio/amr';
+      } else if (lower.endsWith('.aac')) {
+        contentType = 'audio/aac';
+      } else if (lower.endsWith('.wav')) {
+        contentType = 'audio/wav';
+      } else if (lower.endsWith('.mp3')) {
+        contentType = 'audio/mpeg';
+      } else if (lower.endsWith('.ogg') || lower.endsWith('.oga')) {
+        contentType = 'audio/ogg';
+      } else {
+        contentType = 'application/octet-stream';
+      }
+
+      // Upload with explicit, correct content type
       await client.storage
           .from(bucket)
           .uploadBinary(
             fullPath,
             bytes,
             fileOptions: supabase.FileOptions(
-              contentType: 'audio/mp4', // M4A files use mp4 mime type
+              contentType: contentType,
               upsert: true,
               cacheControl: '3600',
             ),

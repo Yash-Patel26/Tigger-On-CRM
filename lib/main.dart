@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'data/services/auth_service.dart';
 import 'core/constants/constants.dart';
 import 'presentation/pages/auth_wrapper.dart';
+import 'presentation/screens/notifications/notification_screen.dart';
 import 'shared/managers/notification_store.dart';
 import 'shared/managers/auth_state_manager.dart';
 import 'shared/services/permission_manager.dart';
+import 'shared/services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,14 +20,29 @@ void main() async {
     anonKey: AppConstants.supabaseAnonKey,
   );
 
+  await Firebase.initializeApp();
+
   // Request core permissions once at startup on Android
   await PermissionManager.ensureCorePermissions();
+
+  await PushNotificationService.instance.initialize();
+  await PushNotificationService.instance.requestAndroidPermissionIfNeeded();
+  final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+  await PushNotificationService.instance.saveFcmTokenToSupabase(
+    currentUser?.id,
+  );
+
+  // Ensure Android 13+ notifications permission and initialize push
+  // Defer full wiring to widget tree stage
 
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
@@ -266,13 +285,46 @@ class MyApp extends StatelessWidget {
       highlightColor: Colors.black.withOpacity(0.03),
     );
 
+    // Attach foreground listener exactly once after first frame using the navigator context
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        final context = MyApp.navigatorKey.currentContext;
+        if (context == null) return;
+        final store = Provider.of<NotificationStore>(context, listen: false);
+        PushNotificationService.instance.handleForegroundMessage(
+          message,
+          store,
+        );
+      });
+    });
+
     return MaterialApp(
+      navigatorKey: MyApp.navigatorKey,
       title: 'TiggerOn',
       debugShowCheckedModeBanner: false,
       theme: lightTheme,
       darkTheme: darkTheme,
       themeMode: ThemeMode.light,
       builder: (BuildContext context, Widget? child) {
+        // Handle app opened via notification
+        FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+          final ctx = MyApp.navigatorKey.currentContext;
+          if (ctx != null) {
+            Navigator.of(ctx).push(
+              MaterialPageRoute(builder: (_) => const NotificationScreen()),
+            );
+          }
+        });
+        FirebaseMessaging.instance.getInitialMessage().then((message) {
+          if (message != null) {
+            final ctx = MyApp.navigatorKey.currentContext;
+            if (ctx != null) {
+              Navigator.of(ctx).push(
+                MaterialPageRoute(builder: (_) => const NotificationScreen()),
+              );
+            }
+          }
+        });
         final MediaQueryData mq = MediaQuery.of(context);
         final double width = mq.size.width;
         // Slightly up-scale text on small/mobile screens for readability.
