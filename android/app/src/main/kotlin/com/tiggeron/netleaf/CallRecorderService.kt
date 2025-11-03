@@ -1,4 +1,4 @@
-package com.example.tigger
+package com.tiggeron.netleaf
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -190,7 +190,7 @@ class CallRecorderService : Service() {
         val time = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val dir = File(getExternalFilesDir(Environment.DIRECTORY_MUSIC), "calls")
         if (!dir.exists()) dir.mkdirs()
-        val file = File(dir, "call_${number}_$time.$extension")
+        val file = File(dir, "call_${'$'}number_${'$'}time.${'$'}extension")
         outputPath = file.absolutePath
         lastOutputPath = outputPath
     }
@@ -214,14 +214,14 @@ class CallRecorderService : Service() {
             r.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION)
             sourceSet = true
         } catch (e: Exception) {
-            Log.w("CallRecorderService", "VOICE_COMMUNICATION source failed: ${e.message}")
+            Log.w("CallRecorderService", "VOICE_COMMUNICATION source failed: ${'$'}{e.message}")
         }
         if (!sourceSet) {
             try {
                 r.setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
                 sourceSet = true
             } catch (e: Exception) {
-                Log.w("CallRecorderService", "VOICE_RECOGNITION source failed: ${e.message}")
+                Log.w("CallRecorderService", "VOICE_RECOGNITION source failed: ${'$'}{e.message}")
             }
         }
         if (!sourceSet) {
@@ -229,7 +229,7 @@ class CallRecorderService : Service() {
                 r.setAudioSource(MediaRecorder.AudioSource.MIC)
                 sourceSet = true
             } catch (e: Exception) {
-                Log.w("CallRecorderService", "MIC source failed: ${e.message}")
+                Log.w("CallRecorderService", "MIC source failed: ${'$'}{e.message}")
             }
         }
         if (!sourceSet) {
@@ -237,7 +237,7 @@ class CallRecorderService : Service() {
                 r.setAudioSource(MediaRecorder.AudioSource.CAMCORDER)
                 sourceSet = true
             } catch (e: Exception) {
-                Log.w("CallRecorderService", "CAMCORDER source failed: ${e.message}")
+                Log.w("CallRecorderService", "CAMCORDER source failed: ${'$'}{e.message}")
             }
         }
         // Primary attempt: 3GP/AMR which is often allowed during calls
@@ -250,24 +250,24 @@ class CallRecorderService : Service() {
             // Listeners for diagnostics
             try {
                 r.setOnErrorListener { _, what, extra ->
-                    Log.e("CallRecorderService", "MediaRecorder error: what=$what extra=$extra")
+                    Log.e("CallRecorderService", "MediaRecorder error: what=${'$'}what extra=${'$'}extra")
                 }
                 r.setOnInfoListener { _, what, extra ->
-                    Log.w("CallRecorderService", "MediaRecorder info: what=$what extra=$extra")
+                    Log.w("CallRecorderService", "MediaRecorder info: what=${'$'}what extra=${'$'}extra")
                 }
             } catch (_: Exception) {}
 
             r.prepare()
             r.start()
             isRecording = true
-            Log.d("CallRecorderService", "Recording started (AMR/3GP): $outputPath")
+            Log.d("CallRecorderService", "Recording started (AMR/3GP): ${'$'}outputPath")
             return
         } catch (amrError: Exception) {
-            Log.e("CallRecorderService", "Primary 3GP/AMR failed: ${amrError.message}")
+            Log.e("CallRecorderService", "Primary 3GP/AMR failed: ${'$'}{amrError.message}")
             try { r.reset() } catch (_: Exception) {}
             try { r.release() } catch (_: Exception) {}
             recorder = null
-
+            
             // Secondary fallback: AAC/M4A
             prepareOutput(number, "m4a")
             r = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(this) else MediaRecorder()
@@ -284,10 +284,10 @@ class CallRecorderService : Service() {
                 r.prepare()
                 r.start()
                 isRecording = true
-                Log.d("CallRecorderService", "Recording started (AAC/M4A fallback): $outputPath")
+                Log.d("CallRecorderService", "Recording started (AAC/M4A fallback): ${'$'}outputPath")
                 return
             } catch (fallbackError: Exception) {
-                Log.e("CallRecorderService", "Secondary AAC/M4A failed: ${fallbackError.message}")
+                Log.e("CallRecorderService", "Secondary AAC/M4A failed: ${'$'}{fallbackError.message}")
                 try { r.reset() } catch (_: Exception) {}
                 try { r.release() } catch (_: Exception) {}
                 recorder = null
@@ -307,20 +307,20 @@ class CallRecorderService : Service() {
                 outputPath?.let { path ->
                     val file = java.io.File(path)
                     if (file.exists() && file.length() > 0) {
-                        Log.d("CallRecorderService", "Recording file verified: $path (${file.length()} bytes)")
+                        Log.d("CallRecorderService", "Recording file verified: ${'$'}path (${ '$'}{file.length()} bytes)")
                     } else {
-                        Log.w("CallRecorderService", "Recording file not ready: $path")
+                        Log.w("CallRecorderService", "Recording file not ready: ${'$'}path")
                     }
                 }
             }
         } catch (e: Exception) {
-            Log.e("CallRecorderService", "Error stopping recording: ${e.message}")
+            Log.e("CallRecorderService", "Error stopping recording: ${'$'}{e.message}")
         } finally {
             try {
                 r.reset()
                 r.release()
             } catch (e: Exception) {
-                Log.e("CallRecorderService", "Error releasing recorder: ${e.message}")
+                Log.e("CallRecorderService", "Error releasing recorder: ${'$'}{e.message}")
             }
             recorder = null
             isRecording = false
@@ -331,11 +331,11 @@ class CallRecorderService : Service() {
             audioManager?.isSpeakerphoneOn = wasSpeakerOn
             audioManager?.mode = AudioManager.MODE_NORMAL
         } catch (e: Exception) {
-            Log.e("CallRecorderService", "Error restoring audio mode: ${e.message}")
+            Log.e("CallRecorderService", "Error restoring audio mode: ${'$'}{e.message}")
         }
         
         // keep lastOutputPath as is for Flutter to fetch
-        Log.d("CallRecorderService", "Recording cleanup completed, file available at: $outputPath")
+        Log.d("CallRecorderService", "Recording cleanup completed, file available at: ${'$'}outputPath")
     }
 
     private fun updateNotif(content: String) {
