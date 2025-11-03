@@ -125,48 +125,183 @@ class Helpers {
     // Place native call and start recording service
     await placeCall(cleaned);
 
-    // Give native recorder time to finalize file
-    await Future<void>.delayed(const Duration(seconds: 2));
+    // Ensure we only proceed after the call actually connects (OFFHOOK)
+    print('Waiting for call to start (OFFHOOK)...');
+    final bool started = await _waitForCallToStart();
+    if (!started) {
+      print('Call did not start within timeout. Skipping upload.');
+    } else {
+      // Wait for call to end and recording to be finalized before uploading
+      print('Call connected. Waiting for call to disconnect...');
+      await _waitForCallToEnd();
 
-    // Try to upload any available recording
-    String? recordingUrl;
-    try {
-      recordingUrl = await uploadLastRecordingToSupabase();
-    } catch (e) {
-      // ignore: avoid_print
-      print('Recording upload failed: $e');
-    }
+      // Additional small delay to ensure file is completely written
+      print('Recording finalized. Adding brief delay before upload...');
+      await Future<void>.delayed(const Duration(seconds: 2));
 
-    // Update calls status with optional recording
-    try {
-      if (callId != null) {
-        await CallService.endCallWithRecording(
-          callId: callId,
-          status: 'completed',
-          recordingUrl: recordingUrl,
-          endedAt: DateTime.now(),
-        );
-      }
-    } catch (e) {
-      // ignore: avoid_print
-      print('Error updating call completion: $e');
-    }
-
-    // Log activity against lead if available
-    if (leadId != null) {
+      // Try to upload any available recording
+      String? recordingUrl;
       try {
-        await masters.DatabaseServiceMasters.logCallInitiated(
-          leadId: leadId,
-          phoneNumber: cleaned,
-          performedBy: initiatedBy,
-          performedByName: initiatedByName,
-          recordingUrl: recordingUrl,
-        );
+        recordingUrl = await uploadLastRecordingToSupabase();
+        if (recordingUrl != null) {
+          print('Recording uploaded successfully: $recordingUrl');
+        } else {
+          print('No recording URL obtained after upload attempt');
+        }
       } catch (e) {
         // ignore: avoid_print
-        print('Failed to log lead activity for call: $e');
+        print('Recording upload failed: $e');
+      }
+
+      // Update calls status with optional recording
+      try {
+        if (callId != null) {
+          await CallService.endCallWithRecording(
+            callId: callId,
+            status: 'completed',
+            recordingUrl: recordingUrl,
+            endedAt: DateTime.now(),
+          );
+          print(
+            'Call record updated with recording URL: ${recordingUrl != null ? "Yes" : "No"}',
+          );
+        }
+      } catch (e) {
+        // ignore: avoid_print
+        print('Error updating call completion: $e');
+      }
+
+      // Log activity against lead if available
+      if (leadId != null) {
+        try {
+          await masters.DatabaseServiceMasters.logCallInitiated(
+            leadId: leadId,
+            phoneNumber: cleaned,
+            performedBy: initiatedBy,
+            performedByName: initiatedByName,
+            recordingUrl: recordingUrl,
+          );
+        } catch (e) {
+          // ignore: avoid_print
+          print('Failed to log lead activity for call: $e');
+        }
       }
     }
+  }
+
+  // Wait for call to start by polling the native call state (OFFHOOK observed)
+  static Future<bool> _waitForCallToStart() async {
+    int attempts = 0;
+    const int maxAttempts = 120; // up to ~60s
+
+    while (attempts < maxAttempts) {
+      try {
+        final bool? isActive = await _recorderChannel.invokeMethod<bool>(
+          'isCallActive',
+        );
+        if (isActive == true) {
+          print('Call start detected after ${attempts * 500}ms');
+          return true;
+        }
+      } catch (e) {
+        print('Error checking call start state: $e');
+      }
+      attempts++;
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+    return false;
+  }
+
+  // Wait for call to end by polling the native call state
+  // Ensures call has actually disconnected and recording is finalized
+  static Future<void> _waitForCallToEnd() async {
+    int attempts = 0;
+    const int maxAttempts = 600; // 5 minutes max wait time (600 * 500ms)
+
+    print('Waiting for call to disconnect...');
+    bool callDisconnected = false;
+
+    // First, wait for call to disconnect (IDLE state)
+    while (attempts < maxAttempts && !callDisconnected) {
+      try {
+        final bool? isActive = await _recorderChannel.invokeMethod<bool>(
+          'isCallActive',
+        );
+
+        if (isActive == false) {
+          // Check if call has ended
+          final bool? hasEnded = await _recorderChannel.invokeMethod<bool>(
+            'hasCallEnded',
+          );
+
+          if (hasEnded == true) {
+            callDisconnected = true;
+            print('Call disconnected detected after ${attempts * 500}ms');
+            break;
+          }
+        }
+
+        attempts++;
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      } catch (e) {
+        print('Error checking call disconnect state: $e');
+        attempts++;
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
+    }
+
+    if (!callDisconnected) {
+      print(
+        'Timeout waiting for call to disconnect after ${maxAttempts * 500}ms',
+      );
+      return;
+    }
+
+    // Now wait for recording to be finalized (file written to disk)
+    print('Call disconnected. Waiting for recording to finalize...');
+    attempts = 0;
+    const int finalizeMaxAttempts = 40; // 20 seconds max for finalization
+
+    while (attempts < finalizeMaxAttempts) {
+      try {
+        final bool? isFinalized = await _recorderChannel.invokeMethod<bool>(
+          'isRecordingFinalized',
+        );
+
+        if (isFinalized == true) {
+          print('Recording finalized confirmed after ${attempts * 500}ms');
+          return;
+        }
+
+        // Also verify by checking file directly
+        final String? path = await _recorderChannel.invokeMethod<String>(
+          'getLastRecordingPath',
+        );
+
+        if (path != null && path.isNotEmpty) {
+          final File f = File(path);
+          if (await f.exists()) {
+            final int size = await f.length();
+            if (size > 1024) {
+              // File exists and has meaningful content
+              print('Recording file verified: $path ($size bytes)');
+              return;
+            }
+          }
+        }
+
+        attempts++;
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      } catch (e) {
+        print('Error checking recording finalization: $e');
+        attempts++;
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
+    }
+
+    print(
+      'Timeout waiting for recording to finalize. Proceeding with upload anyway...',
+    );
   }
 
   // Call when you want to fetch the last recording and upload it to Supabase
@@ -174,15 +309,11 @@ class Helpers {
     try {
       print('Starting recording upload process...');
 
-      // Wait a bit for the Android service to finalize the recording
-      print('Waiting for recording to be finalized...');
-      await Future<void>.delayed(const Duration(seconds: 2));
-
       // Poll for a finalized recording file path and non-empty size
       String? path;
       int attempts = 0;
       const int maxAttempts =
-          60; // ~30s max @ 500ms interval (increased from 20s)
+          120; // ~60s max @ 500ms interval (increased for reliability)
 
       while (attempts < maxAttempts) {
         try {
@@ -198,11 +329,14 @@ class Helpers {
                 'Recording file check: $path ($size bytes) - attempt ${attempts + 1}',
               );
 
-              if (size > 0) {
+              // Require minimum file size (e.g., 1KB) to ensure it's not just metadata
+              if (size > 1024) {
                 print('Recording file found and ready: $path ($size bytes)');
                 break;
               } else {
-                print('Recording file exists but is empty, waiting...');
+                print(
+                  'Recording file exists but too small ($size bytes), waiting...',
+                );
               }
             } else {
               print('Recording file does not exist yet, waiting...');
@@ -233,22 +367,49 @@ class Helpers {
       }
 
       final int finalSize = await finalFile.length();
-      if (finalSize == 0) {
-        print('Recording file is empty: $path');
+      if (finalSize < 1024) {
+        print('Recording file is too small or empty: $path ($finalSize bytes)');
         return null;
       }
 
       print('Uploading recording to Supabase: $path ($finalSize bytes)');
-      final String publicUrl = await SupabaseService.uploadRecording(
-        bucket: AppConstants.recordingsBucket,
-        filePath: path,
-        destFolder: AppConstants.recordingsFolder,
-      );
 
-      print('Recording uploaded successfully: $publicUrl');
+      // Upload with retry mechanism
+      String? publicUrl;
+      int uploadAttempts = 0;
+      const int maxUploadAttempts = 3;
+
+      while (uploadAttempts < maxUploadAttempts && publicUrl == null) {
+        try {
+          publicUrl = await SupabaseService.uploadRecording(
+            bucket: AppConstants.recordingsBucket,
+            filePath: path,
+            destFolder: AppConstants.recordingsFolder,
+          );
+
+          if (publicUrl.isNotEmpty) {
+            print('Recording uploaded successfully: $publicUrl');
+            break;
+          }
+        } catch (e) {
+          uploadAttempts++;
+          print('Upload attempt ${uploadAttempts} failed: $e');
+          if (uploadAttempts < maxUploadAttempts) {
+            print('Retrying upload in 2 seconds...');
+            await Future<void>.delayed(const Duration(seconds: 2));
+          }
+        }
+      }
+
+      if (publicUrl == null || publicUrl.isEmpty) {
+        print('Failed to upload recording after $maxUploadAttempts attempts');
+        return null;
+      }
+
       return publicUrl;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('Error uploading recording: $e');
+      print('Stack trace: $stackTrace');
       return null;
     }
   }

@@ -28,10 +28,20 @@ class CallRecorderService : Service() {
         const val EXTRA_NUMBER = "extra_number"
         @JvmStatic
         var lastOutputPath: String? = null
+        @JvmStatic
+        var isCallActive: Boolean = false
+        @JvmStatic
+        var callEnded: Boolean = false
+        @JvmStatic
+        var recordingFinalized: Boolean = false
 
         fun start(context: Context, number: String) {
             val intent = Intent(context, CallRecorderService::class.java)
             intent.putExtra(EXTRA_NUMBER, number)
+            // Reset call state flags when starting new call
+            isCallActive = false
+            callEnded = false
+            recordingFinalized = false
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -58,6 +68,8 @@ class CallRecorderService : Service() {
                 TelephonyManager.CALL_STATE_OFFHOOK -> {
                     // Call connected (outgoing answered or incoming answered)
                     Log.d("CallRecorderService", "CALL_STATE_OFFHOOK")
+                    isCallActive = true
+                    callEnded = false
                     if (!isRecording) {
                         val number = lastOutputPath?.let { extractNumberFromPath(it) } ?: "unknown"
                         try {
@@ -70,13 +82,31 @@ class CallRecorderService : Service() {
                 }
                 TelephonyManager.CALL_STATE_IDLE -> {
                     Log.d("CallRecorderService", "CALL_STATE_IDLE → stopping recording and service")
+                    isCallActive = false
+                    callEnded = true
+                    recordingFinalized = false
                     // Stop recording first, then stop service
                     stopRecording()
+                    // Mark recording as finalized after file write delay
                     // Give more time to ensure recording is properly finalized and file is written
                     android.os.Handler(mainLooper).postDelayed({
+                        // Verify file exists and has content before marking as finalized
+                        lastOutputPath?.let { path ->
+                            val file = java.io.File(path)
+                            if (file.exists() && file.length() > 0) {
+                                recordingFinalized = true
+                                Log.d("CallRecorderService", "Recording finalized: $path (${file.length()} bytes)")
+                            } else {
+                                Log.w("CallRecorderService", "Recording file not ready: $path")
+                                recordingFinalized = false
+                            }
+                        } ?: run {
+                            Log.w("CallRecorderService", "No recording path available")
+                            recordingFinalized = false
+                        }
                         Log.d("CallRecorderService", "Stopping service after recording finalized")
                         stopSelf()
-                    }, 3000) // Increased delay to 3 seconds
+                    }, 4000) // 4 seconds delay to ensure file is fully written
                 }
                 TelephonyManager.CALL_STATE_RINGING -> {
                     Log.d("CallRecorderService", "CALL_STATE_RINGING")
