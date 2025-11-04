@@ -1088,26 +1088,56 @@ class _LeadCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          // Top row with customer name and lead ID
+          // Header line: Name (left) and Lead ID (right) baseline-aligned
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: <Widget>[
+              Expanded(
+                flex: 2,
+                child: Text(
+                  leadData.customerName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      leadData.leadId,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Two-column body below the header
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              // Left section - Customer info
+              // Left section - Customer details (without name)
               Expanded(
                 flex: 2,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    // Customer name
-                    Text(
-                      leadData.customerName,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
                     // Phone number
                     Text(
                       leadData.phone,
@@ -1166,22 +1196,12 @@ class _LeadCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Right section - Lead ID and status
+              // Right section - status info (without ID)
               Expanded(
                 flex: 1,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: <Widget>[
-                    // Lead ID
-                    Text(
-                      leadData.leadId,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
                     // Time ago chip
                     Container(
                       padding: const EdgeInsets.symmetric(
