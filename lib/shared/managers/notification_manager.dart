@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../../data/models/models.dart';
 import '../../data/repositories/notification_repository.dart';
+import '../services/push_notification_service.dart';
 
 class NotificationManager {
   static final NotificationManager _instance = NotificationManager._internal();
@@ -11,6 +12,9 @@ class NotificationManager {
 
   // Current user ID
   String? _currentUserId;
+
+  // Track last known notifications to detect new ones
+  List<Notification> _lastKnownNotifications = [];
 
   // Stream controllers
   final StreamController<List<Notification>> _notificationsController =
@@ -27,8 +31,16 @@ class NotificationManager {
   Stream<int> get unreadCountStream => _unreadCountController.stream;
 
   // Initialize with user ID
-  void initialize(String userId) {
+  void initialize(String userId) async {
     _currentUserId = userId;
+    // Load initial notifications to establish baseline
+    try {
+      final initialNotifications = await getNotifications(limit: 50);
+      _lastKnownNotifications = initialNotifications;
+    } catch (e) {
+      // If initial load fails, start with empty list
+      _lastKnownNotifications = [];
+    }
     _startRealTimeSubscription();
   }
 
@@ -250,6 +262,37 @@ class NotificationManager {
     _repository.subscribeToUserNotifications(_currentUserId!).listen((
       notifications,
     ) {
+      // Detect new notifications (not in last known list)
+      final Set<String> lastKnownIds = _lastKnownNotifications
+          .map((n) => n.id)
+          .toSet();
+      final List<Notification> newNotifications = notifications
+          .where(
+            (n) =>
+                !lastKnownIds.contains(n.id) &&
+                n.status == NotificationStatus.unread,
+          )
+          .toList();
+
+      // Show mobile notification bar for each new notification
+      for (final notification in newNotifications) {
+        PushNotificationService.instance.showLocalNotification(
+          id: notification.id,
+          title: notification.title,
+          body: notification.message,
+          payload: {
+            'id': notification.id,
+            'type': notification.type.name,
+            'related_id': notification.relatedId ?? '',
+            'related_type': notification.relatedType ?? '',
+            'action_url': notification.actionUrl ?? '',
+          },
+        );
+      }
+
+      // Update last known list
+      _lastKnownNotifications = List.from(notifications);
+
       _notificationsController.add(notifications);
 
       // Update counts

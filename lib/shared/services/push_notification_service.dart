@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -11,6 +10,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../shared/managers/notification_store.dart';
 import '../../data/models/app_notification.dart';
+import '../../presentation/screens/notifications/notification_screen.dart';
 
 // Top-level background handler
 @pragma('vm:entry-point')
@@ -39,9 +39,18 @@ class PushNotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+  GlobalKey<NavigatorState>? _navigatorKey;
+
+  void setNavigatorKey(GlobalKey<NavigatorState> navigatorKey) {
+    _navigatorKey = navigatorKey;
+  }
 
   Future<void> initialize({GlobalKey<NavigatorState>? navigatorKey}) async {
     if (_initialized) return;
+
+    if (navigatorKey != null) {
+      _navigatorKey = navigatorKey;
+    }
 
     // Firebase init should have been called by main.dart
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -55,9 +64,15 @@ class PushNotificationService {
     await _local.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) async {
-        // Handle taps on local notifications
-        final payload = response.payload;
-        // Implement routing if needed using payload
+        // Handle taps on local notifications - navigate to notification screen
+        if (response.actionId == null || response.actionId == '') {
+          final ctx = _navigatorKey?.currentContext;
+          if (ctx != null) {
+            Navigator.of(ctx).push(
+              MaterialPageRoute(builder: (_) => const NotificationScreen()),
+            );
+          }
+        }
       },
     );
 
