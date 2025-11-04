@@ -1,6 +1,7 @@
 import '../../core/config/supabase_config.dart';
 import '../models/models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/notification_service.dart';
 
 class DatabaseServiceMasters {
   static SupabaseClient get _client => SupabaseConfig.client;
@@ -247,6 +248,62 @@ class DatabaseServiceMasters {
           if (assignedToName != null) 'assigned_to_name': assignedToName,
         },
       });
+
+      // Notify the assignee of this lead about the newly scheduled follow-up
+      try {
+        // Resolve assignee (prefer explicit assignedTo parameter; otherwise read from DB)
+        String? assigneeId = assignedTo;
+        String? customerName;
+        if (assigneeId == null || assigneeId.isEmpty) {
+          final dynamic leadRow = await _client
+              .from('leads')
+              .select('assigned_to, customer_name')
+              .eq('id', leadId)
+              .maybeSingle();
+          if (leadRow != null) {
+            assigneeId = (leadRow['assigned_to'] as String?);
+            customerName = (leadRow['customer_name'] as String?);
+          }
+        } else {
+          // Also fetch customer name when available
+          try {
+            final dynamic leadRow = await _client
+                .from('leads')
+                .select('customer_name')
+                .eq('id', leadId)
+                .maybeSingle();
+            if (leadRow != null) {
+              customerName = (leadRow['customer_name'] as String?);
+            }
+          } catch (_) {}
+        }
+
+        if (assigneeId != null && assigneeId.isNotEmpty) {
+          await NotificationService.createReminderNotification(
+            userId: assigneeId,
+            title: 'Follow-up Reminder',
+            message:
+                'Follow-up reminder for \'${customerName ?? 'lead'}\' scheduled for '
+                '${next.day}/${next.month}/${next.year}',
+            relatedId: leadId,
+            relatedType: 'lead',
+            actionUrl: '/leads/$leadId',
+            priority: NotificationPriority.high,
+            data: {
+              'lead_id': leadId,
+              'next_follow_up_date': next.toIso8601String(),
+              'performed_by': _convertToUuid(performedBy),
+              'performed_by_name': performedByName,
+              'disposition': <String, String>{
+                'main': mainDispositionName,
+                'sub': subDispositionName,
+              },
+            },
+          );
+        }
+      } catch (_) {
+        // Best-effort notification; do not fail the flow
+      }
 
       // Notify admin and head users about the follow-up
       try {

@@ -1,6 +1,7 @@
 import '../models/models.dart';
 import '../services/database_service.dart';
 import '../services/database_service_masters.dart' as masters;
+import '../../shared/helpers/notification_helper.dart';
 
 class LeadService {
   LeadService();
@@ -134,6 +135,20 @@ class LeadService {
       );
 
       final result = await DatabaseService.updateLead(leadId, updatedLead);
+
+      // Notify the assignee about the lead assignment (admin/head initiated)
+      try {
+        await NotificationHelper.createLeadAssignedNotification(
+          userId: assignedTo,
+          leadId: result.id,
+          customerName: result.customerName,
+          projectName: result.projectName ?? 'Project',
+          priority: NotificationPriority.medium,
+        );
+      } catch (_) {
+        // Best-effort; do not fail assignment on notification error
+      }
+
       return ApiResponse.success(data: result);
     } catch (e) {
       return ApiResponse.error(error: 'Error assigning lead: $e');
