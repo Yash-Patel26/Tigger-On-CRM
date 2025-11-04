@@ -16,6 +16,9 @@ class NotificationManager {
   // Track last known notifications to detect new ones
   List<Notification> _lastKnownNotifications = [];
 
+  // Fallback poller in case realtime is unavailable (e.g., emulator constraints)
+  Timer? _pollTimer;
+
   // Stream controllers
   final StreamController<List<Notification>> _notificationsController =
       StreamController<List<Notification>>.broadcast();
@@ -42,6 +45,7 @@ class NotificationManager {
       _lastKnownNotifications = [];
     }
     _startRealTimeSubscription();
+    _startFallbackPolling();
   }
 
   // Get notifications for current user
@@ -371,5 +375,31 @@ class NotificationManager {
     _notificationsController.close();
     _countsController.close();
     _unreadCountController.close();
+    _pollTimer?.cancel();
+  }
+
+  void _startFallbackPolling() {
+    _pollTimer?.cancel();
+    if (_currentUserId == null) return;
+    _pollTimer = Timer.periodic(const Duration(seconds: 8), (_) async {
+      try {
+        final latest = await _repository.getUserNotifications(
+          userId: _currentUserId!,
+          forceRefresh: true,
+        );
+        // Only emit if changed to avoid redundant rebuilds
+        if (latest.isNotEmpty &&
+            latest.first.id !=
+                (_lastKnownNotifications.isNotEmpty
+                    ? _lastKnownNotifications.first.id
+                    : null)) {
+          _lastKnownNotifications = List.from(latest);
+          _notificationsController.add(latest);
+          _updateCountsFromNotifications(latest);
+        }
+      } catch (_) {
+        // ignore
+      }
+    });
   }
 }
