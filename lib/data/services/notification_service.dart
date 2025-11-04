@@ -50,7 +50,7 @@ class NotificationService {
     NotificationPriority? priority,
     int? limit,
     int? offset,
-    bool sortByPriority = true,
+    bool sortByPriority = false,
   }) async {
     try {
       var query = _supabase
@@ -87,7 +87,8 @@ class NotificationService {
           .map<Notification>((json) => Notification.fromJson(json))
           .toList();
 
-      // Sort by priority if requested
+      // Keep latest notifications on top by default (ordered by created_at DESC above).
+      // Only sort by priority if explicitly requested by caller.
       if (sortByPriority) {
         notifications.sort(
           (a, b) => a.priority.sortOrder.compareTo(b.priority.sortOrder),
