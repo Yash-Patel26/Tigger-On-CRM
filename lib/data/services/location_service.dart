@@ -7,6 +7,8 @@ import 'dart:convert';
 class LocationService {
   static const String _ipApiUrl = 'http://ip-api.com/json';
   static const String _ipifyApiUrl = 'https://api.ipify.org?format=json';
+  static const String _nominatimUrl =
+      'https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1';
 
   /// Get device location using GPS with highest practical accuracy and fallbacks
   static Future<Map<String, dynamic>?> getCurrentLocation() async {
@@ -226,6 +228,21 @@ class LocationService {
       locationData['latitude'] = gpsLocation['latitude'];
       locationData['longitude'] = gpsLocation['longitude'];
       locationData['locationSource'] = 'gps';
+
+      // Reverse geocode to get street/area/city/state/country
+      try {
+        final double lat = (gpsLocation['latitude'] as num).toDouble();
+        final double lon = (gpsLocation['longitude'] as num).toDouble();
+        final rev = await _reverseGeocode(lat, lon);
+        if (rev != null) {
+          // Prefer GPS-derived address components
+          locationData['street'] = rev['street'];
+          locationData['area'] = rev['area'];
+          locationData['city'] = rev['city'] ?? locationData['city'];
+          locationData['state'] = rev['state'] ?? locationData['state'];
+          locationData['country'] = rev['country'] ?? locationData['country'];
+        }
+      } catch (_) {}
     }
 
     // Get IP-based location as fallback or additional info
@@ -252,6 +269,46 @@ class LocationService {
     }
 
     return locationData;
+  }
+
+  /// Reverse geocode using OpenStreetMap Nominatim (no API key needed)
+  static Future<Map<String, String>?> _reverseGeocode(
+    double lat,
+    double lon,
+  ) async {
+    try {
+      final uri = Uri.parse('$_nominatimUrl&lat=$lat&lon=$lon');
+      final res = await http
+          .get(
+            uri,
+            headers: {
+              // Nominatim requires a valid User-Agent
+              'User-Agent': 'tigger-app/1.0 (login-location)',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body) as Map<String, dynamic>;
+        final addr = (data['address'] ?? {}) as Map<String, dynamic>;
+        final street = (addr['road'] ?? addr['pedestrian'] ?? addr['path'])
+            ?.toString();
+        final area =
+            (addr['suburb'] ?? addr['neighbourhood'] ?? addr['quarter'])
+                ?.toString();
+        final city = (addr['city'] ?? addr['town'] ?? addr['village'])
+            ?.toString();
+        final state = addr['state']?.toString();
+        final country = addr['country']?.toString();
+        return {
+          'street': street ?? '',
+          'area': area ?? '',
+          'city': city ?? '',
+          'state': state ?? '',
+          'country': country ?? '',
+        };
+      }
+    } catch (_) {}
+    return null;
   }
 
   /// Check if location permissions are granted
