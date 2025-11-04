@@ -48,7 +48,7 @@ class PushNotificationService {
 
     // Local notifications initialization
     const AndroidInitializationSettings androidInit =
-        AndroidInitializationSettings('ic_launcher');
+        AndroidInitializationSettings('ic_stat_notification');
     const InitializationSettings initSettings = InitializationSettings(
       android: androidInit,
     );
@@ -93,8 +93,7 @@ class PushNotificationService {
       channelDescription: _androidChannel.description,
       importance: Importance.high,
       priority: Priority.high,
-      // Use app launcher icon to avoid missing resource in release
-      icon: 'ic_launcher',
+      // Let the system/initialization icon be used; avoid explicit icon
     );
     await _local.show(
       id.hashCode,
