@@ -667,3 +667,65 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 **Note**: This is a real estate CRM system with advanced call recording capabilities and persistent user sessions. Ensure compliance with local laws regarding call recording, data privacy, and session management when deploying in production.
+
+## 🔔 Push Notifications (Firebase/FCM)
+
+
+### Android setup
+- Add your Firebase project config file at `android/app/google-services.json` (already present in repo for local dev; replace with your own for production).
+- Ensure the notification small icon resource exists. This app uses `ic_stat_notification` configured in `PushNotificationService`.
+- At app startup, Firebase is initialized (Android only) and the FCM token is saved to Supabase (`profiles` or `user_devices`).
+
+Steps to configure your own Firebase project:
+1. Create a Firebase project and add an Android app with your package name (e.g., `com.example.tigger`).
+2. Download `google-services.json` and place it in `android/app/`.
+3. In Firebase Console → Cloud Messaging, send a test notification to verify delivery.
+
+### iOS setup (macOS only)
+- Open `ios/Runner.xcworkspace` in Xcode and enable Push Notifications and Background Modes → Remote notifications.
+- Add APNs key/certificate to Firebase project and upload.
+- Update bundle identifier and team.
+
+## 🧩 Android Configuration Notes
+
+- Foreground service is used for call recording with a notification channel `call_recorder_channel`.
+- Permission prompts are handled at runtime for Android 13+ via `flutter_local_notifications` and `permission_handler`.
+- Recording files are stored under `Android/data/<package>/files/Music/calls/` before upload.
+
+Required manifest permissions (high-level):
+- `RECORD_AUDIO`, `READ_PHONE_STATE`, `CALL_PHONE`, `FOREGROUND_SERVICE`, `POST_NOTIFICATIONS` (Android 13+), and storage access as applicable.
+
+## 🔧 Environment & Configuration
+
+- Supabase: set `AppConstants.supabaseUrl` and `AppConstants.supabaseAnonKey` in `lib/core/constants/constants.dart`.
+- API base (if using PostgREST directly): `AppConstants.baseUrl`.
+- Storage bucket for recordings: `recordings` in Supabase, folder `calls/`.
+
+Security recommendation: do not commit production keys. Use separate credentials per environment and rotation policies.
+
+## 🗂️ Useful Scripts
+
+- `test_call_recording.ps1` (Windows PowerShell) and `test_call_recording.sh` (Unix) provide end-to-end testing flows for call recording and upload. See `TESTING_CALL_RECORDING.md` for detailed steps.
+
+## 🏗️ Build Targets
+
+- Android APK (debug): `flutter build apk --debug`
+- Android APK (release): `flutter build apk --release`
+- AppBundle (Play Store): `flutter build appbundle`
+- iOS (device/sim): `flutter build ios` (on macOS with Xcode)
+- Web/Desktop scaffolding exists; primary target is mobile.
+
+## 📤 Publish to GitHub
+
+If this project is not yet in a Git repository, initialize and push it:
+
+```bash
+git init
+git add .
+git commit -m "docs: add comprehensive README and project overview"
+git branch -M main
+git remote add origin <YOUR_GITHUB_REPO_URL>
+git push -u origin main
+```
+
+Replace `<YOUR_GITHUB_REPO_URL>` with your repository URL, e.g., `git@github.com:yourname/your-repo.git`.
