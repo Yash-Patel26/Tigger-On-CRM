@@ -53,6 +53,8 @@ class LoginLocationService {
         'user_id': targetUserId,
         'login_timestamp': DateTime.now().toIso8601String(),
         'ip_address': locationData['ipAddress']?.toString(),
+        'street': truncateString(locationData['street']),
+        'area': truncateString(locationData['area']),
         'country': truncateString(locationData['country']),
         'country_code': truncateString(
           locationData['countryCode'],
