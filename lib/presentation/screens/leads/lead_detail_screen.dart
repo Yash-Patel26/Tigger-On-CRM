@@ -20,6 +20,13 @@ import '../../widgets/lead_detail_tabs/property_option_tab.dart';
 import '../../widgets/lead_detail_tabs/ticket_tab.dart';
 import '../../widgets/dispose_lead_widget.dart';
 import '../../widgets/assign_lead_widget.dart';
+import '../../widgets/lead_detail/collapsible_card.dart';
+import '../../widgets/lead_detail/basic_details_card.dart';
+import '../../widgets/lead_detail/professional_details_card.dart';
+import '../../widgets/lead_detail/permanent_address_card.dart';
+import '../../widgets/lead_detail/requirement_notes_card.dart';
+import '../../widgets/lead_detail/activity_compact.dart';
+import '../../widgets/lead_detail/project_location_compact.dart';
 import 'timeline/tabbed_timeline_card.dart';
 
 class LeadDetailScreen extends StatefulWidget {
@@ -330,11 +337,11 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
                         ),
                         tooltip: 'Edit Project & Location',
                       ),
-                      child: _LazyProjectLocationCompact(leadId: lead.id),
+                      child: ProjectLocationCompact(leadId: lead.id),
                     ),
                     const SizedBox(height: 12),
 
-                    _CollapsibleCard(
+                    CollapsibleCard(
                       title: 'Basic Details',
                       action: IconButton(
                         onPressed: () =>
@@ -345,11 +352,11 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
                         ),
                         tooltip: 'Edit Basic Details',
                       ),
-                      child: _BasicDetailsCard(lead: lead),
+                      child: BasicDetailsCard(lead: lead),
                     ),
                     const SizedBox(height: 12),
 
-                    _CollapsibleCard(
+                    CollapsibleCard(
                       title: 'Professional Details',
                       action: IconButton(
                         onPressed: () =>
@@ -360,11 +367,11 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
                         ),
                         tooltip: 'Edit Professional Details',
                       ),
-                      child: _ProfessionalDetailsCard(lead: lead),
+                      child: ProfessionalDetailsCard(lead: lead),
                     ),
                     const SizedBox(height: 12),
 
-                    _CollapsibleCard(
+                    CollapsibleCard(
                       title: 'Permanent Address',
                       action: IconButton(
                         onPressed: () =>
@@ -375,11 +382,11 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
                         ),
                         tooltip: 'Edit Permanent Address',
                       ),
-                      child: _PermanentAddressCard(lead: lead),
+                      child: PermanentAddressCard(lead: lead),
                     ),
                     const SizedBox(height: 12),
 
-                    _CollapsibleCard(
+                    CollapsibleCard(
                       title: 'Requirements & Notes',
                       action: IconButton(
                         onPressed: () =>
@@ -390,18 +397,18 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
                         ),
                         tooltip: 'Edit Requirements & Notes',
                       ),
-                      child: _RequirementNotesCard(leadId: lead.id),
+                      child: RequirementNotesCard(leadId: lead.id),
                     ),
                     const SizedBox(height: 12),
 
-                    _CollapsibleCard(
+                    CollapsibleCard(
                       title: 'Timeline',
                       child: TabbedTimelineCard(leadId: lead.id),
                     ),
                     const SizedBox(height: 12),
-                    _CollapsibleCard(
+                    CollapsibleCard(
                       title: 'Activity & Assignment History',
-                      child: _ActivityCompact(leadId: lead.id),
+                      child: ActivityCompact(leadId: lead.id),
                     ),
                     const SizedBox(height: 72),
                   ],
