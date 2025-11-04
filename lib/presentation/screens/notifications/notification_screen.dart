@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../../../data/models/notification_model.dart' as notification_model;
 import '../../../data/repositories/notification_repository.dart';
 import '../../../data/services/supabase_service.dart';
+import '../../../shared/managers/notification_manager.dart';
 import '../leads/lead_detail_screen.dart';
 import '../leads/lead_screen.dart';
 import '../bookings/booking_screen.dart';
@@ -26,6 +28,9 @@ class _NotificationScreenState extends State<NotificationScreen>
       NotificationRepository();
   final TextEditingController _searchController = TextEditingController();
 
+  StreamSubscription<List<notification_model.Notification>>?
+  _notificationsSubscription;
+
   bool _isLoading = false;
   String? _error;
   List<notification_model.Notification> _allNotifications = [];
@@ -39,12 +44,14 @@ class _NotificationScreenState extends State<NotificationScreen>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _loadNotifications();
+    _subscribeRealtime();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
+    _notificationsSubscription?.cancel();
     super.dispose();
   }
 
@@ -65,9 +72,10 @@ class _NotificationScreenState extends State<NotificationScreen>
         userId: currentUser.id,
       );
       if (mounted) {
+        notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         setState(() {
           _allNotifications = notifications;
-          _filteredNotifications = _allNotifications;
+          _filteredNotifications = List.from(_allNotifications);
           _isLoading = false;
         });
       }
@@ -103,7 +111,21 @@ class _NotificationScreenState extends State<NotificationScreen>
 
         return matchesSearch && matchesType && matchesPriority && matchesStatus;
       }).toList();
+      _filteredNotifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     });
+  }
+
+  void _subscribeRealtime() {
+    // Listen to NotificationManager's stream for immediate updates
+    _notificationsSubscription = NotificationManager().notificationsStream
+        .listen((notifications) {
+          if (!mounted) return;
+          notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          setState(() {
+            _allNotifications = notifications;
+            _filterNotifications();
+          });
+        });
   }
 
   Future<void> _markAsRead(notification_model.Notification notification) async {

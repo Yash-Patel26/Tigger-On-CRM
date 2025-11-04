@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
+import '../../../shared/managers/notification_manager.dart';
 import '../../../../shared/managers/notification_store.dart';
 import '../../../../data/models/models.dart';
 import '../../../../data/models/app_notification.dart';
@@ -831,9 +832,11 @@ class _HomeScreenState extends State<HomeScreen> {
               Positioned(
                 right: 8,
                 top: 10,
-                child: Consumer<NotificationStore>(
-                  builder: (BuildContext context, NotificationStore store, _) {
-                    if (store.unreadCount == 0) return const SizedBox.shrink();
+                child: StreamBuilder<int>(
+                  stream: NotificationManager().unreadCountStream,
+                  builder: (BuildContext context, AsyncSnapshot<int> snap) {
+                    final int count = snap.data ?? 0;
+                    if (count <= 0) return const SizedBox.shrink();
                     return Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 6,
@@ -844,7 +847,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        store.unreadCount.toString(),
+                        count.toString(),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,

@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../shared/managers/auth_state_manager.dart';
-import '../../presentation/pages/splash_screen.dart';
 import '../../presentation/screens/auth/email_login_screen.dart';
 import '../../presentation/screens/dashboard/home_screen.dart';
 import 'role_gate.dart';
 import '../../core/utils/page_transitions.dart';
 import '../../data/services/follow_up_notification_service.dart';
 import '../../shared/managers/notification_manager.dart';
+import '../../shared/managers/notification_store.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import '../../shared/services/push_notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 /// Wrapper widget that handles authentication state and routing
@@ -28,6 +30,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
       context.read<AuthStateManager>().initialize();
       // Start follow-up notification checks when user is authenticated
       _checkAndStartFollowUpNotifications();
+      // Wire FCM foreground handler to also display system tray notifications
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        final store = context.read<NotificationStore>();
+        PushNotificationService.instance.handleForegroundMessage(
+          message,
+          store,
+        );
+      });
     });
   }
 

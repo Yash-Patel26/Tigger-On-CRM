@@ -27,7 +27,10 @@ void main() async {
 
   // Initialize push (Android only); request permissions after first frame
   if (!kIsWeb) {
-    await PushNotificationService.instance.initialize();
+    await PushNotificationService.instance.initialize(
+      navigatorKey: MyApp.navigatorKey,
+    );
+    await PushNotificationService.instance.requestAndroidPermissionIfNeeded();
     final currentUser = supabase.Supabase.instance.client.auth.currentUser;
     await PushNotificationService.instance.saveFcmTokenToSupabase(
       currentUser?.id,
