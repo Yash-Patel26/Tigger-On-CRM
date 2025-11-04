@@ -37,6 +37,36 @@ class _AuthWrapperState extends State<AuthWrapper> {
           message,
           store,
         );
+        // Proactively refresh notifications and counts so UI updates instantly
+        try {
+          final manager = NotificationManager();
+          manager.getNotifications(forceRefresh: true);
+          manager.getNotificationCounts(forceRefresh: true);
+        } catch (_) {}
+      });
+
+      // When user taps a notification from system tray while app is in background
+      FirebaseMessaging.onMessageOpenedApp.listen((
+        RemoteMessage message,
+      ) async {
+        try {
+          final manager = NotificationManager();
+          await manager.getNotifications(forceRefresh: true);
+          await manager.getNotificationCounts(forceRefresh: true);
+        } catch (_) {}
+      });
+
+      // If app was launched by tapping a notification from a terminated state
+      FirebaseMessaging.instance.getInitialMessage().then((
+        RemoteMessage? msg,
+      ) async {
+        if (msg != null) {
+          try {
+            final manager = NotificationManager();
+            await manager.getNotifications(forceRefresh: true);
+            await manager.getNotificationCounts(forceRefresh: true);
+          } catch (_) {}
+        }
       });
     });
   }
