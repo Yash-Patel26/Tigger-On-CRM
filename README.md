@@ -186,6 +186,325 @@ lib/
    flutter run
    ```
 
+## 📱 Running on Emulators
+
+This guide provides detailed instructions for setting up and running the app on Android emulators and iOS simulators.
+
+### Android Emulator Setup
+
+#### Prerequisites
+- Android Studio installed
+- Android SDK installed (API level 21 or higher)
+- Flutter SDK properly configured
+
+#### Step 1: Create an Android Virtual Device (AVD)
+
+1. **Open Android Studio**
+   - Launch Android Studio
+   - Click on **More Actions** → **Virtual Device Manager** (or Tools → Device Manager)
+
+2. **Create New Device**
+   - Click **Create Device**
+   - Select a device definition (recommended: **Pixel 6** or **Pixel 7**)
+   - Click **Next**
+
+3. **Select System Image**
+   - Choose a system image (recommended: **API 33** or **API 34**)
+   - If not installed, click **Download** next to the system image
+   - Click **Next**
+
+4. **Configure AVD**
+   - Name your virtual device (e.g., "Pixel_6_API_33")
+   - Review settings and click **Finish**
+
+#### Step 2: Start the Emulator
+
+**Option A: From Android Studio**
+- In Virtual Device Manager, click the **Play** button next to your AVD
+
+**Option B: From Command Line**
+```bash
+# List available emulators
+emulator -list-avds
+
+# Start a specific emulator (replace with your AVD name)
+emulator -avd Pixel_6_API_33
+
+# Or start emulator in background
+emulator -avd Pixel_6_API_33 &
+```
+
+#### Step 3: Verify Emulator is Running
+
+```bash
+# Check connected devices
+flutter devices
+
+# You should see your emulator listed, for example:
+# Pixel_6_API_33 • emulator-5554 • android-x86 • Android 13 (API 33) (emulator)
+```
+
+#### Step 4: Run the App on Android Emulator
+
+```bash
+# Navigate to project directory
+cd tigger
+
+# Install dependencies (if not done already)
+flutter pub get
+
+# Run on connected emulator
+flutter run
+
+# Or specify the device explicitly
+flutter run -d emulator-5554
+
+# Run in debug mode with hot reload
+flutter run --debug
+
+# Run in release mode
+flutter run --release
+```
+
+#### Additional Android Emulator Commands
+
+```bash
+# View logs
+flutter logs
+
+# Hot reload (press 'r' in terminal or save file in IDE)
+# Hot restart (press 'R' in terminal)
+# Quit (press 'q' in terminal)
+
+# Install app without running
+flutter install
+
+# Uninstall app
+flutter uninstall
+
+# Check emulator status
+adb devices
+```
+
+### iOS Simulator Setup (macOS only)
+
+#### Prerequisites
+- macOS operating system
+- Xcode installed (latest version recommended)
+- Xcode Command Line Tools
+- CocoaPods installed
+
+#### Step 1: Install Xcode Command Line Tools
+
+```bash
+xcode-select --install
+```
+
+#### Step 2: Install CocoaPods Dependencies
+
+```bash
+cd ios
+pod install
+cd ..
+```
+
+#### Step 3: Open iOS Simulator
+
+**Option A: From Xcode**
+- Open Xcode
+- Xcode → Open Developer Tool → Simulator
+
+**Option B: From Command Line**
+```bash
+# List available simulators
+xcrun simctl list devices
+
+# Open iOS Simulator
+open -a Simulator
+
+# Or launch specific simulator
+xcrun simctl boot "iPhone 15 Pro"
+```
+
+#### Step 4: Verify Simulator is Running
+
+```bash
+# Check connected devices
+flutter devices
+
+# You should see your simulator listed, for example:
+# iPhone 15 Pro • ABC12345-6789-0123-4567-890123456789 • ios • com.apple.CoreSimulator.SimRuntime.iOS-17-0 (simulator)
+```
+
+#### Step 5: Run the App on iOS Simulator
+
+```bash
+# Navigate to project directory
+cd tigger
+
+# Install dependencies (if not done already)
+flutter pub get
+
+# Run on connected simulator
+flutter run
+
+# Or specify the device explicitly
+flutter run -d ABC12345-6789-0123-4567-890123456789
+
+# Run in debug mode
+flutter run --debug
+
+# Run in release mode
+flutter run --release
+```
+
+### Troubleshooting Emulator Issues
+
+#### Android Emulator Issues
+
+**Problem: Emulator not showing in `flutter devices`**
+```bash
+# Solution 1: Restart ADB
+adb kill-server
+adb start-server
+
+# Solution 2: Verify emulator is running
+adb devices
+
+# Solution 3: Check Android SDK path
+flutter doctor -v
+```
+
+**Problem: Emulator is slow**
+- Allocate more RAM to emulator (Settings → System → Advanced → Memory)
+- Enable hardware acceleration (Settings → System → Advanced → Graphics)
+- Use x86_64 system image instead of ARM
+
+**Problem: App crashes on launch**
+```bash
+# Clear build cache
+flutter clean
+flutter pub get
+
+# Rebuild app
+flutter run --verbose
+```
+
+**Problem: Network connectivity issues**
+- Ensure emulator has internet access
+- Check firewall settings
+- Verify API endpoints are accessible
+
+#### iOS Simulator Issues
+
+**Problem: Simulator not found**
+```bash
+# Reinstall CocoaPods dependencies
+cd ios
+rm -rf Pods Podfile.lock
+pod install
+cd ..
+
+# Verify Xcode installation
+flutter doctor
+```
+
+**Problem: Build errors**
+```bash
+# Clean build folder
+flutter clean
+cd ios
+pod deintegrate
+pod install
+cd ..
+
+# Rebuild
+flutter run
+```
+
+**Problem: App signing issues**
+- Open `ios/Runner.xcworkspace` in Xcode
+- Select Runner target → Signing & Capabilities
+- Set your development team
+- Verify Bundle Identifier is unique
+
+### Running on Multiple Devices
+
+You can run the app on multiple emulators/simulators simultaneously:
+
+```bash
+# List all available devices
+flutter devices
+
+# Run on specific device
+flutter run -d <device-id>
+
+# Example: Run on Android emulator
+flutter run -d emulator-5554
+
+# Example: Run on iOS simulator
+flutter run -d ABC12345-6789-0123-4567-890123456789
+```
+
+### Performance Tips
+
+1. **Enable Hardware Acceleration**
+   - Android: Use x86_64 system images with Intel HAXM or Windows Hypervisor
+   - iOS: Ensure hardware acceleration is enabled in Xcode
+
+2. **Optimize Emulator Settings**
+   - Allocate sufficient RAM (4GB+ recommended)
+   - Use SSD storage for better performance
+   - Enable GPU acceleration
+
+3. **Use Release Mode for Performance Testing**
+   ```bash
+   flutter run --release
+   ```
+
+4. **Monitor Performance**
+   ```bash
+   # Enable performance overlay
+   flutter run --profile
+   ```
+
+### Quick Reference Commands
+
+```bash
+# Check Flutter setup
+flutter doctor
+
+# List all devices
+flutter devices
+
+# Run on default device
+flutter run
+
+# Run on specific device
+flutter run -d <device-id>
+
+# Hot reload (while app is running)
+# Press 'r' in terminal
+
+# Hot restart (while app is running)
+# Press 'R' in terminal
+
+# Stop app (while app is running)
+# Press 'q' in terminal
+
+# View logs
+flutter logs
+
+# Clean build
+flutter clean
+
+# Get dependencies
+flutter pub get
+
+# Upgrade Flutter
+flutter upgrade
+```
+
 ### Android Permissions
 The app requires the following permissions (automatically requested):
 - `RECORD_AUDIO`: For call recording

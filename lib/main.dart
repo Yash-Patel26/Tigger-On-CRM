@@ -289,6 +289,10 @@ class MyApp extends StatelessWidget {
 
     // Attach foreground listener exactly once after first frame using the navigator context
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Set navigator key for notification tap handling
+      if (!kIsWeb) {
+        PushNotificationService.instance.setNavigatorKey(MyApp.navigatorKey);
+      }
       // Request permissions after first frame to avoid blocking splash (Android only)
       if (!kIsWeb) {
         await PermissionManager.ensureCorePermissions();
