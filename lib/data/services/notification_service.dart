@@ -1,6 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/notification_model.dart';
-import '../../shared/services/push_notification_service.dart';
 
 class NotificationService {
   static final SupabaseClient _supabase = Supabase.instance.client;
@@ -38,42 +37,14 @@ class NotificationService {
           .single();
 
       final notification = Notification.fromJson(response);
-
-      // Immediately show system tray notification when notification is created
-      try {
-        await _showSystemTrayNotification(notification);
-      } catch (_) {
-        // Non-fatal if system tray notification fails
-      }
-
+      // Do not show local notification here; realtime subscription handles display to avoid duplicates
       return notification;
     } catch (e) {
       throw Exception('Failed to create notification: $e');
     }
   }
 
-  // Show system tray notification immediately
-  static Future<void> _showSystemTrayNotification(
-    Notification notification,
-  ) async {
-    try {
-      // Show local notification in system tray immediately
-      await PushNotificationService.instance.showLocalNotification(
-        id: notification.id,
-        title: notification.title,
-        body: notification.message,
-        payload: {
-          'id': notification.id,
-          'type': notification.type.name,
-          'related_id': notification.relatedId ?? '',
-          'related_type': notification.relatedType ?? '',
-          'action_url': notification.actionUrl ?? '',
-        },
-      );
-    } catch (_) {
-      // Ignore errors silently - notification creation should not fail if system tray fails
-    }
-  }
+  // Local notification display is handled by the realtime subscriber in NotificationManager
 
   // Get notifications for a specific user
   static Future<List<Notification>> getUserNotifications({
