@@ -7,7 +7,7 @@ import '../../../data/models/profile_model.dart';
 import '../../../shared/utils/validation_utils.dart';
 import '../../../shared/managers/auth_state_manager.dart';
 import 'edit_profile_screen.dart';
-import '../auth/email_login_screen.dart';
+import '../../pages/auth_wrapper.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -398,7 +398,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             rootNavigator: true,
                           ).pushAndRemoveUntil(
                             MaterialPageRoute(
-                              builder: (_) => const EmailLoginScreen(),
+                              builder: (_) => const AuthWrapper(),
                             ),
                             (route) => false,
                           );
