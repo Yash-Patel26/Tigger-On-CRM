@@ -190,11 +190,10 @@ class AuthStateManager extends ChangeNotifier {
       // Clear session from Supabase
       await AuthService.signOut();
 
-      // Clear notification manager state if user was logged in
+      // Reset notification manager state (but don't dispose - singleton pattern)
       try {
         final notificationManager = NotificationManager();
-        notificationManager.dispose();
-        notificationManager.clearCache();
+        notificationManager.reset();
       } catch (_) {
         // Ignore notification cleanup errors
       }

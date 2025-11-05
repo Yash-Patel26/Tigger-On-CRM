@@ -35,6 +35,18 @@ class NotificationManager {
 
   // Initialize with user ID
   void initialize(String userId) async {
+    // If StreamControllers are closed, recreate them
+    if (_notificationsController.isClosed) {
+      // This shouldn't happen with singleton, but handle it defensively
+      throw StateError(
+        'NotificationManager StreamControllers are closed. '
+        'This should not happen with a singleton pattern.',
+      );
+    }
+
+    // Reset any previous state
+    reset();
+
     _currentUserId = userId;
     // Load initial notifications to establish baseline
     try {
@@ -374,7 +386,44 @@ class NotificationManager {
     _repository.clearCache();
   }
 
-  // Dispose
+  // Reset state for logout - does NOT dispose StreamControllers
+  void reset() {
+    // Cancel polling timer
+    _pollTimer?.cancel();
+    _pollTimer = null;
+
+    // Clear repository subscriptions for the previous user (before clearing userId)
+    final previousUserId = _currentUserId;
+    if (previousUserId != null) {
+      _repository.unsubscribeFromUserNotifications(previousUserId);
+    }
+
+    // Clear current user state
+    _currentUserId = null;
+    _lastKnownNotifications = [];
+
+    // Clear repository cache
+    _repository.clearCache();
+
+    // Emit empty state to streams (but don't close them)
+    _notificationsController.add([]);
+    _countsController.add({
+      'total': 0,
+      'unread': 0,
+      'read': 0,
+      'archived': 0,
+      'lead': 0,
+      'booking': 0,
+      'siteVisit': 0,
+      'ticket': 0,
+      'system': 0,
+      'reminder': 0,
+      'alert': 0,
+    });
+    _unreadCountController.add(0);
+  }
+
+  // Dispose - only call this when app is truly shutting down
   void dispose() {
     _repository.dispose();
     _notificationsController.close();
