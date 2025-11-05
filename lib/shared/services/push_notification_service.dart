@@ -86,14 +86,25 @@ class PushNotificationService {
     _initialized = true;
   }
 
-  Future<void> requestAndroidPermissionIfNeeded() async {
-    if (!Platform.isAndroid) return;
+  Future<bool> requestAndroidPermissionIfNeeded() async {
+    if (!Platform.isAndroid) return true;
     // Android 13+ requires runtime permission; the plugin helps request it
     final androidImplementation = _local
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >();
-    await androidImplementation?.requestNotificationsPermission();
+    final granted = await androidImplementation
+        ?.requestNotificationsPermission();
+    return granted ?? false;
+  }
+
+  Future<bool> checkAndroidPermission() async {
+    if (!Platform.isAndroid) return true;
+    final androidImplementation = _local
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    return await androidImplementation?.areNotificationsEnabled() ?? false;
   }
 
   Future<void> showLocalNotification({
@@ -102,23 +113,63 @@ class PushNotificationService {
     required String body,
     Map<String, String>? payload,
   }) async {
-    final androidDetails = AndroidNotificationDetails(
-      _androidChannel.id,
-      _androidChannel.name,
-      channelDescription: _androidChannel.description,
-      importance: Importance.high,
-      priority: Priority.high,
-      // Let the system/initialization icon be used; avoid explicit icon
-    );
-    await _local.show(
-      id.hashCode,
-      title,
-      body,
-      NotificationDetails(android: androidDetails),
-      payload: payload == null
-          ? null
-          : payload.entries.map((e) => '${e.key}=${e.value}').join('&'),
-    );
+    try {
+      // Check if service is initialized
+      if (!_initialized) {
+        debugPrint(
+          'PushNotificationService: Not initialized, initializing now...',
+        );
+        await initialize(navigatorKey: _navigatorKey);
+      }
+
+      // Check and request permissions if needed (Android 13+)
+      if (Platform.isAndroid) {
+        final hasPermission = await checkAndroidPermission();
+        if (!hasPermission) {
+          debugPrint(
+            'PushNotificationService: Requesting notification permission...',
+          );
+          final granted = await requestAndroidPermissionIfNeeded();
+          if (!granted) {
+            debugPrint(
+              'PushNotificationService: Notification permission denied',
+            );
+            return;
+          }
+        }
+      }
+
+      final androidDetails = AndroidNotificationDetails(
+        _androidChannel.id,
+        _androidChannel.name,
+        channelDescription: _androidChannel.description,
+        importance: Importance.high,
+        priority: Priority.high,
+        enableVibration: true,
+        playSound: true,
+        showWhen: true,
+        // Let the system/initialization icon be used; avoid explicit icon
+      );
+
+      await _local.show(
+        id.hashCode,
+        title,
+        body,
+        NotificationDetails(android: androidDetails),
+        payload: payload == null
+            ? null
+            : payload.entries.map((e) => '${e.key}=${e.value}').join('&'),
+      );
+
+      debugPrint(
+        'PushNotificationService: Notification shown successfully - $title',
+      );
+    } catch (e, stackTrace) {
+      debugPrint('PushNotificationService: Error showing notification: $e');
+      debugPrint('Stack trace: $stackTrace');
+      // Re-throw to allow caller to handle if needed
+      rethrow;
+    }
   }
 
   Future<void> saveFcmTokenToSupabase(String? userId) async {
@@ -145,7 +196,10 @@ class PushNotificationService {
     }
   }
 
-  void handleForegroundMessage(RemoteMessage message, NotificationStore store) {
+  Future<void> handleForegroundMessage(
+    RemoteMessage message,
+    NotificationStore store,
+  ) async {
     final title =
         message.notification?.title ?? message.data['title'] ?? 'Notification';
     final body = message.notification?.body ?? message.data['body'] ?? '';
@@ -166,12 +220,18 @@ class PushNotificationService {
     );
 
     // Show system tray notification while app is foregrounded
-    showLocalNotification(
-      id: message.messageId ?? '${DateTime.now().millisecondsSinceEpoch}',
-      title: title,
-      body: body,
-      payload: message.data.map((k, v) => MapEntry(k, '$v')),
-    );
+    try {
+      await showLocalNotification(
+        id: message.messageId ?? '${DateTime.now().millisecondsSinceEpoch}',
+        title: title,
+        body: body,
+        payload: message.data.map((k, v) => MapEntry(k, '$v')),
+      );
+    } catch (e) {
+      debugPrint(
+        'PushNotificationService: Error showing foreground notification: $e',
+      );
+    }
   }
 
   AppNotificationType _mapType(dynamic raw) {

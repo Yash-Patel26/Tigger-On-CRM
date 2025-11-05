@@ -430,11 +430,11 @@ class MyApp extends StatelessWidget {
       }
 
       if (!kIsWeb)
-        FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
           final context = MyApp.navigatorKey.currentContext;
           if (context == null) return;
           final store = Provider.of<NotificationStore>(context, listen: false);
-          PushNotificationService.instance.handleForegroundMessage(
+          await PushNotificationService.instance.handleForegroundMessage(
             message,
             store,
           );
