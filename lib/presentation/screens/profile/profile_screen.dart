@@ -389,13 +389,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           context,
                           listen: false,
                         );
+                        // Sign out immediately - this will clear session and trigger AuthWrapper to redirect
                         await authManager.signOut();
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                            builder: (_) => const EmailLoginScreen(),
-                          ),
-                          (route) => false,
-                        );
+                        // Navigate immediately to login screen, clearing all routes
+                        if (context.mounted) {
+                          Navigator.of(
+                            context,
+                            rootNavigator: true,
+                          ).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (_) => const EmailLoginScreen(),
+                            ),
+                            (route) => false,
+                          );
+                        }
                       },
                       icon: const Icon(Icons.logout),
                       label: const Text('Log out'),

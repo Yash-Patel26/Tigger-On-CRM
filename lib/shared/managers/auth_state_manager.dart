@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../data/services/auth_service.dart';
 import '../utils/connectivity_helper.dart';
+import 'notification_manager.dart';
 
 /// Manages authentication state and session persistence
 class AuthStateManager extends ChangeNotifier {
@@ -179,13 +180,32 @@ class AuthStateManager extends ChangeNotifier {
   Future<void> signOut() async {
     try {
       _setLoading(true);
-      await AuthService.signOut();
+      // Immediately clear local state first
       _isAuthenticated = false;
       _currentUser = null;
       _userRole = null;
-      debugPrint('User signed out');
+      // Notify listeners immediately to trigger UI update
+      notifyListeners();
+
+      // Clear session from Supabase
+      await AuthService.signOut();
+
+      // Reset notification manager state (but don't dispose - singleton pattern)
+      try {
+        final notificationManager = NotificationManager();
+        notificationManager.reset();
+      } catch (_) {
+        // Ignore notification cleanup errors
+      }
+
+      debugPrint('User signed out and session cleared');
     } catch (e) {
       _setError('Sign out error: $e');
+      // Even if signOut fails, ensure local state is cleared
+      _isAuthenticated = false;
+      _currentUser = null;
+      _userRole = null;
+      notifyListeners();
     } finally {
       _setLoading(false);
     }

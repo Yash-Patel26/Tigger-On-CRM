@@ -171,8 +171,9 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Sign out
+  /// Sign out - immediately clears session and local storage
   static Future<void> signOut() async {
+    // Clear session immediately - signOut() already clears all session data
     await _supabase.auth.signOut();
   }
 

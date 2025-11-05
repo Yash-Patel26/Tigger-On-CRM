@@ -86,6 +86,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
                   AnimatedGlowingLogo(
                     child: Image.asset(
@@ -98,6 +99,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                   const SizedBox(height: 24),
                   Text(
                     'Sign in to your workspace',
+                    textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -105,6 +107,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                   const SizedBox(height: 8),
                   Text(
                     "Enter Your TiggerOn's Workspace",
+                    textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 24),
@@ -135,6 +138,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                         child: Form(
                           key: _formKey,
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Row(
                                 children: <Widget>[
