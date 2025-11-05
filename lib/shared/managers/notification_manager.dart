@@ -265,7 +265,7 @@ class NotificationManager {
 
     _repository.subscribeToUserNotifications(_currentUserId!).listen((
       notifications,
-    ) {
+    ) async {
       // Detect new notifications (not in last known list)
       final Set<String> lastKnownIds = _lastKnownNotifications
           .map((n) => n.id)
@@ -280,18 +280,23 @@ class NotificationManager {
 
       // Show mobile notification bar for each new notification
       for (final notification in newNotifications) {
-        PushNotificationService.instance.showLocalNotification(
-          id: notification.id,
-          title: notification.title,
-          body: notification.message,
-          payload: {
-            'id': notification.id,
-            'type': notification.type.name,
-            'related_id': notification.relatedId ?? '',
-            'related_type': notification.relatedType ?? '',
-            'action_url': notification.actionUrl ?? '',
-          },
-        );
+        try {
+          await PushNotificationService.instance.showLocalNotification(
+            id: notification.id,
+            title: notification.title,
+            body: notification.message,
+            payload: {
+              'id': notification.id,
+              'type': notification.type.name,
+              'related_id': notification.relatedId ?? '',
+              'related_type': notification.relatedType ?? '',
+              'action_url': notification.actionUrl ?? '',
+            },
+          );
+        } catch (e) {
+          // Log error but don't block other notifications
+          print('Error showing notification ${notification.id}: $e');
+        }
       }
 
       // Update last known list
