@@ -589,8 +589,10 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
 
       // Check if disposition is customer and show create booking button
       final lowerMain = mainDispositionName.toLowerCase();
+      final bool isBookingDone =
+          subDispositionName.toLowerCase() == 'booking done';
 
-      if (lowerMain.contains('customer')) {
+      if (lowerMain.contains('customer') && !isBookingDone) {
         // Show create booking button with a slight delay to ensure dialog is closed
         Future.delayed(const Duration(milliseconds: 500), () {
           if (!mounted) return;
@@ -636,8 +638,6 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
       // If main disposition is Customer and sub-disposition is 'booking done',
       // auto create a booking using lead data
       final bool isCustomer = lowerMain.contains('customer');
-      final bool isBookingDone =
-          subDispositionName.toLowerCase() == 'booking done';
       if (isCustomer && isBookingDone) {
         Future.delayed(const Duration(milliseconds: 300), () {
           widget.onFocusTimelineDisposition?.call();
