@@ -45,6 +45,8 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
   late Future<Lead> _leadFuture;
   RealtimeChannel? _leadRealtimeChannel;
   late TabController _tabController;
+  final GlobalKey<TabbedTimelineCardState> _timelineKey =
+      GlobalKey<TabbedTimelineCardState>();
   final Set<int> _loadedTabs = <int>{0};
 
   @override
@@ -179,6 +181,10 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
             leadId: widget.leadId,
             onDisposeComplete: refreshLead,
             onShowCreateBooking: _showCreateBookingDialog,
+            onFocusTimelineDisposition: () {
+              // Expand/focus timeline if needed then select Disposition tab
+              _timelineKey.currentState?.selectDispositionTab();
+            },
           ),
         ],
         bottom: PreferredSize(
@@ -403,7 +409,10 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
 
                     CollapsibleCard(
                       title: 'Timeline',
-                      child: TabbedTimelineCard(leadId: lead.id),
+                      child: TabbedTimelineCard(
+                        key: _timelineKey,
+                        leadId: lead.id,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     CollapsibleCard(

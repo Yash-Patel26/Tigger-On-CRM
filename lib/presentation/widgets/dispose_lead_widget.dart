@@ -16,11 +16,13 @@ class DisposeLeadButton extends StatelessWidget {
     required this.leadId,
     required this.onDisposeComplete,
     required this.onShowCreateBooking,
+    this.onFocusTimelineDisposition,
   });
 
   final String leadId;
   final VoidCallback onDisposeComplete;
   final VoidCallback onShowCreateBooking;
+  final VoidCallback? onFocusTimelineDisposition;
 
   void _showDisposeDialog(BuildContext context) {
     showDialog<void>(
@@ -30,6 +32,7 @@ class DisposeLeadButton extends StatelessWidget {
           leadId: leadId,
           onDisposeComplete: onDisposeComplete,
           onShowCreateBooking: onShowCreateBooking,
+          onFocusTimelineDisposition: onFocusTimelineDisposition,
         );
       },
     );
@@ -65,11 +68,13 @@ class DisposeLeadDialog extends StatefulWidget {
     required this.leadId,
     required this.onDisposeComplete,
     required this.onShowCreateBooking,
+    this.onFocusTimelineDisposition,
   });
 
   final String leadId;
   final VoidCallback onDisposeComplete;
   final VoidCallback onShowCreateBooking;
+  final VoidCallback? onFocusTimelineDisposition;
 
   @override
   State<DisposeLeadDialog> createState() => _DisposeLeadDialogState();
@@ -624,6 +629,29 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
               ),
             ),
           );
+        });
+      }
+
+      // If main disposition is spam and sub-disposition is one of the specified values,
+      // focus the Timeline -> Disposition tab after saving
+      final bool isSpam = mainDispositionName.toLowerCase().contains('spam');
+      final String lowerSub = subDispositionName.toLowerCase();
+      final Set<String> spamSubs = {'wrong number', 'test call', 'fake number'};
+      if (isSpam && spamSubs.contains(lowerSub)) {
+        // slight delay to ensure UI settles after dialog close and refresh
+        Future.delayed(const Duration(milliseconds: 300), () {
+          widget.onFocusTimelineDisposition?.call();
+        });
+      }
+
+      // If main disposition is Opportunity and any sub-disposition is chosen,
+      // focus the Timeline -> Disposition tab after saving
+      final bool isOpportunity = mainDispositionName.toLowerCase().contains(
+        'opportunity',
+      );
+      if (isOpportunity && (subDispositionName.isNotEmpty)) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          widget.onFocusTimelineDisposition?.call();
         });
       }
 
