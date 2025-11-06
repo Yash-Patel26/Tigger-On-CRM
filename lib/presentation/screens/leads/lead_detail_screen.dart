@@ -350,14 +350,36 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
 
                     CollapsibleCard(
                       title: 'Basic Details',
-                      action: IconButton(
-                        onPressed: () =>
-                            _showEditBasicInfoDialog(context, lead),
-                        icon: const Icon(
-                          FontAwesomeIcons.penToSquare,
-                          size: 20,
-                        ),
-                        tooltip: 'Edit Basic Details',
+                      action: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          if (lead.status == LeadStatus.hot) ...<Widget>[
+                            const Chip(
+                              label: Text('HOT'),
+                              labelStyle: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              backgroundColor: Colors.red,
+                              visualDensity: VisualDensity(
+                                horizontal: -4,
+                                vertical: -4,
+                              ),
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          IconButton(
+                            onPressed: () =>
+                                _showEditBasicInfoDialog(context, lead),
+                            icon: const Icon(
+                              FontAwesomeIcons.penToSquare,
+                              size: 20,
+                            ),
+                            tooltip: 'Edit Basic Details',
+                          ),
+                        ],
                       ),
                       child: BasicDetailsCard(lead: lead),
                     ),

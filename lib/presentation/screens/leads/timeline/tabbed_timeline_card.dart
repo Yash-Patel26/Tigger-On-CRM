@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
-
 import '../../../../data/repositories/lead_repository.dart';
 import 'tabs/timeline_tab_all.dart';
 import 'tabs/timeline_tab_allocation.dart';
@@ -54,7 +53,28 @@ class TabbedTimelineCardState extends State<TabbedTimelineCard>
   Future<void> _loadActivities() async {
     try {
       final response = await LeadRepository().getLeadTimeline(widget.leadId);
-      final activities = response.data ?? <Map<String, dynamic>>[];
+      final List<Map<String, dynamic>> raw =
+          response.data ?? <Map<String, dynamic>>[];
+
+      // Normalize records to expected keys used by the UI
+      final List<Map<String, dynamic>> activities = raw.map((e) {
+        // If coming from LeadService.getLeadTimeline(), it uses keys like
+        // 'activity_type', 'timestamp', 'performed_by'. Convert to our keys.
+        final bool needsNormalization =
+            e.containsKey('activity_type') || e.containsKey('timestamp');
+        if (needsNormalization) {
+          return <String, dynamic>{
+            'type': (e['activity_type'] ?? e['type'] ?? '').toString(),
+            'created_at': (e['timestamp'] ?? e['created_at'] ?? '').toString(),
+            'description': e['description'],
+            'performed_by_name': e['performed_by'] ?? e['performed_by_name'],
+            'metadata': e['metadata'],
+            'action': e['action'],
+            'id': e['id'],
+          };
+        }
+        return e;
+      }).toList();
       if (!mounted) return;
       setState(() {
         _activitiesByType = _categorizeActivities(activities);
@@ -94,21 +114,32 @@ class TabbedTimelineCardState extends State<TabbedTimelineCard>
           categorized['call']!.add(activity);
           break;
         case 'allocation':
+        case 'assignment_change':
+        case 'assigned':
           categorized['allocation']!.add(activity);
           break;
         case 'sms':
+        case 'message_initiated':
           categorized['sms']!.add(activity);
           break;
         case 'email':
+        case 'email_initiated':
           categorized['email']!.add(activity);
           break;
         case 'whatsapp':
+        case 'whatsapp_initiated':
+        case 'offline_whatsapp_initiated':
           categorized['whatsapp']!.add(activity);
           break;
         case 'visitor':
           categorized['visitor']!.add(activity);
           break;
         case 'offline':
+        case 'status_change':
+        case 'follow_up':
+        case 'site_visit':
+        case 'task':
+        case 'booking':
           categorized['offline']!.add(activity);
           break;
         default:
@@ -204,9 +235,7 @@ class TabbedTimelineCardState extends State<TabbedTimelineCard>
   List<Map<String, dynamic>> _getAllActivities() {
     final allActivities = <Map<String, dynamic>>[];
     for (final entry in _activitiesByType.entries) {
-      if (entry.key != 'disposition') {
-        allActivities.addAll(entry.value);
-      }
+      allActivities.addAll(entry.value);
     }
     allActivities.sort((a, b) {
       final aTime = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(1970);
