@@ -16,15 +16,25 @@ class TabbedTimelineCard extends StatefulWidget {
   final String leadId;
 
   @override
-  State<TabbedTimelineCard> createState() => _TabbedTimelineCardState();
+  State<TabbedTimelineCard> createState() => TabbedTimelineCardState();
 }
 
-class _TabbedTimelineCardState extends State<TabbedTimelineCard>
+class TabbedTimelineCardState extends State<TabbedTimelineCard>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   Map<String, List<Map<String, dynamic>>> _activitiesByType = {};
   bool _isLoading = true;
   supabase.RealtimeChannel? _timelineChannel;
+
+  // Expose a method to programmatically select the Disposition tab
+  void selectDispositionTab() {
+    if (!mounted) return;
+    if (_tabController.length > 1) {
+      setState(() {
+        _tabController.index = 1; // 0: All, 1: Disposition
+      });
+    }
+  }
 
   @override
   void initState() {

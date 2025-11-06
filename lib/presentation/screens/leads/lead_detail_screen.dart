@@ -45,6 +45,8 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
   late Future<Lead> _leadFuture;
   RealtimeChannel? _leadRealtimeChannel;
   late TabController _tabController;
+  final GlobalKey<TabbedTimelineCardState> _timelineKey =
+      GlobalKey<TabbedTimelineCardState>();
   final Set<int> _loadedTabs = <int>{0};
 
   @override
@@ -179,6 +181,11 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
             leadId: widget.leadId,
             onDisposeComplete: refreshLead,
             onShowCreateBooking: _showCreateBookingDialog,
+            onFocusTimelineDisposition: () {
+              // Expand/focus timeline if needed then select Disposition tab
+              _timelineKey.currentState?.selectDispositionTab();
+            },
+            onAutoCreateBooking: _quickCreateBooking,
           ),
         ],
         bottom: PreferredSize(
@@ -403,7 +410,10 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
 
                     CollapsibleCard(
                       title: 'Timeline',
-                      child: TabbedTimelineCard(leadId: lead.id),
+                      child: TabbedTimelineCard(
+                        key: _timelineKey,
+                        leadId: lead.id,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     CollapsibleCard(
@@ -479,6 +489,101 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
           ),
         );
       }
+    }
+  }
+
+  // Quick create booking without user interaction (used when sub-disposition is 'booking done')
+  Future<void> _quickCreateBooking() async {
+    try {
+      final lead = await _fetchLead();
+      final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+      final String userId = currentUser?.id ?? 'system';
+      final String userName =
+          (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
+
+      final Map<String, dynamic> data = _extractBookingDataFromLead(
+        lead,
+        userId,
+        userName,
+      );
+
+      final BookingRepository bookingRepo = BookingRepository();
+
+      // Provide safe defaults if any fields are missing
+      final String projectId =
+          (data['projectId'] as String?) ?? (lead.projectId ?? '');
+      final String projectName =
+          (data['projectName'] as String?) ??
+          (lead.projectName?.isNotEmpty == true ? lead.projectName! : '');
+      final String salesExecId =
+          (data['salesExecutiveId'] as String?) ?? userId;
+      final String salesExecName =
+          (data['salesExecutiveName'] as String?) ?? userName;
+      final String propertyType =
+          (data['propertyType'] as String?) ?? 'residential';
+      final String category = (data['category'] as String?) ?? 'b';
+      final double bookingAmount = (data['bookingAmount'] as double?) ?? 0.0;
+      final double? advanceAmount = (data['advanceAmount'] as double?);
+      final double? balanceAmount = (data['balanceAmount'] as double?);
+      final String unitNo = (data['unitNo'] as String?) ?? '';
+      final String unitDetails = (data['unitDetails'] as String?) ?? '';
+      final PaymentMode paymentMode =
+          (data['paymentMode'] as PaymentMode?) ?? PaymentMode.cash;
+      final BookingStatus status =
+          (data['status'] as BookingStatus?) ?? BookingStatus.confirmed;
+      final DateTime bookingDate =
+          (data['bookingDate'] as DateTime?) ?? DateTime.now();
+
+      await bookingRepo.createBooking(
+        customerId: lead.id,
+        customerName: lead.customerName,
+        customerEmail: lead.email ?? '',
+        customerPhone: lead.phone,
+        leadId: lead.leadId,
+        projectId: projectId,
+        projectName: projectName,
+        propertyType: propertyType,
+        category: category,
+        unitNo: unitNo,
+        unitDetails: unitDetails,
+        bookingAmount: bookingAmount,
+        advanceAmount: advanceAmount,
+        balanceAmount: balanceAmount,
+        paymentMode: paymentMode,
+        paymentReference: null,
+        salesExecutiveId: salesExecId,
+        salesExecutiveName: salesExecName,
+        commission: (data['commission'] as double?) ?? 0.0,
+        approvedBy: userName,
+        approvedById: userId,
+        status: status,
+        bookingDate: bookingDate,
+        possessionDate: data['possessionDate'] as DateTime?,
+        notes:
+            (data['notes'] as String?) ??
+            'Auto-created from disposition: Booking Done',
+        termsAndConditions: (data['termsAndConditions'] as String?) ?? '',
+        documents: <String>[],
+        createdBy: userId,
+        createdByName: userName,
+        customFields: data['customFields'] as Map<String, dynamic>?,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Booking created (Booking Done)'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to auto-create booking: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
