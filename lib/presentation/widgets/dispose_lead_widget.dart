@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../data/services/database_service.dart';
 import '../../../data/services/database_service_masters.dart' as masters;
+import 'lead_disposition/main_disposition_field.dart';
+import 'lead_disposition/sub_disposition_field.dart';
 
 /// Dispose Lead Button Widget
 ///
@@ -143,110 +145,38 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              FutureBuilder<List<Map<String, dynamic>>>(
-                future: masters.DatabaseServiceMasters.getLeadStatuses(),
-                builder:
-                    (
-                      BuildContext _,
-                      AsyncSnapshot<List<Map<String, dynamic>>> snap,
-                    ) {
-                      if (snap.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (snap.hasError) return const Text('Failed to load');
-                      final List<Map<String, dynamic>> items =
-                          snap.data ?? <Map<String, dynamic>>[];
-                      return DropdownButtonFormField<String>(
-                        initialValue: _statusId,
-                        isExpanded: true,
-                        items: items
-                            .map(
-                              (Map<String, dynamic> s) =>
-                                  DropdownMenuItem<String>(
-                                    value: (s['id'] ?? '') as String,
-                                    child: Text(
-                                      _capitalize((s['name'] ?? '-') as String),
-                                    ),
-                                  ),
-                            )
-                            .toList(),
-                        onChanged: (String? v) async {
-                          setState(() {
-                            _statusId = v;
-                            _subStatusId = null;
-                            _isMainDispositionCustomer = false;
-                          });
+              MainDispositionField(
+                value: _statusId,
+                onChanged: (String? v) async {
+                  setState(() {
+                    _statusId = v;
+                    _subStatusId = null;
+                    _isMainDispositionCustomer = false;
+                  });
 
-                          // Check if the selected main disposition is "customer"
-                          if (v != null && v.isNotEmpty) {
-                            try {
-                              final mainDispositionName =
-                                  await _getDispositionName(v, true);
-                              setState(() {
-                                _isMainDispositionCustomer = mainDispositionName
-                                    .toLowerCase()
-                                    .contains('customer');
-                              });
-                            } catch (e) {
-                              print('Error getting main disposition name: $e');
-                            }
-                          }
-                        },
-                        decoration: const InputDecoration(
-                          labelText: 'Main Disposition',
-                          hintText: 'Select main disposition',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (String? v) =>
-                            v == null || v.isEmpty ? 'Required' : null,
+                  if (v != null && v.isNotEmpty) {
+                    try {
+                      final mainDispositionName = await _getDispositionName(
+                        v,
+                        true,
                       );
-                    },
+                      if (!mounted) return;
+                      setState(() {
+                        _isMainDispositionCustomer = mainDispositionName
+                            .toLowerCase()
+                            .contains('customer');
+                      });
+                    } catch (e) {
+                      print('Error getting main disposition name: $e');
+                    }
+                  }
+                },
               ),
               const SizedBox(height: 12),
-              FutureBuilder<List<Map<String, dynamic>>>(
-                future: _statusId == null
-                    ? Future<List<Map<String, dynamic>>>.value(
-                        <Map<String, dynamic>>[],
-                      )
-                    : masters.DatabaseServiceMasters.getLeadSubStatuses(
-                        _statusId!,
-                      ),
-                builder:
-                    (
-                      BuildContext _,
-                      AsyncSnapshot<List<Map<String, dynamic>>> snap,
-                    ) {
-                      if (snap.connectionState == ConnectionState.waiting) {
-                        return const SizedBox.shrink();
-                      }
-                      if (snap.hasError) return const Text('Failed to load');
-                      final List<Map<String, dynamic>> items =
-                          snap.data ?? <Map<String, dynamic>>[];
-                      return DropdownButtonFormField<String>(
-                        initialValue: _subStatusId,
-                        isExpanded: true,
-                        items: items
-                            .map(
-                              (Map<String, dynamic> s) =>
-                                  DropdownMenuItem<String>(
-                                    value: (s['id'] ?? '') as String,
-                                    child: Text(
-                                      _capitalize((s['name'] ?? '-') as String),
-                                    ),
-                                  ),
-                            )
-                            .toList(),
-                        onChanged: (String? v) =>
-                            setState(() => _subStatusId = v),
-                        decoration: const InputDecoration(
-                          labelText: 'Sub Disposition',
-                          hintText: 'Select sub disposition',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (String? v) =>
-                            v == null || v.isEmpty ? 'Required' : null,
-                      );
-                    },
+              SubDispositionField(
+                mainDispositionId: _statusId,
+                value: _subStatusId,
+                onChanged: (String? v) => setState(() => _subStatusId = v),
               ),
               if (_showInitiatedBy) ...<Widget>[
                 const SizedBox(height: 12),
@@ -904,10 +834,5 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
       print('Error fetching ticket disposition subs: $e');
       return [];
     }
-  }
-
-  String _capitalize(String s) {
-    if (s.isEmpty) return s;
-    return s[0].toUpperCase() + s.substring(1);
   }
 }
