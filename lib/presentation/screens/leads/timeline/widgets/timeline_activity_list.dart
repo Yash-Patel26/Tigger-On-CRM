@@ -31,6 +31,16 @@ class _ActivityCard extends StatelessWidget {
     final description = activity['description'] as String? ?? 'No description';
     final createdAt = activity['created_at'] as String? ?? '';
     final performedBy = activity['performed_by_name'] as String? ?? 'Unknown';
+    final Map<String, dynamic>? metadata =
+        activity['metadata'] as Map<String, dynamic>?;
+    final String mainDisposition = (metadata != null
+            ? (metadata['main_disposition'] as String?)
+            : null)
+        ?.toLowerCase() ??
+        '';
+    final bool isHotDisposition =
+        type.toLowerCase() == 'disposition_change' &&
+        (mainDisposition.contains('hot') || description.toLowerCase().contains('hot'));
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -41,6 +51,25 @@ class _ActivityCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(description),
+            if (isHotDisposition) ...[
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: const [
+                  Chip(
+                    label: Text('HOT'),
+                    labelStyle: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    backgroundColor: Colors.red,
+                    visualDensity: VisualDensity(horizontal: -4, vertical: -4),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 4),
             Text(
               'By: $performedBy',

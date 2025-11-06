@@ -6,10 +6,6 @@ import '../../../data/services/database_service_masters.dart' as masters;
 import 'lead_disposition/main_disposition_field.dart';
 import 'lead_disposition/sub_disposition_field.dart';
 
-/// Dispose Lead Button Widget
-///
-/// This widget provides a button that opens a dialog to dispose a lead.
-/// It should be placed in the AppBar actions of the lead detail screen.
 class DisposeLeadButton extends StatelessWidget {
   const DisposeLeadButton({
     super.key,
@@ -17,12 +13,14 @@ class DisposeLeadButton extends StatelessWidget {
     required this.onDisposeComplete,
     required this.onShowCreateBooking,
     this.onFocusTimelineDisposition,
+    this.onAutoCreateBooking,
   });
 
   final String leadId;
   final VoidCallback onDisposeComplete;
   final VoidCallback onShowCreateBooking;
   final VoidCallback? onFocusTimelineDisposition;
+  final VoidCallback? onAutoCreateBooking;
 
   void _showDisposeDialog(BuildContext context) {
     showDialog<void>(
@@ -33,6 +31,7 @@ class DisposeLeadButton extends StatelessWidget {
           onDisposeComplete: onDisposeComplete,
           onShowCreateBooking: onShowCreateBooking,
           onFocusTimelineDisposition: onFocusTimelineDisposition,
+          onAutoCreateBooking: onAutoCreateBooking,
         );
       },
     );
@@ -69,12 +68,14 @@ class DisposeLeadDialog extends StatefulWidget {
     required this.onDisposeComplete,
     required this.onShowCreateBooking,
     this.onFocusTimelineDisposition,
+    this.onAutoCreateBooking,
   });
 
   final String leadId;
   final VoidCallback onDisposeComplete;
   final VoidCallback onShowCreateBooking;
   final VoidCallback? onFocusTimelineDisposition;
+  final VoidCallback? onAutoCreateBooking;
 
   @override
   State<DisposeLeadDialog> createState() => _DisposeLeadDialogState();
@@ -632,6 +633,18 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
         });
       }
 
+      // If main disposition is Customer and sub-disposition is 'booking done',
+      // auto create a booking using lead data
+      final bool isCustomer = lowerMain.contains('customer');
+      final bool isBookingDone =
+          subDispositionName.toLowerCase() == 'booking done';
+      if (isCustomer && isBookingDone) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          widget.onFocusTimelineDisposition?.call();
+          widget.onAutoCreateBooking?.call();
+        });
+      }
+
       // If main disposition is spam and sub-disposition is one of the specified values,
       // focus the Timeline -> Disposition tab after saving
       final bool isSpam = mainDispositionName.toLowerCase().contains('spam');
@@ -650,6 +663,26 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
         'opportunity',
       );
       if (isOpportunity && (subDispositionName.isNotEmpty)) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          widget.onFocusTimelineDisposition?.call();
+        });
+      }
+
+      // If main disposition is Hot and any sub-disposition is chosen,
+      // focus the Timeline -> Disposition tab after saving
+      final bool isHot = mainDispositionName.toLowerCase().contains('hot');
+      if (isHot && (subDispositionName.isNotEmpty)) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          widget.onFocusTimelineDisposition?.call();
+        });
+      }
+
+      // If main disposition is Disqualified and any sub-disposition is chosen,
+      // focus the Timeline -> Disposition tab after saving
+      final bool isDisqualified = mainDispositionName.toLowerCase().contains(
+        'disqualified',
+      );
+      if (isDisqualified && (subDispositionName.isNotEmpty)) {
         Future.delayed(const Duration(milliseconds: 300), () {
           widget.onFocusTimelineDisposition?.call();
         });
