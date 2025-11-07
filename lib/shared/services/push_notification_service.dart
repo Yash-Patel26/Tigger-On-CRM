@@ -1,12 +1,9 @@
 import 'dart:async';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-
-// App integrations
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../shared/managers/notification_store.dart';
 import '../../data/models/app_notification.dart';
@@ -28,7 +25,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     await Firebase.initializeApp();
   } catch (_) {}
 
-  // Nothing else needed here; Android will show notification if provided.
+  
 }
 
 class PushNotificationService {
