@@ -455,7 +455,7 @@ class _LeadScreenState extends State<LeadScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 6),
                 // Search bar
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
