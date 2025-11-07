@@ -269,7 +269,7 @@ class _ActivityCompactState extends State<ActivityCompact> {
       case 'whatsapp':
         return FontAwesomeIcons.whatsapp;
       case 'disposition_change':
-        return FontAwesomeIcons.tags;
+        return FontAwesomeIcons.arrowRotateRight;
       default:
         return FontAwesomeIcons.circle;
     }

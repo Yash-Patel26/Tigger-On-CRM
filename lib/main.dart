@@ -9,7 +9,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'data/services/auth_service.dart';
 import 'core/constants/constants.dart';
 import 'presentation/pages/auth_wrapper.dart';
-import 'presentation/screens/notifications/notification_screen.dart';
 import 'shared/managers/notification_store.dart';
 import 'shared/managers/auth_state_manager.dart';
 import 'shared/services/permission_manager.dart';
@@ -429,7 +428,7 @@ class MyApp extends StatelessWidget {
             .requestAndroidPermissionIfNeeded();
       }
 
-      if (!kIsWeb)
+      if (!kIsWeb) {
         FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
           final context = MyApp.navigatorKey.currentContext;
           if (context == null) return;
@@ -439,6 +438,7 @@ class MyApp extends StatelessWidget {
             store,
           );
         });
+      }
     });
 
     return MaterialApp(
@@ -456,14 +456,8 @@ class MyApp extends StatelessWidget {
               RemoteMessage message,
             ) {
               try {
-                final ctx = MyApp.navigatorKey.currentContext;
-                if (ctx != null) {
-                  Navigator.of(ctx).push(
-                    MaterialPageRoute(
-                      builder: (_) => const NotificationScreen(),
-                    ),
-                  );
-                }
+                // Use the notification service to handle navigation to specific screens
+                PushNotificationService.instance.handleNotificationTap(message);
               } catch (e) {
                 if (kDebugMode) {
                   debugPrint('Error handling notification tap: $e');
@@ -475,14 +469,10 @@ class MyApp extends StatelessWidget {
                 .then((message) {
                   try {
                     if (message != null) {
-                      final ctx = MyApp.navigatorKey.currentContext;
-                      if (ctx != null) {
-                        Navigator.of(ctx).push(
-                          MaterialPageRoute(
-                            builder: (_) => const NotificationScreen(),
-                          ),
-                        );
-                      }
+                      // Use the notification service to handle navigation to specific screens
+                      PushNotificationService.instance.handleNotificationTap(
+                        message,
+                      );
                     }
                   } catch (e) {
                     if (kDebugMode) {

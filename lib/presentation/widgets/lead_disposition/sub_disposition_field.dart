@@ -63,7 +63,7 @@ class _SubDispositionFieldState extends State<SubDispositionField> {
                 snap.data ?? <Map<String, dynamic>>[];
             return DropdownButtonFormField<String>(
               isExpanded: true,
-              value: widget.value,
+              initialValue: widget.value,
               items: items
                   .map(
                     (Map<String, dynamic> s) => DropdownMenuItem<String>(

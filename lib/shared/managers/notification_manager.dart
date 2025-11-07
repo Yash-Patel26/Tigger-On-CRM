@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../services/push_notification_service.dart';
@@ -48,13 +49,30 @@ class NotificationManager {
     reset();
 
     _currentUserId = userId;
+
+    // Ensure PushNotificationService is initialized
+    try {
+      await PushNotificationService.instance.initialize();
+      debugPrint('NotificationManager: PushNotificationService initialized');
+    } catch (e) {
+      debugPrint(
+        'NotificationManager: Failed to initialize PushNotificationService: $e',
+      );
+    }
+
     // Load initial notifications to establish baseline
     try {
       final initialNotifications = await getNotifications(limit: 50);
       _lastKnownNotifications = initialNotifications;
+      debugPrint(
+        'NotificationManager: Loaded ${initialNotifications.length} initial notifications',
+      );
     } catch (e) {
       // If initial load fails, start with empty list
       _lastKnownNotifications = [];
+      debugPrint(
+        'NotificationManager: Failed to load initial notifications: $e',
+      );
     }
     _startRealTimeSubscription();
     _startFallbackPolling();
@@ -275,50 +293,77 @@ class NotificationManager {
   void _startRealTimeSubscription() {
     if (_currentUserId == null) return;
 
-    _repository.subscribeToUserNotifications(_currentUserId!).listen((
-      notifications,
-    ) async {
-      // Detect new notifications (not in last known list)
-      final Set<String> lastKnownIds = _lastKnownNotifications
-          .map((n) => n.id)
-          .toSet();
-      final List<Notification> newNotifications = notifications
-          .where(
-            (n) =>
-                !lastKnownIds.contains(n.id) &&
-                n.status == NotificationStatus.unread,
-          )
-          .toList();
+    debugPrint(
+      'NotificationManager: Starting real-time subscription for user $_currentUserId',
+    );
 
-      // Show mobile notification bar for each new notification
-      for (final notification in newNotifications) {
-        try {
-          await PushNotificationService.instance.showLocalNotification(
-            id: notification.id,
-            title: notification.title,
-            body: notification.message,
-            payload: {
-              'id': notification.id,
-              'type': notification.type.name,
-              'related_id': notification.relatedId ?? '',
-              'related_type': notification.relatedType ?? '',
-              'action_url': notification.actionUrl ?? '',
-            },
-          );
-        } catch (e) {
-          // Log error but don't block other notifications
-          print('Error showing notification ${notification.id}: $e');
-        }
-      }
+    _repository
+        .subscribeToUserNotifications(_currentUserId!)
+        .listen(
+          (notifications) async {
+            debugPrint(
+              'NotificationManager: Received ${notifications.length} notifications from real-time',
+            );
 
-      // Update last known list
-      _lastKnownNotifications = List.from(notifications);
+            // Detect new notifications (not in last known list)
+            final Set<String> lastKnownIds = _lastKnownNotifications
+                .map((n) => n.id)
+                .toSet();
+            final List<Notification> newNotifications = notifications
+                .where(
+                  (n) =>
+                      !lastKnownIds.contains(n.id) &&
+                      n.status == NotificationStatus.unread,
+                )
+                .toList();
 
-      _notificationsController.add(notifications);
+            debugPrint(
+              'NotificationManager: Detected ${newNotifications.length} new notifications',
+            );
 
-      // Update counts
-      _updateCountsFromNotifications(notifications);
-    });
+            // Show mobile notification bar for each new notification
+            for (final notification in newNotifications) {
+              try {
+                debugPrint(
+                  'NotificationManager: Showing system tray notification: ${notification.title}',
+                );
+                await PushNotificationService.instance.showLocalNotification(
+                  id: notification.id,
+                  title: notification.title,
+                  body: notification.message,
+                  payload: {
+                    'id': notification.id,
+                    'type': notification.type.name,
+                    'related_id': notification.relatedId ?? '',
+                    'related_type': notification.relatedType ?? '',
+                    'action_url': notification.actionUrl ?? '',
+                  },
+                );
+                debugPrint(
+                  'NotificationManager: Successfully showed notification: ${notification.id}',
+                );
+              } catch (e) {
+                // Log error but don't block other notifications
+                debugPrint(
+                  'NotificationManager: Error showing notification ${notification.id}: $e',
+                );
+              }
+            }
+
+            // Update last known list
+            _lastKnownNotifications = List.from(notifications);
+
+            _notificationsController.add(notifications);
+
+            // Update counts
+            _updateCountsFromNotifications(notifications);
+          },
+          onError: (error) {
+            debugPrint(
+              'NotificationManager: Real-time subscription error: $error',
+            );
+          },
+        );
   }
 
   // Update counts from notifications
@@ -441,18 +486,70 @@ class NotificationManager {
           userId: _currentUserId!,
           forceRefresh: true,
         );
-        // Only emit if changed to avoid redundant rebuilds
-        if (latest.isNotEmpty &&
-            latest.first.id !=
-                (_lastKnownNotifications.isNotEmpty
-                    ? _lastKnownNotifications.first.id
-                    : null)) {
-          _lastKnownNotifications = List.from(latest);
-          _notificationsController.add(latest);
-          _updateCountsFromNotifications(latest);
+
+        // Detect new notifications (not in last known list)
+        final Set<String> lastKnownIds = _lastKnownNotifications
+            .map((n) => n.id)
+            .toSet();
+        final List<Notification> newNotifications = latest
+            .where(
+              (n) =>
+                  !lastKnownIds.contains(n.id) &&
+                  n.status == NotificationStatus.unread,
+            )
+            .toList();
+
+        // Show mobile notification bar for each new notification
+        if (newNotifications.isNotEmpty) {
+          debugPrint(
+            'NotificationManager: Fallback polling detected ${newNotifications.length} new notifications',
+          );
         }
-      } catch (_) {
-        // ignore
+
+        for (final notification in newNotifications) {
+          try {
+            debugPrint(
+              'NotificationManager: Showing system tray notification (fallback): ${notification.title}',
+            );
+            await PushNotificationService.instance.showLocalNotification(
+              id: notification.id,
+              title: notification.title,
+              body: notification.message,
+              payload: {
+                'id': notification.id,
+                'type': notification.type.name,
+                'related_id': notification.relatedId ?? '',
+                'related_type': notification.relatedType ?? '',
+                'action_url': notification.actionUrl ?? '',
+              },
+            );
+            debugPrint(
+              'NotificationManager: Successfully showed notification (fallback): ${notification.id}',
+            );
+          } catch (e) {
+            // Log error but don't block other notifications
+            debugPrint(
+              'NotificationManager: Error showing notification ${notification.id} (fallback): $e',
+            );
+          }
+        }
+
+        // Update last known list and emit if changed
+        if (latest.isNotEmpty) {
+          final Set<String> latestIds = latest.map((n) => n.id).toSet();
+          final Set<String> lastIds = _lastKnownNotifications
+              .map((n) => n.id)
+              .toSet();
+
+          // Only emit if notifications changed
+          if (latestIds != lastIds) {
+            _lastKnownNotifications = List.from(latest);
+            _notificationsController.add(latest);
+            _updateCountsFromNotifications(latest);
+          }
+        }
+      } catch (e) {
+        debugPrint('Error in fallback polling: $e');
       }
     });
   }
