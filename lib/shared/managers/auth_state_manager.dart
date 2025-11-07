@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/services/auth_service.dart';
 import '../utils/connectivity_helper.dart';
 import 'notification_manager.dart';
@@ -15,6 +16,8 @@ class AuthStateManager extends ChangeNotifier {
   String? _error;
   supabase.User? _currentUser;
   String? _userRole;
+
+  static const String _userRoleKey = 'user_role';
 
   // Getters
   bool get isInitialized => _isInitialized;
@@ -56,7 +59,8 @@ class AuthStateManager extends ChangeNotifier {
             ).isAfter(DateTime.now())) {
           _isAuthenticated = true;
           _currentUser = user;
-          await _loadUserRole(user.id);
+          // Try to load role from cache first, then from database
+          await _loadUserRole(user.id, useCache: true);
           debugPrint('User session restored: ${user.email}');
         } else {
           // Session expired, try to refresh
@@ -66,22 +70,28 @@ class AuthStateManager extends ChangeNotifier {
             if (response.session != null && response.user != null) {
               _isAuthenticated = true;
               _currentUser = response.user;
-              await _loadUserRole(response.user!.id);
+              await _loadUserRole(response.user!.id, useCache: true);
               debugPrint('Session refreshed for: ${response.user!.email}');
             } else {
               _isAuthenticated = false;
               _currentUser = null;
+              _userRole = null;
+              await _clearStoredUserRole();
               debugPrint('Session refresh failed');
             }
           } catch (e) {
             _isAuthenticated = false;
             _currentUser = null;
+            _userRole = null;
+            await _clearStoredUserRole();
             debugPrint('Session refresh error: $e');
           }
         }
       } else {
         _isAuthenticated = false;
         _currentUser = null;
+        _userRole = null;
+        await _clearStoredUserRole();
         debugPrint('No existing session found');
       }
 
@@ -107,10 +117,11 @@ class AuthStateManager extends ChangeNotifier {
 
     if (_isAuthenticated) {
       debugPrint('User authenticated: ${user!.email}');
-      _loadUserRole(user.id);
+      _loadUserRole(user.id, useCache: true);
     } else {
       debugPrint('User signed out');
       _userRole = null;
+      _clearStoredUserRole();
     }
 
     notifyListeners();
@@ -150,7 +161,7 @@ class AuthStateManager extends ChangeNotifier {
         if (user != null && session != null) {
           _isAuthenticated = true;
           _currentUser = user;
-          await _loadUserRole(user.id);
+          await _loadUserRole(user.id, useCache: false);
           debugPrint('Setting _isAuthenticated = true and notifying listeners');
           // Notify listeners immediately after successful login
           notifyListeners();
@@ -184,6 +195,7 @@ class AuthStateManager extends ChangeNotifier {
       _isAuthenticated = false;
       _currentUser = null;
       _userRole = null;
+      await _clearStoredUserRole();
       // Notify listeners immediately to trigger UI update
       notifyListeners();
 
@@ -205,25 +217,76 @@ class AuthStateManager extends ChangeNotifier {
       _isAuthenticated = false;
       _currentUser = null;
       _userRole = null;
+      await _clearStoredUserRole();
       notifyListeners();
     } finally {
       _setLoading(false);
     }
   }
 
-  Future<void> _loadUserRole(String userId) async {
+  /// Load user role from database and store it locally
+  Future<void> _loadUserRole(String userId, {bool useCache = false}) async {
     try {
+      // Try to load from cache first if requested
+      if (useCache) {
+        final prefs = await SharedPreferences.getInstance();
+        final cachedRole = prefs.getString(_userRoleKey);
+        if (cachedRole != null && cachedRole.isNotEmpty) {
+          _userRole = cachedRole;
+          debugPrint('User role loaded from cache: $cachedRole');
+          notifyListeners();
+        }
+      }
+
+      // Always fetch from database to ensure we have the latest role
       final roleResp = await supabase.Supabase.instance.client
           .from('users')
           .select('role')
           .eq('id', userId)
           .eq('is_active', true)
           .maybeSingle();
-      _userRole = roleResp?['role'] as String?;
-    } catch (_) {
-      _userRole = null;
+
+      final role = roleResp?['role'] as String?;
+      _userRole = role;
+
+      // Store role in SharedPreferences for future use
+      if (role != null && role.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_userRoleKey, role);
+        debugPrint('User role stored: $role');
+      } else {
+        // Clear stored role if user doesn't have a role
+        await _clearStoredUserRole();
+      }
+    } catch (e) {
+      debugPrint('Error loading user role: $e');
+      // On error, try to use cached role if available
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cachedRole = prefs.getString(_userRoleKey);
+        if (cachedRole != null && cachedRole.isNotEmpty) {
+          _userRole = cachedRole;
+          debugPrint('Using cached user role due to error: $cachedRole');
+        } else {
+          _userRole = null;
+        }
+      } catch (_) {
+        // Ignore cache read errors
+        _userRole = null;
+      }
     }
     notifyListeners();
+  }
+
+  /// Clear stored user role from SharedPreferences
+  Future<void> _clearStoredUserRole() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userRoleKey);
+      debugPrint('Stored user role cleared');
+    } catch (e) {
+      debugPrint('Error clearing stored user role: $e');
+    }
   }
 
   /// Refresh current session
@@ -238,11 +301,14 @@ class AuthStateManager extends ChangeNotifier {
       if (response.session != null && response.user != null) {
         _isAuthenticated = true;
         _currentUser = response.user;
+        await _loadUserRole(response.user!.id, useCache: true);
         debugPrint('Session refreshed successfully');
         return true;
       } else {
         _isAuthenticated = false;
         _currentUser = null;
+        _userRole = null;
+        await _clearStoredUserRole();
         debugPrint('Session refresh failed');
         return false;
       }
@@ -250,6 +316,8 @@ class AuthStateManager extends ChangeNotifier {
       _setError('Session refresh error: $e');
       _isAuthenticated = false;
       _currentUser = null;
+      _userRole = null;
+      await _clearStoredUserRole();
       return false;
     } finally {
       _setLoading(false);

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'package:provider/provider.dart';
 import 'dart:async';
 import '../../../../shared/utils/helpers.dart';
+import '../../../../shared/managers/auth_state_manager.dart';
 import '../../../../core/utils/page_transitions.dart';
 import '../../../../data/repositories/lead_repository.dart';
 import 'create_lead_screen.dart';
@@ -144,7 +146,8 @@ class _LeadScreenState extends State<LeadScreen> {
       final todayEnd = todayStart.add(const Duration(days: 1));
 
       // Load all leads to calculate stats
-      final bool isPrivileged = await Helpers.isAdminOrHead();
+      final authManager = Provider.of<AuthStateManager>(context, listen: false);
+      final bool isPrivileged = authManager.isAdminOrHead;
       final String? currentUserId = Helpers.getCurrentUserId();
       final response = await _leadRepository.getLeads(
         page: 1,
@@ -222,7 +225,8 @@ class _LeadScreenState extends State<LeadScreen> {
         }
       }
 
-      final bool isPrivileged = await Helpers.isAdminOrHead();
+      final authManager = Provider.of<AuthStateManager>(context, listen: false);
+      final bool isPrivileged = authManager.isAdminOrHead;
       final String? currentUserId = Helpers.getCurrentUserId();
 
       final response = await _leadRepository.getLeads(
@@ -1279,10 +1283,9 @@ class _LeadCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  FutureBuilder<bool>(
-                    future: Helpers.canAssignLeads(),
-                    builder: (context, snapshot) {
-                      if (snapshot.data == true) {
+                  Consumer<AuthStateManager>(
+                    builder: (context, authManager, _) {
+                      if (authManager.isAdminOrHead) {
                         return Expanded(
                           child: FilledButton.icon(
                             onPressed: () =>
@@ -1801,10 +1804,9 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: Helpers.canAssignLeads(),
-      builder: (context, snapshot) {
-        if (snapshot.data != true) {
+    return Consumer<AuthStateManager>(
+      builder: (context, authManager, _) {
+        if (!authManager.isAdminOrHead) {
           return AlertDialog(
             title: const Text('Access Denied'),
             content: const Text('Only admin and head users can assign leads.'),
