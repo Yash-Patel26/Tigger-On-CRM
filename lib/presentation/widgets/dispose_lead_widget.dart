@@ -42,7 +42,7 @@ class DisposeLeadButton extends StatelessWidget {
     return IconButton(
       tooltip: 'Dispose Lead',
       icon: Icon(
-        FontAwesomeIcons.trashCan,
+        FontAwesomeIcons.arrowRotateRight,
         color: Theme.of(context).colorScheme.primary,
         size: 20,
       ),

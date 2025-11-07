@@ -53,6 +53,7 @@ dependencies:
   intl: ^0.20.2
   font_awesome_flutter: ^10.4.0
 
+  realtime_client: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

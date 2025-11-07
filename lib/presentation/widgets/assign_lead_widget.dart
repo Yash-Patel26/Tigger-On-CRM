@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../../data/services/database_service.dart';
 import '../../../data/services/database_service_masters.dart' as masters;
 import '../../../data/models/models.dart';
 import '../../../shared/utils/helpers.dart';
+import '../../../shared/managers/auth_state_manager.dart';
 
 /// Assign Lead Button Widget
 ///
@@ -34,10 +36,9 @@ class AssignLeadButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: Helpers.canAssignLeads(),
-      builder: (context, snapshot) {
-        if (snapshot.data == true) {
+    return Consumer<AuthStateManager>(
+      builder: (context, authManager, _) {
+        if (authManager.isAdminOrHead) {
           return IconButton(
             tooltip: 'Assign',
             icon: Icon(
@@ -82,10 +83,9 @@ class _AssignLeadDialogState extends State<AssignLeadDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: Helpers.canAssignLeads(),
-      builder: (context, snapshot) {
-        if (snapshot.data != true) {
+    return Consumer<AuthStateManager>(
+      builder: (context, authManager, _) {
+        if (!authManager.isAdminOrHead) {
           return AlertDialog(
             title: const Text('Access Denied'),
             content: const Text('Only admin and head users can assign leads.'),

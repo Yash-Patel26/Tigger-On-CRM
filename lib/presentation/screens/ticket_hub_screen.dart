@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../data/repositories/ticket_repository.dart';
+import '../../../data/models/ticket_model.dart';
 
 class TicketHubScreen extends StatefulWidget {
   const TicketHubScreen({super.key});
@@ -8,38 +10,13 @@ class TicketHubScreen extends StatefulWidget {
 }
 
 class _TicketHubScreenState extends State<TicketHubScreen> {
-  // Mock data
-  final List<Map<String, dynamic>> _tickets = <Map<String, dynamic>>[
-    <String, dynamic>{
-      'id': 'TCK-000123',
-      'mobile': '+91 9876543210',
-      'datetime': DateTime.now().subtract(const Duration(hours: 1)),
-      'serviceType': 'Maintenance',
-      'assignee': 'Anita',
-      'priority': 'High',
-      'status': 'Open',
-    },
-    <String, dynamic>{
-      'id': 'TCK-000124',
-      'mobile': '+91 9234567810',
-      'datetime': DateTime.now().subtract(const Duration(days: 1, hours: 2)),
-      'serviceType': 'Cleaning',
-      'assignee': 'Ravi',
-      'priority': 'Medium',
-      'status': 'In Progress',
-    },
-    <String, dynamic>{
-      'id': 'TCK-000125',
-      'mobile': '+91 9988776655',
-      'datetime': DateTime.now().subtract(const Duration(days: 3)),
-      'serviceType': 'Repair',
-      'assignee': 'Sunil',
-      'priority': 'Low',
-      'status': 'Closed',
-    },
-  ];
+  final TicketRepository _ticketRepository = TicketRepository();
+  List<Ticket> _tickets = [];
+  bool _isLoading = true;
+  String? _error;
+  bool _isRefreshing = false;
 
-  // Filters (mock)
+  // Filters
   String? _filterStatus;
   String? _filterPriority;
   String? _filterAssignee;
@@ -47,8 +24,109 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
   DateTimeRange? _filterRange;
 
   @override
+  void initState() {
+    super.initState();
+    _loadTickets();
+  }
+
+  Future<void> _loadTickets() async {
+    if (!_isRefreshing) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      // Convert filter strings to enums
+      TicketStatus? statusFilter;
+      if (_filterStatus != null && _filterStatus!.isNotEmpty) {
+        statusFilter = TicketStatus.values.firstWhere(
+          (s) => s.displayName.toLowerCase() == _filterStatus!.toLowerCase(),
+          orElse: () => TicketStatus.open,
+        );
+      }
+
+      TicketPriority? priorityFilter;
+      if (_filterPriority != null && _filterPriority!.isNotEmpty) {
+        priorityFilter = TicketPriority.values.firstWhere(
+          (p) => p.displayName.toLowerCase() == _filterPriority!.toLowerCase(),
+          orElse: () => TicketPriority.medium,
+        );
+      }
+
+      // Apply date range filters
+      DateTime? fromDate;
+      DateTime? toDate;
+      if (_filterRange != null) {
+        fromDate = _filterRange!.start;
+        toDate = _filterRange!.end;
+      }
+
+      // Note: assignedTo filter is handled client-side because we filter by name,
+      // not by user ID. The backend expects a UUID, not a name string.
+      // If we need to filter by user ID, we would need to look up the user ID first.
+      final response = await _ticketRepository.getTickets(
+        status: statusFilter,
+        priority: priorityFilter,
+        assignedTo: null, // Don't pass name string - filter client-side instead
+        fromDate: fromDate,
+        toDate: toDate,
+        page: 1,
+        limit: 1000, // Get all tickets for now
+      );
+
+      if (response.success && response.data != null) {
+        setState(() {
+          _tickets = response.data!;
+          _isLoading = false;
+          _isRefreshing = false;
+          _error = null;
+        });
+      } else {
+        setState(() {
+          _error = response.message ?? 'Failed to load tickets';
+          _isLoading = false;
+          _isRefreshing = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'Error loading tickets: $e';
+        _isLoading = false;
+        _isRefreshing = false;
+      });
+    }
+  }
+
+  Future<void> _refreshTickets() async {
+    setState(() {
+      _isRefreshing = true;
+    });
+    await _loadTickets();
+  }
+
+  // Convert Ticket to Map for UI compatibility
+  Map<String, dynamic> _ticketToMap(Ticket ticket) {
+    return {
+      'id': ticket.ticketNumber,
+      'mobile': ticket.contactMobile,
+      'datetime': ticket.createdAt,
+      'serviceType': ticket.serviceType.displayName,
+      'assignee': ticket.assignedToName ?? 'Unassigned',
+      'priority': ticket.priority.displayName,
+      'status': ticket.status.displayName,
+      'ticket': ticket, // Keep original ticket object for detail view
+    };
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> filtered = _applyFilters(_tickets);
+    // Convert tickets to map format and apply filters
+    final List<Map<String, dynamic>> ticketMaps = _tickets
+        .map(_ticketToMap)
+        .toList();
+    final List<Map<String, dynamic>> filtered = _applyFilters(ticketMaps);
     final int totalToday = filtered
         .where(
           (Map<String, dynamic> t) =>
@@ -65,6 +143,17 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
         title: const Text('Tickets'),
         actions: <Widget>[
           IconButton(
+            onPressed: _refreshTickets,
+            icon: _isRefreshing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+          ),
+          IconButton(
             onPressed: _openCreateTicket,
             icon: const Icon(Icons.add_circle_rounded),
             tooltip: 'Create',
@@ -76,18 +165,43 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          _buildKpis(totalToday: totalToday, totalAll: totalAll),
-          const SizedBox(height: 16),
-          if (filtered.isEmpty)
-            _buildEmptyState()
-          else
-            ...filtered.map(_buildTicketCard),
-          const SizedBox(height: 80),
-        ],
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    _error!,
+                    style: TextStyle(color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadTickets,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _refreshTickets,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: <Widget>[
+                  _buildKpis(totalToday: totalToday, totalAll: totalAll),
+                  const SizedBox(height: 16),
+                  if (filtered.isEmpty)
+                    _buildEmptyState()
+                  else
+                    ...filtered.map(_buildTicketCard),
+                  const SizedBox(height: 80),
+                ],
+              ),
+            ),
     );
   }
 
@@ -248,6 +362,28 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: <Widget>[
+                  FilledButton.icon(
+                    onPressed: () => _showTicketDetail(context, t),
+                    icon: const Icon(Icons.visibility_outlined, size: 16),
+                    label: const Text('View'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         );
@@ -323,21 +459,29 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
   List<Map<String, dynamic>> _applyFilters(List<Map<String, dynamic>> source) {
     return source.where((Map<String, dynamic> t) {
       final DateTime dt = t['datetime'] as DateTime;
+
+      // Status filter
       if (_filterStatus != null &&
           _filterStatus!.isNotEmpty &&
           t['status'] != _filterStatus) {
         return false;
       }
+
+      // Priority filter
       if (_filterPriority != null &&
           _filterPriority!.isNotEmpty &&
           t['priority'] != _filterPriority) {
         return false;
       }
+
+      // Assignee filter
       if (_filterAssignee != null &&
           _filterAssignee!.isNotEmpty &&
           t['assignee'] != _filterAssignee) {
         return false;
       }
+
+      // Aging filter
       if (_filterAging != null && _filterAging!.isNotEmpty) {
         final Duration age = DateTime.now().difference(dt);
         final bool ok = switch (_filterAging) {
@@ -348,11 +492,14 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
         };
         if (!ok) return false;
       }
+
+      // Date range filter
       if (_filterRange != null) {
         if (dt.isBefore(_filterRange!.start) || dt.isAfter(_filterRange!.end)) {
           return false;
         }
       }
+
       return true;
     }).toList();
   }
@@ -409,11 +556,9 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
                         _dropdownField(
                           label: 'Status',
                           value: status,
-                          items: const <String>[
-                            'Open',
-                            'In Progress',
-                            'Closed',
-                          ],
+                          items: TicketStatus.values
+                              .map((s) => s.displayName)
+                              .toList(),
                           onChanged: (String? v) =>
                               setModalState(() => status = v),
                         ),
@@ -421,7 +566,9 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
                         _dropdownField(
                           label: 'Priority',
                           value: priority,
-                          items: const <String>['High', 'Medium', 'Low'],
+                          items: TicketPriority.values
+                              .map((p) => p.displayName)
+                              .toList(),
                           onChanged: (String? v) =>
                               setModalState(() => priority = v),
                         ),
@@ -429,7 +576,13 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
                         _dropdownField(
                           label: 'Assign to',
                           value: assignee,
-                          items: const <String>['Anita', 'Ravi', 'Sunil'],
+                          items:
+                              _tickets
+                                  .where((t) => t.assignedToName != null)
+                                  .map((t) => t.assignedToName!)
+                                  .toSet()
+                                  .toList()
+                                ..sort(),
                           onChanged: (String? v) =>
                               setModalState(() => assignee = v),
                         ),
@@ -487,6 +640,8 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
                                     _filterRange = null;
                                   });
                                   Navigator.of(ctx).pop();
+                                  // Reload tickets without filters
+                                  _loadTickets();
                                 },
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Colors.white,
@@ -507,6 +662,8 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
                                     _filterRange = range;
                                   });
                                   Navigator.of(ctx).pop();
+                                  // Reload tickets with new filters
+                                  _loadTickets();
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.red,
@@ -639,6 +796,195 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const CreateTicketScreen()));
+  }
+
+  void _showTicketDetail(BuildContext context, Map<String, dynamic> ticketMap) {
+    final Ticket? ticket = ticketMap['ticket'] as Ticket?;
+    if (ticket == null) return;
+
+    final DateTime dt = ticket.createdAt;
+    final String dateStr =
+        '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+    final String timeStr =
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    final String status = ticket.status.displayName;
+    final String priority = ticket.priority.displayName;
+    final Color priorityColor = _priorityColor(priority);
+    final Color statusColor = _statusColor(status);
+
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          surfaceTintColor: Colors.transparent,
+          title: Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  ticket.ticketNumber,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close),
+                tooltip: 'Close',
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  // Status and Priority
+                  Row(
+                    children: <Widget>[
+                      Expanded(child: _chip('Status: $status', statusColor)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _chip('Priority: $priority', priorityColor),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Contact Name
+                  if (ticket.contactName.isNotEmpty)
+                    _detailRow(
+                      Icons.person,
+                      'Contact Name',
+                      ticket.contactName,
+                    ),
+                  if (ticket.contactName.isNotEmpty) const SizedBox(height: 12),
+                  // Mobile Number
+                  _detailRow(
+                    Icons.phone_iphone,
+                    'Mobile Number',
+                    ticket.contactMobile,
+                  ),
+                  const SizedBox(height: 12),
+                  // Date and Time
+                  _detailRow(
+                    Icons.access_time_rounded,
+                    'Date & Time',
+                    '$dateStr $timeStr',
+                  ),
+                  const SizedBox(height: 12),
+                  // Service Type
+                  _detailRow(
+                    Icons.build_rounded,
+                    'Service Type',
+                    ticket.serviceType.displayName,
+                  ),
+                  const SizedBox(height: 12),
+                  // Assignee
+                  _detailRow(
+                    Icons.person_outline_rounded,
+                    'Assigned To',
+                    ticket.assignedToName ?? 'Unassigned',
+                  ),
+                  if (ticket.issueTitle.isNotEmpty) const SizedBox(height: 12),
+                  // Issue Title
+                  if (ticket.issueTitle.isNotEmpty)
+                    _detailRow(Icons.title, 'Issue Title', ticket.issueTitle),
+                  if (ticket.issueDescription.isNotEmpty)
+                    const SizedBox(height: 12),
+                  // Issue Description
+                  if (ticket.issueDescription.isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Issue Description',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: Colors.grey[600], fontSize: 12),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          ticket.issueDescription,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 12),
+                  // Divider
+                  Divider(color: Colors.grey.withOpacity(0.2), height: 24),
+                  // Additional Info Section
+                  Text(
+                    'Ticket Information',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'This ticket was created on $dateStr at $timeStr. '
+                    'It is currently ${status.toLowerCase()} with ${priority.toLowerCase()} priority.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey[600],
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'open':
+        return Colors.blue;
+      case 'in progress':
+        return Colors.orange;
+      case 'closed':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
   }
 }
 

@@ -43,8 +43,15 @@ class TicketService {
     if (serviceType != null) {
       queryParams['serviceType'] = serviceType.name;
     }
-    if (assignedTo != null) {
-      queryParams['assignedTo'] = assignedTo;
+    if (assignedTo != null && assignedTo.isNotEmpty) {
+      // Only pass assignedTo if it's a valid UUID (not a name string)
+      // Check if it looks like a UUID
+      final bool isUuid = RegExp(
+        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+      ).hasMatch(assignedTo);
+      if (isUuid) {
+        queryParams['assignedTo'] = assignedTo;
+      }
     }
     if (leadId != null) {
       queryParams['leadId'] = leadId;
@@ -168,8 +175,15 @@ class TicketService {
     if (toDate != null) {
       queryParams['toDate'] = toDate.toIso8601String();
     }
-    if (assignedTo != null) {
-      queryParams['assignedTo'] = assignedTo;
+    if (assignedTo != null && assignedTo.isNotEmpty) {
+      // Only pass assignedTo if it's a valid UUID (not a name string)
+      // Check if it looks like a UUID
+      final bool isUuid = RegExp(
+        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+      ).hasMatch(assignedTo);
+      if (isUuid) {
+        queryParams['assignedTo'] = assignedTo;
+      }
     }
     if (serviceType != null) {
       queryParams['serviceType'] = serviceType;

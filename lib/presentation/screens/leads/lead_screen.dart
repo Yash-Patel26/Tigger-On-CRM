@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'package:provider/provider.dart';
 import 'dart:async';
 import '../../../../shared/utils/helpers.dart';
+import '../../../../shared/managers/auth_state_manager.dart';
 import '../../../../core/utils/page_transitions.dart';
 import '../../../../data/repositories/lead_repository.dart';
 import 'create_lead_screen.dart';
@@ -9,6 +11,7 @@ import 'lead_detail_screen.dart';
 import '../projects/add_site_visit_screen.dart';
 import '../../../../data/services/database_service.dart';
 import '../../../../data/models/models.dart';
+import '../../widgets/lead_controls_row.dart';
 // import '../../../../data/services/database_service_masters.dart' as masters;
 // assign dialog implemented locally in this file for lead list
 
@@ -144,7 +147,8 @@ class _LeadScreenState extends State<LeadScreen> {
       final todayEnd = todayStart.add(const Duration(days: 1));
 
       // Load all leads to calculate stats
-      final bool isPrivileged = await Helpers.isAdminOrHead();
+      final authManager = Provider.of<AuthStateManager>(context, listen: false);
+      final bool isPrivileged = authManager.isAdminOrHead;
       final String? currentUserId = Helpers.getCurrentUserId();
       final response = await _leadRepository.getLeads(
         page: 1,
@@ -222,7 +226,8 @@ class _LeadScreenState extends State<LeadScreen> {
         }
       }
 
-      final bool isPrivileged = await Helpers.isAdminOrHead();
+      final authManager = Provider.of<AuthStateManager>(context, listen: false);
+      final bool isPrivileged = authManager.isAdminOrHead;
       final String? currentUserId = Helpers.getCurrentUserId();
 
       final response = await _leadRepository.getLeads(
@@ -506,130 +511,26 @@ class _LeadScreenState extends State<LeadScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 6),
               ],
             ),
           ),
           // Controls row (page size, follow up, sort, disposition)
-          Container(
-            height: 52,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: <Widget>[
-                  // Page size dropdown
-                  GestureDetector(
-                    onTap: () => _showPageSizeDialog(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 56,
-                        minHeight: 36,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Text(
-                            _pageSize.toString(),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.keyboard_arrow_down,
-                            size: 18,
-                            color: Colors.grey,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const SizedBox(width: 4),
-                  // Sort button
-                  GestureDetector(
-                    onTap: () => _showSortDialog(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          const Icon(
-                            Icons.swap_vert,
-                            size: 12,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 2),
-                          const Text(
-                            'Sort',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  // Show disposition count button
-                  GestureDetector(
-                    onTap: () => _showDispositionCount(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'Disposition',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  // Count display with search indicator
-                  Text(
-                    _search.isNotEmpty
-                        ? 'Search results: ${_pageItems.length}'
-                        : 'Count: ${_pageItems.length}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: _search.isNotEmpty
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.black,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          LeadControlsRow(
+            pageSize: _pageSize,
+            pageItems: _pageItems,
+            searchText: _search,
+            leadDataList: _pageItems,
+            onPageSizeChanged: (int newSize) {
+              setState(() {
+                _pageSize = newSize;
+              });
+              _loadPage(_currentPage);
+            },
+            onSortSelected: (String sortType) {
+              // Handle sort selection if needed in the future
+              // For now, this is just a placeholder
+            },
           ),
           // Paged list (explicit navigation)
           Expanded(child: _buildLeadList()),
@@ -816,162 +717,7 @@ class _LeadScreenState extends State<LeadScreen> {
     );
   }
 
-  // Page size dialog
-  void _showPageSizeDialog(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          surfaceTintColor: Colors.transparent,
-          title: const Text('Select Page Size'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ListTile(
-                title: const Text('5'),
-                onTap: () {
-                  setState(() => _pageSize = 5);
-                  _loadPage(_currentPage);
-                  Navigator.of(context).pop();
-                },
-              ),
-              ListTile(
-                title: const Text('10'),
-                onTap: () {
-                  setState(() => _pageSize = 10);
-                  _loadPage(_currentPage);
-                  Navigator.of(context).pop();
-                },
-              ),
-              ListTile(
-                title: const Text('20'),
-                onTap: () {
-                  setState(() => _pageSize = 20);
-                  _loadPage(_currentPage);
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // Follow up type dialog removed
-
-  // Sort dialog
-  void _showSortDialog(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          surfaceTintColor: Colors.transparent,
-          title: const Text('Sort Leads'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ListTile(
-                title: const Text('Name (A-Z)'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sorted by Name (A-Z)')),
-                  );
-                },
-              ),
-              ListTile(
-                title: const Text('Name (Z-A)'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sorted by Name (Z-A)')),
-                  );
-                },
-              ),
-              ListTile(
-                title: const Text('Date (Newest)'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sorted by Date (Newest)')),
-                  );
-                },
-              ),
-              ListTile(
-                title: const Text('Date (Oldest)'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sorted by Date (Oldest)')),
-                  );
-                },
-              ),
-              ListTile(
-                title: const Text('Status'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sorted by Status')),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // Show disposition count
-  void _showDispositionCount(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          surfaceTintColor: Colors.transparent,
-          title: const Text('Disposition Count'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ListTile(
-                title: const Text('Hot Leads'),
-                trailing: Text(
-                  '${_pageItems.where((lead) => lead.status == LeadStatus.hot).length}',
-                ),
-              ),
-              ListTile(
-                title: const Text('Warm Leads'),
-                trailing: Text(
-                  '${_pageItems.where((lead) => lead.status == LeadStatus.warm).length}',
-                ),
-              ),
-              ListTile(
-                title: const Text('Cold Leads'),
-                trailing: Text(
-                  '${_pageItems.where((lead) => lead.status == LeadStatus.cold).length}',
-                ),
-              ),
-              const Divider(),
-              ListTile(
-                title: const Text('Total'),
-                trailing: Text('${_pageItems.length}'),
-              ),
-            ],
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // Dialog methods moved to LeadControlsRow widget
 }
 
 // Removed inline _SearchBar; replaced with compact search icon dialog
@@ -1251,119 +997,84 @@ class _LeadCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          // Bottom action buttons - Two rows to prevent overflow
-          Column(
+          // Bottom action buttons - All in one row with icons only
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: <Widget>[
-              // First row - View and Assign
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          SmoothPageTransitions.slideFromRight<void>(
-                            child: LeadDetailScreen(leadId: leadData.leadId),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.visibility_outlined, size: 16),
-                      label: const Text('View'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
+              // View button
+              IconButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    SmoothPageTransitions.slideFromRight<void>(
+                      child: LeadDetailScreen(leadId: leadData.leadId),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  FutureBuilder<bool>(
-                    future: Helpers.canAssignLeads(),
-                    builder: (context, snapshot) {
-                      if (snapshot.data == true) {
-                        return Expanded(
-                          child: FilledButton.icon(
-                            onPressed: () =>
-                                _showAssignDialog(context, leadData.leadId),
-                            icon: const Icon(
-                              Icons.assignment_ind_outlined,
-                              size: 16,
-                            ),
-                            label: const Text('Assign'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.orange,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                ],
+                  );
+                },
+                icon: const Icon(Icons.visibility_outlined, size: 20),
+                tooltip: 'View',
+                style: IconButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.all(12),
+                ),
               ),
-              const SizedBox(height: 6),
-              // Second row - Site Visit and Call
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          SmoothPageTransitions.slideFromBottom<void>(
-                            child: AddSiteVisitScreen(leadId: leadData.leadId),
-                          ),
-                        );
-                      },
-                      icon: const Icon(
-                        Icons.add_location_alt_outlined,
-                        size: 16,
-                      ),
-                      label: const Text('Site Visit'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
+              // Assign button (conditional)
+              Consumer<AuthStateManager>(
+                builder: (context, authManager, _) {
+                  if (authManager.isAdminOrHead) {
+                    return IconButton(
+                      onPressed: () =>
+                          _showAssignDialog(context, leadData.leadId),
+                      icon: const Icon(Icons.assignment_ind_outlined, size: 20),
+                      tooltip: 'Assign',
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.orange,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        padding: const EdgeInsets.all(12),
                       ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+              // Site Visit button
+              IconButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    SmoothPageTransitions.slideFromBottom<void>(
+                      child: AddSiteVisitScreen(leadId: leadData.leadId),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () async {
-                        await Helpers.placeCallAndLog(
-                          phone: leadData.phone,
-                          leadId: leadData.id,
-                          direction: 'outbound',
-                        );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Call completed')),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.call_outlined, size: 16),
-                      label: const Text('Call'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                  );
+                },
+                icon: const Icon(Icons.add_location_alt_outlined, size: 20),
+                tooltip: 'Site Visit',
+                style: IconButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.all(12),
+                ),
+              ),
+              // Call button
+              IconButton(
+                onPressed: () async {
+                  await Helpers.placeCallAndLog(
+                    phone: leadData.phone,
+                    leadId: leadData.id,
+                    direction: 'outbound',
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Call completed')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.call_outlined, size: 20),
+                tooltip: 'Call',
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.all(12),
+                ),
               ),
             ],
           ),
@@ -1801,10 +1512,9 @@ class _AssignLeadDialogState extends State<_AssignLeadDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: Helpers.canAssignLeads(),
-      builder: (context, snapshot) {
-        if (snapshot.data != true) {
+    return Consumer<AuthStateManager>(
+      builder: (context, authManager, _) {
+        if (!authManager.isAdminOrHead) {
           return AlertDialog(
             title: const Text('Access Denied'),
             content: const Text('Only admin and head users can assign leads.'),
