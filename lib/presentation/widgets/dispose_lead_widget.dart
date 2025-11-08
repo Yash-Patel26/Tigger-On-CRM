@@ -41,10 +41,22 @@ class DisposeLeadButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       tooltip: 'Dispose Lead',
-      icon: Icon(
-        FontAwesomeIcons.arrowRotateRight,
-        color: Theme.of(context).colorScheme.primary,
-        size: 20,
+      icon: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Theme.of(context).colorScheme.primary,
+            width: 1.5,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          FontAwesomeIcons.arrowsRotate,
+          color: Theme.of(context).colorScheme.primary,
+          size: 16,
+        ),
       ),
       onPressed: () => _showDisposeDialog(context),
     );
