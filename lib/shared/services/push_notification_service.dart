@@ -39,7 +39,7 @@ class PushNotificationService {
         'high_importance_channel',
         'High Importance Notifications',
         description: 'Used for important notifications.',
-        importance: Importance.high,
+        importance: Importance.max,
         playSound: true,
         enableVibration: true,
         showBadge: true,
@@ -214,14 +214,15 @@ class PushNotificationService {
         _androidChannel.id,
         _androidChannel.name,
         channelDescription: _androidChannel.description,
-        importance: Importance.high,
-        priority: Priority.high,
+        importance: Importance.max,
+        priority: Priority.max,
         enableVibration: true,
         playSound: true,
         showWhen: true,
         autoCancel: true,
         ongoing: false,
         icon: 'ic_stat_notification',
+        visibility: NotificationVisibility.public,
       );
 
       const iosDetails = DarwinNotificationDetails(
@@ -254,12 +255,18 @@ class PushNotificationService {
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null || userId == null) return;
       final client = supabase.Supabase.instance.client;
+      // Detect platform dynamically
+      final platform = Platform.isAndroid
+          ? 'android'
+          : Platform.isIOS
+              ? 'ios'
+              : 'unknown';
       // Upsert token to a user_devices table if available; otherwise fallback to profiles
       try {
         await client.from('user_devices').upsert({
           'user_id': userId,
           'fcm_token': token,
-          'platform': 'android',
+          'platform': platform,
           'updated_at': DateTime.now().toIso8601String(),
         }, onConflict: 'user_id');
       } catch (_) {
