@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'booking_filters_sheet.dart';
+import 'booking_detail_screen.dart';
 import 'package:tigger/data/repositories/booking_repository.dart';
 import 'package:tigger/data/models/models.dart';
+import '../../../core/utils/page_transitions.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -614,12 +616,9 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _viewBooking(Booking booking) {
-    // TODO: Navigate to booking detail screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Viewing booking ${booking.srNo}'),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    Navigator.of(context).push(
+      SmoothPageTransitions.slideFromRight<void>(
+        child: BookingDetailScreen(bookingId: booking.id),
       ),
     );
   }

@@ -13,14 +13,12 @@ class DisposeLeadButton extends StatelessWidget {
     required this.onDisposeComplete,
     required this.onShowCreateBooking,
     this.onFocusTimelineDisposition,
-    this.onAutoCreateBooking,
   });
 
   final String leadId;
   final VoidCallback onDisposeComplete;
   final VoidCallback onShowCreateBooking;
   final VoidCallback? onFocusTimelineDisposition;
-  final VoidCallback? onAutoCreateBooking;
 
   void _showDisposeDialog(BuildContext context) {
     showDialog<void>(
@@ -31,7 +29,6 @@ class DisposeLeadButton extends StatelessWidget {
           onDisposeComplete: onDisposeComplete,
           onShowCreateBooking: onShowCreateBooking,
           onFocusTimelineDisposition: onFocusTimelineDisposition,
-          onAutoCreateBooking: onAutoCreateBooking,
         );
       },
     );
@@ -80,14 +77,12 @@ class DisposeLeadDialog extends StatefulWidget {
     required this.onDisposeComplete,
     required this.onShowCreateBooking,
     this.onFocusTimelineDisposition,
-    this.onAutoCreateBooking,
   });
 
   final String leadId;
   final VoidCallback onDisposeComplete;
   final VoidCallback onShowCreateBooking;
   final VoidCallback? onFocusTimelineDisposition;
-  final VoidCallback? onAutoCreateBooking;
 
   @override
   State<DisposeLeadDialog> createState() => _DisposeLeadDialogState();
@@ -647,15 +642,7 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
         });
       }
 
-      // If main disposition is Customer and sub-disposition is 'booking done',
-      // auto create a booking using lead data
-      final bool isCustomer = lowerMain.contains('customer');
-      if (isCustomer && isBookingDone) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          widget.onFocusTimelineDisposition?.call();
-          widget.onAutoCreateBooking?.call();
-        });
-      }
+      // Note: Auto-booking has been removed. Bookings are now created manually via the "Create Booking" button.
 
       // If main disposition is spam and sub-disposition is one of the specified values,
       // focus the Timeline -> Disposition tab after saving

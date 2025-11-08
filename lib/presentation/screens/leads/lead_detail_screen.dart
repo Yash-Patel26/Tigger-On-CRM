@@ -7,6 +7,7 @@ import '../../../../shared/utils/helpers.dart';
 import '../../../../data/repositories/lead_repository.dart';
 import '../../../../data/repositories/booking_repository.dart';
 import '../../../../data/services/database_service.dart';
+import '../../../../data/services/booking_service.dart';
 import '../../../../data/services/database_service_masters.dart' as masters;
 import '../../../../data/services/location_data_service.dart';
 import '../../../../data/services/master_data_service.dart';
@@ -185,7 +186,6 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
               // Expand/focus timeline if needed then select Disposition tab
               _timelineKey.currentState?.selectDispositionTab();
             },
-            onAutoCreateBooking: _quickCreateBooking,
           ),
         ],
         bottom: PreferredSize(
@@ -320,6 +320,31 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
+                    // Create Booking Button (shown when disposition is customer + booking done)
+                    FutureBuilder<bool>(
+                      future: _shouldShowCreateBookingButton(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData && snapshot.data == true) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            child: ElevatedButton.icon(
+                              onPressed: _showCreateBookingDialog,
+                              icon: const Icon(Icons.book_online),
+                              label: const Text('Create Booking'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
                     _StaticCard(
                       title: 'Contact Information',
                       action: IconButton(
@@ -467,35 +492,77 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
     );
   }
 
+  // Check if lead has customer disposition with booking done sub-disposition
+  Future<bool> _shouldShowCreateBookingButton() async {
+    try {
+      final lead = await _fetchLead();
+      final client = supabase.Supabase.instance.client;
+
+      // Get the latest disposition for this lead
+      final dispositions = await client
+          .from('lead_dispositions')
+          .select('main_disposition_id, sub_disposition_id')
+          .eq('lead_id', lead.id)
+          .order('created_at', ascending: false)
+          .limit(1);
+
+      if (dispositions.isEmpty) return false;
+
+      final disposition = dispositions[0];
+      final mainDispositionId = disposition['main_disposition_id'] as String?;
+      final subDispositionId = disposition['sub_disposition_id'] as String?;
+
+      if (mainDispositionId == null || subDispositionId == null) return false;
+
+      // Get main disposition name
+      final mainDisposition = await client
+          .from('lead_status_master')
+          .select('name')
+          .eq('id', mainDispositionId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+      // Get sub disposition name
+      final subDisposition = await client
+          .from('lead_sub_status_master')
+          .select('name')
+          .eq('id', subDispositionId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+      if (mainDisposition == null || subDisposition == null) return false;
+
+      final mainDispositionName = (mainDisposition['name'] as String)
+          .toLowerCase()
+          .trim();
+      final subDispositionName = (subDisposition['name'] as String)
+          .toLowerCase()
+          .trim();
+
+      // Check if main disposition is exactly "customer" and sub disposition is NOT "booking done"
+      // (If booking is already done, there's nothing to create)
+      // Using exact match to avoid false positives like "customer service", "not customer", etc.
+      return mainDispositionName == 'customer' &&
+          subDispositionName != 'booking done';
+    } catch (e) {
+      print('Error checking disposition: $e');
+      return false;
+    }
+  }
+
   // Show create booking dialog
   Future<void> _showCreateBookingDialog() async {
     try {
       // Get the lead data
       final lead = await _fetchLead();
 
-      // Extract booking data from lead for pre-population
-      final bookingData = _extractBookingDataFromLead(
-        lead,
-        supabase.Supabase.instance.client.auth.currentUser?.id ?? 'system',
-        (supabase
-                    .Supabase
-                    .instance
-                    .client
-                    .auth
-                    .currentUser
-                    ?.userMetadata?['name']
-                as String?) ??
-            'System User',
-      );
-
       if (!mounted) return;
 
-      // Show booking form dialog
+      // Show simplified booking form dialog
       await showDialog(
         context: context,
         builder: (context) => _CreateBookingDialog(
           lead: lead,
-          prePopulatedData: bookingData,
           onBookingCreated: () {
             // Refresh lead data after booking creation
             refreshLead();
@@ -512,177 +579,6 @@ class _LeadDetailScreenState extends State<LeadDetailScreen>
         );
       }
     }
-  }
-
-  // Quick create booking without user interaction (used when sub-disposition is 'booking done')
-  Future<void> _quickCreateBooking() async {
-    try {
-      final lead = await _fetchLead();
-      final currentUser = supabase.Supabase.instance.client.auth.currentUser;
-      final String userId = currentUser?.id ?? 'system';
-      final String userName =
-          (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
-
-      final Map<String, dynamic> data = _extractBookingDataFromLead(
-        lead,
-        userId,
-        userName,
-      );
-
-      final BookingRepository bookingRepo = BookingRepository();
-
-      // Provide safe defaults if any fields are missing
-      final String projectId =
-          (data['projectId'] as String?) ?? (lead.projectId ?? '');
-      final String projectName =
-          (data['projectName'] as String?) ??
-          (lead.projectName?.isNotEmpty == true ? lead.projectName! : '');
-      final String salesExecId =
-          (data['salesExecutiveId'] as String?) ?? userId;
-      final String salesExecName =
-          (data['salesExecutiveName'] as String?) ?? userName;
-      final String propertyType =
-          (data['propertyType'] as String?) ?? 'residential';
-      final String category = (data['category'] as String?) ?? 'b';
-      final double bookingAmount = (data['bookingAmount'] as double?) ?? 0.0;
-      final double? advanceAmount = (data['advanceAmount'] as double?);
-      final double? balanceAmount = (data['balanceAmount'] as double?);
-      final String unitNo = (data['unitNo'] as String?) ?? '';
-      final String unitDetails = (data['unitDetails'] as String?) ?? '';
-      final PaymentMode paymentMode =
-          (data['paymentMode'] as PaymentMode?) ?? PaymentMode.cash;
-      final BookingStatus status =
-          (data['status'] as BookingStatus?) ?? BookingStatus.confirmed;
-      final DateTime bookingDate =
-          (data['bookingDate'] as DateTime?) ?? DateTime.now();
-
-      await bookingRepo.createBooking(
-        customerId: lead.id,
-        customerName: lead.customerName,
-        customerEmail: lead.email ?? '',
-        customerPhone: lead.phone,
-        leadId: lead.leadId,
-        projectId: projectId,
-        projectName: projectName,
-        propertyType: propertyType,
-        category: category,
-        unitNo: unitNo,
-        unitDetails: unitDetails,
-        bookingAmount: bookingAmount,
-        advanceAmount: advanceAmount,
-        balanceAmount: balanceAmount,
-        paymentMode: paymentMode,
-        paymentReference: null,
-        salesExecutiveId: salesExecId,
-        salesExecutiveName: salesExecName,
-        commission: (data['commission'] as double?) ?? 0.0,
-        approvedBy: userName,
-        approvedById: userId,
-        status: status,
-        bookingDate: bookingDate,
-        possessionDate: data['possessionDate'] as DateTime?,
-        notes:
-            (data['notes'] as String?) ??
-            'Auto-created from disposition: Booking Done',
-        termsAndConditions: (data['termsAndConditions'] as String?) ?? '',
-        documents: <String>[],
-        createdBy: userId,
-        createdByName: userName,
-        customFields: data['customFields'] as Map<String, dynamic>?,
-      );
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Booking created (Booking Done)'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to auto-create booking: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  // Extract booking data from lead
-  Map<String, dynamic> _extractBookingDataFromLead(
-    Lead lead,
-    String performedBy,
-    String performedByName,
-  ) {
-    // Get current user info for sales executive
-    final currentUser = supabase.Supabase.instance.client.auth.currentUser;
-    final String userId = currentUser?.id ?? 'system';
-    final String userName =
-        (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
-
-    // Calculate booking amount based on budget range or use default
-    double bookingAmount = 100000.0; // Default booking amount
-    if (lead.budgetRange != null && lead.budgetRange!.isNotEmpty) {
-      // Extract numeric value from budget range (e.g., "10-15 Lakhs" -> 1250000)
-      final budgetMatch = RegExp(
-        r'(\d+(?:\.\d+)?)',
-      ).firstMatch(lead.budgetRange!);
-      if (budgetMatch != null) {
-        final budgetValue = double.parse(budgetMatch.group(1)!);
-        if (lead.budgetRange!.toLowerCase().contains('lakh')) {
-          bookingAmount = budgetValue * 100000; // Convert lakhs to rupees
-        } else if (lead.budgetRange!.toLowerCase().contains('crore')) {
-          bookingAmount = budgetValue * 10000000; // Convert crores to rupees
-        } else {
-          bookingAmount = budgetValue;
-        }
-      }
-    }
-
-    // Calculate advance amount (typically 10% of booking amount)
-    final advanceAmount = bookingAmount * 0.1;
-    final balanceAmount = bookingAmount - advanceAmount;
-
-    // Calculate commission (typically 2% of booking amount)
-    final commission = bookingAmount * 0.02;
-
-    return {
-      'customerName': lead.customerName,
-      'customerEmail': lead.email,
-      'customerPhone': lead.phone,
-      'projectId': lead.projectId ?? 'default-project',
-      'projectName': lead.projectName ?? 'Default Project',
-      'propertyType': lead.propertyType.name,
-      'category': lead.categoryType.name,
-      'unitNo': 'TBD', // To be determined
-      'unitDetails': lead.requirements ?? 'Unit details to be finalized',
-      'bookingAmount': bookingAmount,
-      'advanceAmount': advanceAmount,
-      'balanceAmount': balanceAmount,
-      'paymentMode': PaymentMode.cash, // Default payment mode
-      'paymentReference': null,
-      'salesExecutiveId': lead.assignedTo.isNotEmpty ? lead.assignedTo : userId,
-      'salesExecutiveName': lead.assignedToName.isNotEmpty
-          ? lead.assignedToName
-          : userName,
-      'commission': commission,
-      'approvedBy': performedByName,
-      'approvedById': performedBy,
-      'status': BookingStatus.confirmed,
-      'bookingDate': DateTime.now(),
-      'possessionDate': null, // To be determined later
-      'notes':
-          'Booking created automatically from lead disposition: ${lead.leadId}',
-      'termsAndConditions': 'Standard terms and conditions apply',
-      'documents': <String>[],
-      'customFields': {
-        'lead_source': lead.source.name,
-        'lead_created_at': lead.createdAt.toIso8601String(),
-        'original_budget_range': lead.budgetRange,
-        'lead_requirements': lead.requirements,
-      },
-    };
   }
 
   // Missing method implementations
@@ -2880,12 +2776,10 @@ class _LazyCollapsibleCardState extends State<_LazyCollapsibleCard> {
 
 class _CreateBookingDialog extends StatefulWidget {
   final Lead lead;
-  final Map<String, dynamic> prePopulatedData;
   final VoidCallback onBookingCreated;
 
   const _CreateBookingDialog({
     required this.lead,
-    required this.prePopulatedData,
     required this.onBookingCreated,
   });
 
@@ -2898,618 +2792,241 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
   final BookingRepository bookingRepository = BookingRepository();
 
   // Form controllers
-  late TextEditingController customerNameController;
-  late TextEditingController customerEmailController;
-  late TextEditingController customerPhoneController;
-  late TextEditingController projectNameController;
-  late TextEditingController unitNoController;
-  late TextEditingController unitDetailsController;
-  late TextEditingController bookingAmountController;
-  late TextEditingController advanceAmountController;
-  late TextEditingController balanceAmountController;
-  late TextEditingController commissionController;
-  late TextEditingController salesExecutiveController;
-  late TextEditingController approvedByController;
-  late TextEditingController notesController;
-  late TextEditingController termsController;
+  late TextEditingController propertyDescriptionController;
 
   // Form values
-  String propertyType = 'residential';
-  String category = 'b';
-  PaymentMode paymentMode = PaymentMode.cash;
-  BookingStatus status = BookingStatus.confirmed;
-  DateTime bookingDate = DateTime.now();
-  DateTime? possessionDate;
+  String? selectedProjectId;
+  String? selectedProjectName;
+  String? selectedPropertyCategory;
+  String? selectedPropertyType;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
-    initializeControllers();
-  }
-
-  void initializeControllers() {
-    customerNameController = TextEditingController(
-      text: widget.prePopulatedData['customerName'],
-    );
-    customerEmailController = TextEditingController(
-      text: widget.prePopulatedData['customerEmail'],
-    );
-    customerPhoneController = TextEditingController(
-      text: widget.prePopulatedData['customerPhone'],
-    );
-    projectNameController = TextEditingController(
-      text: widget.prePopulatedData['projectName'],
-    );
-    unitNoController = TextEditingController(
-      text: widget.prePopulatedData['unitNo'],
-    );
-    unitDetailsController = TextEditingController(
-      text: widget.prePopulatedData['unitDetails'],
-    );
-    bookingAmountController = TextEditingController(
-      text: widget.prePopulatedData['bookingAmount'].toString(),
-    );
-    advanceAmountController = TextEditingController(
-      text: widget.prePopulatedData['advanceAmount'].toString(),
-    );
-    balanceAmountController = TextEditingController(
-      text: widget.prePopulatedData['balanceAmount'].toString(),
-    );
-    commissionController = TextEditingController(
-      text: widget.prePopulatedData['commission'].toString(),
-    );
-    salesExecutiveController = TextEditingController(
-      text: widget.prePopulatedData['salesExecutiveName'],
-    );
-    approvedByController = TextEditingController(
-      text: widget.prePopulatedData['approvedBy'],
-    );
-    notesController = TextEditingController(
-      text: widget.prePopulatedData['notes'],
-    );
-    termsController = TextEditingController(
-      text: widget.prePopulatedData['termsAndConditions'],
-    );
-
-    propertyType = widget.prePopulatedData['propertyType'];
-    category = widget.prePopulatedData['category'];
+    propertyDescriptionController = TextEditingController();
   }
 
   @override
   void dispose() {
-    customerNameController.dispose();
-    customerEmailController.dispose();
-    customerPhoneController.dispose();
-    projectNameController.dispose();
-    unitNoController.dispose();
-    unitDetailsController.dispose();
-    bookingAmountController.dispose();
-    advanceAmountController.dispose();
-    balanceAmountController.dispose();
-    commissionController.dispose();
-    salesExecutiveController.dispose();
-    approvedByController.dispose();
-    notesController.dispose();
-    termsController.dispose();
+    propertyDescriptionController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        height: MediaQuery.of(context).size.height * 0.9,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            // Header
-            Row(
-              children: [
-                const Icon(Icons.book_online, size: 28, color: Colors.green),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Create Booking - ${widget.lead.leadId}',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+    return AlertDialog(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      scrollable: true,
+      title: Row(
+        children: [
+          const Icon(Icons.book_online, color: Colors.green),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Create Booking - ${widget.lead.leadId}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640, minWidth: 360),
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Project Dropdown
+              FutureBuilder<List<Project>>(
+                future: DatabaseService.getProjects(limit: 200),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return const Text('Failed to load projects');
+                  }
+                  final projects = snapshot.data ?? [];
+                  return DropdownButtonFormField<String>(
+                    value: selectedProjectId,
+                    decoration: const InputDecoration(
+                      labelText: 'Project *',
+                      border: OutlineInputBorder(),
                     ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const Divider(),
-
-            // Form
-            Expanded(
-              child: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Customer Information Section
-                      buildSectionHeader('Customer Information', Icons.person),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: customerNameController,
-                              decoration: const InputDecoration(
-                                labelText: 'Customer Name *',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Customer name is required';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextFormField(
-                              controller: customerEmailController,
-                              decoration: const InputDecoration(
-                                labelText: 'Email *',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Email is required';
-                                }
-                                if (!RegExp(
-                                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                                ).hasMatch(value)) {
-                                  return 'Enter a valid email';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: customerPhoneController,
-                        decoration: const InputDecoration(
-                          labelText: 'Phone Number *',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Phone number is required';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Property Information Section
-                      buildSectionHeader('Property Information', Icons.home),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              initialValue: propertyType,
-                              decoration: const InputDecoration(
-                                labelText: 'Property Type *',
-                                border: OutlineInputBorder(),
-                              ),
-                              items: PropertyType.values.map((type) {
-                                return DropdownMenuItem(
-                                  value: type.name,
-                                  child: Text(type.name.toUpperCase()),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  propertyType = value!;
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              initialValue: category,
-                              decoration: const InputDecoration(
-                                labelText: 'Category *',
-                                border: OutlineInputBorder(),
-                              ),
-                              items: CategoryType.values.map((category) {
-                                return DropdownMenuItem(
-                                  value: category.name,
-                                  child: Text(category.name.toUpperCase()),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  category = value!;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: projectNameController,
-                              decoration: const InputDecoration(
-                                labelText: 'Project Name *',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Project name is required';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextFormField(
-                              controller: unitNoController,
-                              decoration: const InputDecoration(
-                                labelText: 'Unit Number',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: unitDetailsController,
-                        decoration: const InputDecoration(
-                          labelText: 'Unit Details',
-                          border: OutlineInputBorder(),
-                        ),
-                        maxLines: 2,
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Financial Information Section
-                      buildSectionHeader(
-                        'Financial Information',
-                        Icons.attach_money,
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: bookingAmountController,
-                              decoration: const InputDecoration(
-                                labelText: 'Booking Amount *',
-                                prefixText: '₹ ',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Booking amount is required';
-                                }
-                                if (double.tryParse(value) == null) {
-                                  return 'Enter a valid amount';
-                                }
-                                return null;
-                              },
-                              onChanged: (value) {
-                                calculateAmounts();
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextFormField(
-                              controller: advanceAmountController,
-                              decoration: const InputDecoration(
-                                labelText: 'Advance Amount',
-                                prefixText: '₹ ',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: balanceAmountController,
-                              decoration: const InputDecoration(
-                                labelText: 'Balance Amount',
-                                prefixText: '₹ ',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextFormField(
-                              controller: commissionController,
-                              decoration: const InputDecoration(
-                                labelText: 'Commission',
-                                prefixText: '₹ ',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Payment & Status Section
-                      buildSectionHeader('Payment & Status', Icons.payment),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<PaymentMode>(
-                              initialValue: paymentMode,
-                              decoration: const InputDecoration(
-                                labelText: 'Payment Mode *',
-                                border: OutlineInputBorder(),
-                              ),
-                              items: PaymentMode.values.map((mode) {
-                                return DropdownMenuItem(
-                                  value: mode,
-                                  child: Text(mode.name.toUpperCase()),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  paymentMode = value!;
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: DropdownButtonFormField<BookingStatus>(
-                              initialValue: status,
-                              decoration: const InputDecoration(
-                                labelText: 'Status *',
-                                border: OutlineInputBorder(),
-                              ),
-                              items: BookingStatus.values.map((status) {
-                                return DropdownMenuItem(
-                                  value: status,
-                                  child: Text(status.name.toUpperCase()),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  status = value!;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: bookingDate,
-                                  firstDate: DateTime.now().subtract(
-                                    const Duration(days: 30),
-                                  ),
-                                  lastDate: DateTime.now().add(
-                                    const Duration(days: 365),
-                                  ),
-                                );
-                                if (date != null) {
-                                  setState(() {
-                                    bookingDate = date;
-                                  });
-                                }
-                              },
-                              child: InputDecorator(
-                                decoration: const InputDecoration(
-                                  labelText: 'Booking Date *',
-                                  border: OutlineInputBorder(),
-                                ),
-                                child: Text(formatDate(bookingDate)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate:
-                                      possessionDate ??
-                                      DateTime.now().add(
-                                        const Duration(days: 365),
-                                      ),
-                                  firstDate: DateTime.now(),
-                                  lastDate: DateTime.now().add(
-                                    const Duration(days: 2000),
-                                  ),
-                                );
-                                if (date != null) {
-                                  setState(() {
-                                    possessionDate = date;
-                                  });
-                                }
-                              },
-                              child: InputDecorator(
-                                decoration: const InputDecoration(
-                                  labelText: 'Possession Date',
-                                  border: OutlineInputBorder(),
-                                ),
-                                child: Text(
-                                  possessionDate != null
-                                      ? formatDate(possessionDate!)
-                                      : 'Select Date',
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Sales Information Section
-                      buildSectionHeader('Sales Information', Icons.sell),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: salesExecutiveController,
-                              decoration: const InputDecoration(
-                                labelText: 'Sales Executive *',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Sales executive is required';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextFormField(
-                              controller: approvedByController,
-                              decoration: const InputDecoration(
-                                labelText: 'Approved By *',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Approved by is required';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Additional Information Section
-                      buildSectionHeader('Additional Information', Icons.note),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: notesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Notes',
-                          border: OutlineInputBorder(),
-                        ),
-                        maxLines: 3,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: termsController,
-                        decoration: const InputDecoration(
-                          labelText: 'Terms & Conditions',
-                          border: OutlineInputBorder(),
-                        ),
-                        maxLines: 3,
-                      ),
-                    ],
-                  ),
-                ),
+                    items: projects.map((project) {
+                      return DropdownMenuItem<String>(
+                        value: project.id,
+                        child: Text(project.name),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedProjectId = value;
+                        final selectedProject = projects.firstWhere(
+                          (p) => p.id == value,
+                        );
+                        selectedProjectName = selectedProject.name;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select a project';
+                      }
+                      return null;
+                    },
+                  );
+                },
               ),
-            ),
+              const SizedBox(height: 16),
 
-            const Divider(),
+              // Property Category Dropdown
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: masters.DatabaseServiceMasters.getPropertyCategories(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return const Text('Failed to load property categories');
+                  }
+                  final categories = snapshot.data ?? [];
+                  return DropdownButtonFormField<String>(
+                    value: selectedPropertyCategory,
+                    decoration: const InputDecoration(
+                      labelText: 'Property Category *',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: categories.map((category) {
+                      return DropdownMenuItem<String>(
+                        value: category['name'] as String,
+                        child: Text(category['name'] as String),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedPropertyCategory = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select a property category';
+                      }
+                      return null;
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
 
-            // Action Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+              // Property Type Dropdown
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: masters.DatabaseServiceMasters.getPropertyTypes(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return const Text('Failed to load property types');
+                  }
+                  final types = snapshot.data ?? [];
+                  return DropdownButtonFormField<String>(
+                    value: selectedPropertyType,
+                    decoration: const InputDecoration(
+                      labelText: 'Property Type *',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: types.map((type) {
+                      return DropdownMenuItem<String>(
+                        value: type['name'] as String,
+                        child: Text(type['name'] as String),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedPropertyType = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select a property type';
+                      }
+                      return null;
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Property Description
+              TextFormField(
+                controller: propertyDescriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Property Description',
+                  hintText: 'Enter property description',
+                  border: OutlineInputBorder(),
                 ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: createBooking,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Create Booking'),
-                ),
-              ],
-            ),
-          ],
+                maxLines: 4,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter property description';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
-
-  Widget buildSectionHeader(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: Colors.green),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.green,
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isSubmitting ? null : createBooking,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
           ),
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Text('Submit'),
         ),
       ],
     );
-  }
-
-  void calculateAmounts() {
-    final bookingAmount = double.tryParse(bookingAmountController.text);
-    if (bookingAmount != null) {
-      final advanceAmount = bookingAmount * 0.1;
-      final balanceAmount = bookingAmount - advanceAmount;
-      final commission = bookingAmount * 0.02;
-
-      advanceAmountController.text = advanceAmount.toStringAsFixed(2);
-      balanceAmountController.text = balanceAmount.toStringAsFixed(2);
-      commissionController.text = commission.toStringAsFixed(2);
-    }
-  }
-
-  String formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
   }
 
   Future<void> createBooking() async {
     if (!formKey.currentState!.validate()) {
       return;
     }
+
+    if (selectedProjectId == null ||
+        selectedPropertyCategory == null ||
+        selectedPropertyType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill all required fields'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
 
     try {
       // Get current user info
@@ -3518,39 +3035,81 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
       final String userName =
           (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
 
+      // Get lead's assigned user for sales executive
+      final salesExecutiveId = widget.lead.assignedTo.isNotEmpty
+          ? widget.lead.assignedTo
+          : userId;
+      final salesExecutiveName = widget.lead.assignedToName.isNotEmpty
+          ? widget.lead.assignedToName
+          : userName;
+
+      // Calculate default booking amount from lead budget
+      double bookingAmount = 100000.0; // Default
+      if (widget.lead.budgetRange != null &&
+          widget.lead.budgetRange!.isNotEmpty) {
+        final budgetMatch = RegExp(
+          r'(\d+(?:\.\d+)?)',
+        ).firstMatch(widget.lead.budgetRange!);
+        if (budgetMatch != null) {
+          final budgetValue = double.parse(budgetMatch.group(1)!);
+          if (widget.lead.budgetRange!.toLowerCase().contains('lakh')) {
+            bookingAmount = budgetValue * 100000;
+          } else if (widget.lead.budgetRange!.toLowerCase().contains('crore')) {
+            bookingAmount = budgetValue * 10000000;
+          } else {
+            bookingAmount = budgetValue;
+          }
+        }
+      }
+
+      final advanceAmount = bookingAmount * 0.1;
+      final balanceAmount = bookingAmount - advanceAmount;
+      final commission = bookingAmount * 0.02;
+
+      // Resolve or create customer UUID (customer_id must be a UUID)
+      final customerUuid = await BookingService.resolveOrCreateCustomer(
+        customerName: widget.lead.customerName,
+        customerEmail: widget.lead.email ?? '',
+        customerPhone: widget.lead.phone,
+        projectId: selectedProjectId!,
+        projectName: selectedProjectName ?? '',
+      );
+
       // Create booking
       await bookingRepository.createBooking(
-        customerId: widget.lead.id,
-        customerName: customerNameController.text,
-        customerEmail: customerEmailController.text,
-        customerPhone: customerPhoneController.text,
-        leadId: widget.lead.leadId,
-        projectId: widget.prePopulatedData['projectId'],
-        projectName: projectNameController.text,
-        propertyType: propertyType,
-        category: category,
-        unitNo: unitNoController.text,
-        unitDetails: unitDetailsController.text,
-        bookingAmount: double.parse(bookingAmountController.text),
-        advanceAmount: double.tryParse(advanceAmountController.text),
-        balanceAmount: double.tryParse(balanceAmountController.text),
-        paymentMode: paymentMode,
+        customerId: customerUuid,
+        customerName: widget.lead.customerName,
+        customerEmail: widget.lead.email ?? '',
+        customerPhone: widget.lead.phone,
+        leadId: widget.lead.id, // Use UUID (id) instead of leadId string
+        projectId: selectedProjectId!,
+        projectName: selectedProjectName ?? '',
+        propertyType: selectedPropertyType!,
+        category: selectedPropertyCategory!,
+        unitNo: '',
+        unitDetails: propertyDescriptionController.text.trim(),
+        bookingAmount: bookingAmount,
+        advanceAmount: advanceAmount,
+        balanceAmount: balanceAmount,
+        paymentMode: PaymentMode.cash,
         paymentReference: null,
-        salesExecutiveId: widget.prePopulatedData['salesExecutiveId'],
-        salesExecutiveName: salesExecutiveController.text,
-        commission: double.parse(commissionController.text),
-        approvedBy: approvedByController.text,
+        salesExecutiveId: salesExecutiveId,
+        salesExecutiveName: salesExecutiveName,
+        commission: commission,
+        approvedBy: userName,
         approvedById: userId,
-        status: status,
-        bookingDate: bookingDate,
-        possessionDate: possessionDate,
-        notes: notesController.text,
-        termsAndConditions: termsController.text,
+        status: BookingStatus.pending,
+        bookingDate: DateTime.now(),
+        possessionDate: null,
+        notes: 'Booking created from lead disposition',
+        termsAndConditions: null,
         documents: <String>[],
         createdBy: userId,
         createdByName: userName,
-        customFields: widget.prePopulatedData['customFields'],
+        customFields: null,
       );
+
+      if (!mounted) return;
 
       // Close dialog
       Navigator.of(context).pop();
@@ -3566,6 +3125,10 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
       // Callback to refresh lead data
       widget.onBookingCreated();
     } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to create booking: $e'),
