@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
@@ -127,8 +128,13 @@ void main() {
 
           // Request permissions (non-blocking)
           try {
-            await PushNotificationService.instance
-                .requestAndroidPermissionIfNeeded();
+            if (Platform.isAndroid) {
+              await PushNotificationService.instance
+                  .requestAndroidPermissionIfNeeded();
+            } else if (Platform.isIOS) {
+              await PushNotificationService.instance
+                  .requestIOSPermissionIfNeeded();
+            }
           } catch (e) {
             if (kDebugMode) {
               debugPrint('✗ Permission request failed: $e');

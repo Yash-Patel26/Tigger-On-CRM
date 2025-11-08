@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import 'package:provider/provider.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'dart:async';
 import '../../../../shared/utils/helpers.dart';
 import '../../../../shared/managers/auth_state_manager.dart';
@@ -455,7 +456,7 @@ class _LeadScreenState extends State<LeadScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 0),
                 // Search bar
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -506,7 +507,7 @@ class _LeadScreenState extends State<LeadScreen> {
                       fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
-                        vertical: 12,
+                        vertical: 8,
                       ),
                     ),
                   ),
@@ -817,8 +818,8 @@ class _LeadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12, left: 16, right: 16),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 8, left: 12, right: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -873,7 +874,7 @@ class _LeadCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           // Two-column body below the header
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -889,7 +890,7 @@ class _LeadCard extends StatelessWidget {
                       leadData.phone,
                       style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     // Project with briefcase icon
                     Row(
                       children: <Widget>[
@@ -909,7 +910,7 @@ class _LeadCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     // Counsellor info
                     Row(
                       children: <Widget>[
@@ -931,7 +932,7 @@ class _LeadCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     // Last follow up date
                     Text(
                       leadData.lastFollowUpDate != null
@@ -969,13 +970,13 @@ class _LeadCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     // Date and time
                     Text(
                       _formatDateTime(leadData.createdAt),
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     // Visit icon with visit marker
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -996,10 +997,10 @@ class _LeadCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           // Bottom action buttons - All in one row with icons only
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
               // View button
               IconButton(
@@ -1010,13 +1011,10 @@ class _LeadCard extends StatelessWidget {
                     ),
                   );
                 },
-                icon: const Icon(Icons.visibility_outlined, size: 20),
+                icon: const Icon(FontAwesomeIcons.eye, size: 12),
                 tooltip: 'View',
-                style: IconButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.all(12),
-                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
               // Assign button (conditional)
               Consumer<AuthStateManager>(
@@ -1025,12 +1023,12 @@ class _LeadCard extends StatelessWidget {
                     return IconButton(
                       onPressed: () =>
                           _showAssignDialog(context, leadData.leadId),
-                      icon: const Icon(Icons.assignment_ind_outlined, size: 20),
+                      icon: const Icon(FontAwesomeIcons.userPlus, size: 12),
                       tooltip: 'Assign',
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.all(12),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
                       ),
                     );
                   }
@@ -1046,13 +1044,10 @@ class _LeadCard extends StatelessWidget {
                     ),
                   );
                 },
-                icon: const Icon(Icons.add_location_alt_outlined, size: 20),
+                icon: const Icon(FontAwesomeIcons.locationDot, size: 12),
                 tooltip: 'Site Visit',
-                style: IconButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.all(12),
-                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
               // Call button
               IconButton(
@@ -1068,13 +1063,10 @@ class _LeadCard extends StatelessWidget {
                     );
                   }
                 },
-                icon: const Icon(Icons.call_outlined, size: 20),
+                icon: const Icon(FontAwesomeIcons.phone, size: 12),
                 tooltip: 'Call',
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.all(12),
-                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
             ],
           ),

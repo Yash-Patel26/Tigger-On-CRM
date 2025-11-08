@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../data/models/models.dart';
 
-/// Lead Controls Row Widget
-///
-/// A reusable widget that displays controls for lead list management:
-/// - Page size selector
-/// - Sort button
-/// - Disposition count button
-/// - Item count display
+
 class LeadControlsRow extends StatelessWidget {
   const LeadControlsRow({
     super.key,
@@ -29,8 +24,7 @@ class LeadControlsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -61,8 +55,8 @@ class LeadControlsRow extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     const Icon(
-                      Icons.keyboard_arrow_down,
-                      size: 18,
+                      FontAwesomeIcons.chevronDown,
+                      size: 14,
                       color: Colors.grey,
                     ),
                   ],
@@ -83,7 +77,11 @@ class LeadControlsRow extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    const Icon(Icons.swap_vert, size: 12, color: Colors.white),
+                    const Icon(
+                      FontAwesomeIcons.upDown,
+                      size: 12,
+                      color: Colors.white,
+                    ),
                     const SizedBox(width: 2),
                     const Text(
                       'Sort',

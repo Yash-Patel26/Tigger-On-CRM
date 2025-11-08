@@ -24,8 +24,6 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
     await Firebase.initializeApp();
   } catch (_) {}
-
-  
 }
 
 class PushNotificationService {
@@ -63,8 +61,14 @@ class PushNotificationService {
     // Local notifications initialization
     const AndroidInitializationSettings androidInit =
         AndroidInitializationSettings('ic_stat_notification');
+    const DarwinInitializationSettings iosInit = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
     const InitializationSettings initSettings = InitializationSettings(
       android: androidInit,
+      iOS: iosInit,
     );
     await _local.initialize(
       initSettings,
@@ -115,6 +119,21 @@ class PushNotificationService {
     return await androidImplementation?.areNotificationsEnabled() ?? false;
   }
 
+  Future<bool> requestIOSPermissionIfNeeded() async {
+    if (!Platform.isIOS) return true;
+    final iosImplementation = _local
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
+    if (iosImplementation == null) return false;
+    final requested = await iosImplementation.requestPermissions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    return requested ?? false;
+  }
+
   Future<void> showLocalNotification({
     required String id,
     required String title,
@@ -147,6 +166,38 @@ class PushNotificationService {
         }
       }
 
+      // Request iOS permissions if needed
+      if (Platform.isIOS) {
+        final iosImplementation = _local
+            .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin
+            >();
+        if (iosImplementation != null) {
+          final requested = await iosImplementation.requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+          if (requested == null || !requested) {
+            debugPrint(
+              'PushNotificationService: iOS notification permission denied or not granted',
+            );
+            return;
+          }
+        }
+      }
+
+      // Generate a stable notification ID from the string ID
+      // Use a hash function that's less likely to collide
+      int notificationId;
+      try {
+        // Try to parse as integer first (if ID is numeric)
+        notificationId = int.parse(id);
+      } catch (_) {
+        // If not numeric, use a hash but ensure it's positive
+        notificationId = id.hashCode.abs() % 2147483647; // Max 32-bit int
+      }
+
       final androidDetails = AndroidNotificationDetails(
         _androidChannel.id,
         _androidChannel.name,
@@ -156,14 +207,21 @@ class PushNotificationService {
         enableVibration: true,
         playSound: true,
         showWhen: true,
-        // Let the system/initialization icon be used; avoid explicit icon
+        autoCancel: true,
+        ongoing: false,
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
       );
 
       await _local.show(
-        id.hashCode,
+        notificationId,
         title,
         body,
-        NotificationDetails(android: androidDetails),
+        NotificationDetails(android: androidDetails, iOS: iosDetails),
         payload: payload?.entries.map((e) => '${e.key}=${e.value}').join('&'),
       );
 

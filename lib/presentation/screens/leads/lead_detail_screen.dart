@@ -3664,12 +3664,6 @@ class _CrossSellTabState extends State<CrossSellTab> {
         children: [
           Row(
             children: [
-              Text(
-                'Cross Sell Opportunities',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
               const Spacer(),
               ElevatedButton.icon(
                 onPressed: _openAddSheet,
