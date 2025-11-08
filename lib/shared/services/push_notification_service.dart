@@ -21,8 +21,12 @@ import '../../core/utils/page_transitions.dart';
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Ensure Firebase is initialized in background isolates
+  // Note: Notifications with notification payload are automatically displayed
+  // by Firebase using the default channel and icon configured in AndroidManifest.xml
   try {
     await Firebase.initializeApp();
+    // For data-only messages, you can process them here
+    // Notifications with notification payload are handled automatically
   } catch (_) {}
 }
 
@@ -36,6 +40,9 @@ class PushNotificationService {
         'High Importance Notifications',
         description: 'Used for important notifications.',
         importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
       );
 
   final FlutterLocalNotificationsPlugin _local =
@@ -88,12 +95,17 @@ class PushNotificationService {
       },
     );
 
-    // Android channel
-    await _local
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(_androidChannel);
+    // Android channel - create with proper settings for release builds
+    if (Platform.isAndroid) {
+      final androidImplementation = _local
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      await androidImplementation?.createNotificationChannel(_androidChannel);
+
+      // Note: Default notification channel is set via AndroidManifest.xml
+      // This ensures Firebase Messaging uses the correct channel in release builds
+    }
 
     _initialized = true;
   }
@@ -209,6 +221,7 @@ class PushNotificationService {
         showWhen: true,
         autoCancel: true,
         ongoing: false,
+        icon: 'ic_stat_notification',
       );
 
       const iosDetails = DarwinNotificationDetails(
