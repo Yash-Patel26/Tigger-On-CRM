@@ -14,8 +14,10 @@ import '../../presentation/screens/bookings/booking_screen.dart';
 import '../../presentation/screens/projects/site_visit_screen.dart';
 import '../../presentation/screens/projects/site_visit_detail_screen.dart';
 import '../../presentation/screens/ticket_hub_screen.dart';
+import '../../presentation/screens/tickets/ticket_detail_screen.dart';
 import '../../presentation/screens/dashboard/dashboard_screen.dart';
 import '../../core/utils/page_transitions.dart';
+import '../../data/repositories/ticket_repository.dart';
 
 // Top-level background handler
 @pragma('vm:entry-point')
@@ -259,8 +261,8 @@ class PushNotificationService {
       final platform = Platform.isAndroid
           ? 'android'
           : Platform.isIOS
-              ? 'ios'
-              : 'unknown';
+          ? 'ios'
+          : 'unknown';
       // Upsert token to a user_devices table if available; otherwise fallback to profiles
       try {
         await client.from('user_devices').upsert({
@@ -416,12 +418,19 @@ class PushNotificationService {
           );
         }
       } else if (type == 'ticket' || relatedType == 'ticket') {
-        debugPrint('PushNotificationService: Navigating to TicketHubScreen');
-        Navigator.of(context).push(
-          SmoothPageTransitions.slideFromRight<void>(
-            child: const TicketHubScreen(),
-          ),
-        );
+        if (relatedId != null && relatedId.isNotEmpty) {
+          debugPrint(
+            'PushNotificationService: Navigating to Ticket Detail with ID: $relatedId',
+          );
+          _navigateToTicketDetail(context, relatedId);
+        } else {
+          debugPrint('PushNotificationService: Navigating to TicketHubScreen');
+          Navigator.of(context).push(
+            SmoothPageTransitions.slideFromRight<void>(
+              child: const TicketHubScreen(),
+            ),
+          );
+        }
       } else {
         // Default to notification screen
         debugPrint('PushNotificationService: Defaulting to NotificationScreen');
@@ -491,6 +500,12 @@ class PushNotificationService {
             ),
           ),
         );
+      } else if (actionUrl.startsWith('/tickets/')) {
+        final ticketId = actionUrl.split('/').last;
+        debugPrint(
+          'PushNotificationService: Navigating to Ticket Detail from URL: $actionUrl, ID: $ticketId',
+        );
+        _navigateToTicketDetail(context, ticketId);
       } else if (actionUrl == '/tickets') {
         Navigator.of(context).push(
           SmoothPageTransitions.slideFromRight<void>(
@@ -575,11 +590,18 @@ class PushNotificationService {
           );
         }
       } else if (type == 'ticket' || relatedType == 'ticket') {
-        Navigator.of(ctx).push(
-          SmoothPageTransitions.slideFromRight<void>(
-            child: const TicketHubScreen(),
-          ),
-        );
+        if (relatedId != null && relatedId.isNotEmpty) {
+          debugPrint(
+            'PushNotificationService: Navigating to Ticket Detail with ID: $relatedId',
+          );
+          _navigateToTicketDetail(ctx, relatedId);
+        } else {
+          Navigator.of(ctx).push(
+            SmoothPageTransitions.slideFromRight<void>(
+              child: const TicketHubScreen(),
+            ),
+          );
+        }
       } else {
         // Default to notification screen
         Navigator.of(
@@ -598,6 +620,67 @@ class PushNotificationService {
         ).push(MaterialPageRoute(builder: (_) => const NotificationScreen()));
       } catch (_) {
         // Ignore navigation errors
+      }
+    }
+  }
+
+  /// Navigate to ticket detail screen by fetching ticket by ID
+  Future<void> _navigateToTicketDetail(
+    BuildContext context,
+    String ticketId,
+  ) async {
+    try {
+      debugPrint('PushNotificationService: Fetching ticket with ID: $ticketId');
+
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Fetch ticket by ID
+      final ticketRepository = TicketRepository();
+      final response = await ticketRepository.getTicketById(ticketId);
+
+      // Close loading indicator
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+
+      if (response.success && response.data != null) {
+        // Navigate to ticket detail screen
+        if (context.mounted) {
+          Navigator.of(context).push(
+            SmoothPageTransitions.slideFromRight<void>(
+              child: TicketDetailScreen(ticket: response.data!),
+            ),
+          );
+        }
+      } else {
+        // If ticket not found, navigate to ticket hub
+        if (context.mounted) {
+          debugPrint(
+            'PushNotificationService: Ticket not found, navigating to TicketHubScreen',
+          );
+          Navigator.of(context).push(
+            SmoothPageTransitions.slideFromRight<void>(
+              child: const TicketHubScreen(),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('PushNotificationService: Error loading ticket: $e');
+      // Close loading indicator if still open
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        // Fallback to ticket hub
+        Navigator.of(context).push(
+          SmoothPageTransitions.slideFromRight<void>(
+            child: const TicketHubScreen(),
+          ),
+        );
       }
     }
   }

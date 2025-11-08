@@ -10,9 +10,11 @@ import '../bookings/booking_screen.dart';
 import '../projects/site_visit_detail_screen.dart';
 import '../projects/site_visit_screen.dart';
 import '../ticket_hub_screen.dart';
+import '../tickets/ticket_detail_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../customer_screen.dart';
 import '../projects/project_detail_screen.dart';
+import '../../../data/repositories/ticket_repository.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -193,9 +195,16 @@ class _NotificationScreenState extends State<NotificationScreen>
         break;
 
       case notification_model.NotificationType.ticket:
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => const TicketHubScreen()),
-        );
+        print('📍 Navigating to Ticket screen');
+        if (notification.relatedId != null) {
+          // Navigate to specific ticket detail screen
+          _navigateToTicketDetail(notification.relatedId!);
+        } else {
+          // Navigate to ticket hub if no specific ticket ID
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const TicketHubScreen()),
+          );
+        }
         break;
 
       case notification_model.NotificationType.system:
@@ -277,6 +286,55 @@ class _NotificationScreenState extends State<NotificationScreen>
     }
   }
 
+  Future<void> _navigateToTicketDetail(String ticketId) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Fetch ticket by ID
+      final ticketRepository = TicketRepository();
+      final response = await ticketRepository.getTicketById(ticketId);
+
+      // Close loading indicator
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      if (response.success && response.data != null) {
+        // Navigate to ticket detail screen
+        if (mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => TicketDetailScreen(ticket: response.data!),
+            ),
+          );
+        }
+      } else {
+        // If ticket not found, navigate to ticket hub
+        if (mounted) {
+          _showSnackBar('Ticket not found. Showing ticket list.');
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const TicketHubScreen()),
+          );
+        }
+      }
+    } catch (e) {
+      // Close loading indicator if still open
+      if (mounted) {
+        Navigator.of(context).pop();
+        _showSnackBar('Error loading ticket: $e');
+        // Fallback to ticket hub
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const TicketHubScreen()),
+        );
+      }
+    }
+  }
+
   void _navigateToActionUrl(String actionUrl) {
     print('🔗 Navigating to action URL: $actionUrl');
     // Handle different action URL patterns
@@ -333,6 +391,13 @@ class _NotificationScreenState extends State<NotificationScreen>
                 ),
               ),
             );
+          } else if (actionUrl.startsWith('/tickets/')) {
+            // Extract ticket ID from URL (e.g., /tickets/123)
+            final ticketId = actionUrl.split('/')[2];
+            print(
+              '📍 Navigating to Ticket Detail for URL: $actionUrl, ID: $ticketId',
+            );
+            _navigateToTicketDetail(ticketId);
           } else if (actionUrl.startsWith('/customers/')) {
             print('📍 Navigating to Customer Screen for URL: $actionUrl');
             Navigator.of(context).push(
