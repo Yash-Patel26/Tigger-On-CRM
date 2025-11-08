@@ -625,10 +625,13 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     File? selectedImage;
     String? imagePath;
 
+    // Store the parent context before showing dialog
+    final scaffoldContext = context;
+
     await showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
           title: const Text('Reply'),
           content: SingleChildScrollView(
             child: Column(
@@ -667,13 +670,13 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () async {
                 if (descriptionController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
                     const SnackBar(content: Text('Please enter a description')),
                   );
                   return;
@@ -713,15 +716,22 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                     'replied_by_role': userRole ?? 'user',
                   });
 
-                  Navigator.of(context).pop();
-                  await _loadConversations();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Reply sent successfully')),
-                  );
+                  Navigator.of(dialogContext).pop();
+
+                  // Use parent context after dialog is closed
+                  if (mounted) {
+                    await _loadConversations();
+                    ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+                      const SnackBar(content: Text('Reply sent successfully')),
+                    );
+                  }
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error sending reply: $e')),
-                  );
+                  // Use parent context for error message
+                  if (mounted) {
+                    ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+                      SnackBar(content: Text('Error sending reply: $e')),
+                    );
+                  }
                 }
               },
               child: const Text('Send'),
