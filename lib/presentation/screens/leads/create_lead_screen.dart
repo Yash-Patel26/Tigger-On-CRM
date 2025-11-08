@@ -72,6 +72,29 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
   @override
   void initState() {
     super.initState();
+    _checkPermissionAndLoad();
+  }
+
+  Future<void> _checkPermissionAndLoad() async {
+    // Check if user has permission to create leads
+    final canCreate = await Helpers.canCreateLeads();
+    if (!canCreate && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Permission denied: You do not have permission to create leads. Only admin, head, sales_executive, and telecaller roles can create leads.',
+          ),
+          duration: Duration(seconds: 5),
+        ),
+      );
+      // Navigate back after a short delay
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      });
+      return;
+    }
     _loadMasterData();
   }
 
@@ -411,6 +434,21 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
   }
 
   Future<void> _saveLead() async {
+    // Additional permission check before saving
+    final canCreate = await Helpers.canCreateLeads();
+    if (!canCreate) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Permission denied: You do not have permission to create leads.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     if (_preferenceFormKey.currentState == null ||
         !_preferenceFormKey.currentState!.validate()) {
       return;
