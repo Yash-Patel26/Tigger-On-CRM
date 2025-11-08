@@ -2786,6 +2786,7 @@ class _StaticCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (action != null) ...[action!, const SizedBox(width: 8)],
                 ],
               ),
               Padding(

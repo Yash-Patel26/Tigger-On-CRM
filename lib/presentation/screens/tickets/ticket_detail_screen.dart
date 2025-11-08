@@ -21,6 +21,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     with TickerProviderStateMixin {
   late TabController _infoTabController;
   late TabController _logsTabController;
+  late Ticket _ticket;
   Lead? _lead;
   bool _isLoadingLead = true;
   List<Map<String, dynamic>> _conversations = [];
@@ -32,6 +33,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   @override
   void initState() {
     super.initState();
+    _ticket = widget.ticket;
     _infoTabController = TabController(length: 3, vsync: this);
     _logsTabController = TabController(length: 2, vsync: this);
     _loadTicketData();
@@ -51,10 +53,28 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       _isLoadingLogs = true;
     });
 
+    // Reload ticket data to get latest assignment info
+    try {
+      final client = supabase.Supabase.instance.client;
+      final response = await client
+          .from('tickets')
+          .select('*')
+          .eq('id', _ticket.id)
+          .maybeSingle();
+      if (response != null && mounted) {
+        setState(() {
+          _ticket = Ticket.fromJson(response);
+        });
+      }
+    } catch (e) {
+      // If ticket reload fails, continue with existing ticket
+      print('Error reloading ticket: $e');
+    }
+
     // Load lead information
-    if (widget.ticket.leadId != null) {
+    if (_ticket.leadId != null) {
       try {
-        final lead = await DatabaseService.getLeadById(widget.ticket.leadId!);
+        final lead = await DatabaseService.getLeadById(_ticket.leadId!);
         setState(() {
           _lead = lead;
           _isLoadingLead = false;
@@ -83,7 +103,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       final response = await client
           .from('ticket_conversations')
           .select('*')
-          .eq('ticket_id', widget.ticket.id)
+          .eq('ticket_id', _ticket.id)
           .order('created_at', ascending: false);
 
       setState(() {
@@ -105,14 +125,14 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       final dispositionResponse = await client
           .from('ticket_dispositions')
           .select('*')
-          .eq('ticket_id', widget.ticket.id)
+          .eq('ticket_id', _ticket.id)
           .order('created_at', ascending: false);
 
       // Load allocation logs
       final allocationResponse = await client
           .from('ticket_allocations')
           .select('*')
-          .eq('ticket_id', widget.ticket.id)
+          .eq('ticket_id', _ticket.id)
           .order('created_at', ascending: false);
 
       setState(() {
@@ -135,7 +155,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Ticket: ${widget.ticket.ticketNumber}')),
+      appBar: AppBar(title: Text('Ticket: ${_ticket.ticketNumber}')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -164,46 +184,40 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
           children: [
             // Customer Name (bold)
             Text(
-              _lead?.customerName ?? widget.ticket.contactName,
+              _lead?.customerName ?? _ticket.contactName,
               style: Theme.of(
                 context,
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             // Ticket ID
-            _buildInfoRow('Ticket ID', widget.ticket.ticketNumber),
+            _buildInfoRow('Ticket ID', _ticket.ticketNumber),
             const SizedBox(height: 8),
             // Created At
-            _buildInfoRow(
-              'Created At',
-              _formatDateTime(widget.ticket.createdAt),
-            ),
+            _buildInfoRow('Created At', _formatDateTime(_ticket.createdAt)),
             const SizedBox(height: 8),
             // Status
-            _buildInfoRow('Status', widget.ticket.status.displayName),
+            _buildInfoRow('Status', _ticket.status.displayName),
             const SizedBox(height: 8),
             // Issue Related To
-            _buildInfoRow(
-              'Issue Related To',
-              widget.ticket.ticketType.displayName,
-            ),
+            _buildInfoRow('Issue Related To', _ticket.ticketType.displayName),
             const SizedBox(height: 8),
             // Contact Number
-            _buildInfoRow('Contact Number', widget.ticket.contactMobile),
+            _buildInfoRow('Contact Number', _ticket.contactMobile),
             const SizedBox(height: 8),
             // Priority
-            _buildInfoRow('Priority', widget.ticket.priority.displayName),
+            _buildInfoRow('Priority', _ticket.priority.displayName),
             const SizedBox(height: 8),
             // Assigned By
             _buildInfoRow(
               'Assigned By',
-              widget.ticket.metadata?['assigned_by_name'] as String? ??
-                  widget.ticket.metadata?['created_by_name'] as String? ??
+              _ticket.metadata?['assigned_by_name'] as String? ??
+                  _ticket.metadata?['created_by_name'] as String? ??
                   '-',
             ),
             const SizedBox(height: 8),
             // Assigned To
-            _buildInfoRow('Assigned To', widget.ticket.assignedToName ?? '-'),
+            _buildInfoRow('Assigned To', _ticket.assignedToName ?? '-'),
             const SizedBox(height: 16),
             // Action Buttons
             Row(
@@ -266,29 +280,26 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildInfoRow(
-            'Service Category',
-            widget.ticket.ticketCategory ?? '-',
-          ),
+          _buildInfoRow('Service Category', _ticket.ticketCategory ?? '-'),
           const SizedBox(height: 12),
-          _buildInfoRow('Service Type', widget.ticket.serviceType.displayName),
+          _buildInfoRow('Service Type', _ticket.serviceType.displayName),
           const SizedBox(height: 12),
-          _buildInfoRow('Service Name', widget.ticket.serviceType.displayName),
+          _buildInfoRow('Service Name', _ticket.serviceType.displayName),
           const SizedBox(height: 12),
-          _buildInfoRow('Issue Title', widget.ticket.issueTitle),
+          _buildInfoRow('Issue Title', _ticket.issueTitle),
           const SizedBox(height: 12),
-          _buildInfoRow('Contact Person', widget.ticket.contactName),
+          _buildInfoRow('Contact Person', _ticket.contactName),
           const SizedBox(height: 12),
           _buildInfoRow(
             'Alternate Mobile Number',
-            widget.ticket.alternateNumber ?? '-',
+            _ticket.alternateNumber ?? '-',
           ),
           const SizedBox(height: 12),
-          _buildInfoRow('Priority', widget.ticket.priority.displayName),
+          _buildInfoRow('Priority', _ticket.priority.displayName),
           const SizedBox(height: 12),
-          _buildInfoRow('Unit Number', widget.ticket.unitNumber ?? '-'),
+          _buildInfoRow('Unit Number', _ticket.unitNumber ?? '-'),
           const SizedBox(height: 12),
-          _buildInfoRow('Description', widget.ticket.issueDescription),
+          _buildInfoRow('Description', _ticket.issueDescription),
         ],
       ),
     );
@@ -432,20 +443,87 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Main: ${log['main_disposition'] ?? '-'}',
-                  style: Theme.of(context).textTheme.titleSmall,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Main: ${log['main_disposition'] ?? '-'}',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ),
+                    if (log['disposed_by'] != null)
+                      Chip(
+                        label: Text(
+                          log['disposed_by'].toString().toUpperCase(),
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                        padding: EdgeInsets.zero,
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text('Sub: ${log['sub_disposition'] ?? '-'}'),
-                const SizedBox(height: 4),
-                Text(
-                  'Disposed at: ${_formatDateTime(log['disposed_at'] != null ? DateTime.parse(log['disposed_at']) : null)}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Disposed at: ${_formatDateTime(log['disposed_at'] != null ? DateTime.parse(log['disposed_at']) : null)}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    if (log['follow_up_date'] != null)
+                      Expanded(
+                        child: Text(
+                          'Follow-up: ${_formatDateTime(log['follow_up_date'] != null ? DateTime.parse(log['follow_up_date']) : null)}',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                        ),
+                      ),
+                  ],
                 ),
-                if (log['remarks'] != null) ...<Widget>[
+                if (log['initiated_by_name'] != null) ...<Widget>[
                   const SizedBox(height: 4),
-                  Text('Remarks: ${log['remarks']}'),
+                  Text(
+                    'Initiated by: ${log['initiated_by_name']}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                if (log['created_by_name'] != null) ...<Widget>[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Created by: ${log['created_by_name']}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                if (log['remarks'] != null &&
+                    log['remarks'].toString().isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Remarks: ',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        Expanded(
+                          child: Text(
+                            log['remarks'].toString(),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -525,12 +603,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   Future<void> _showDisposeTicketDialog() async {
     await DisposeTicketDialog.show(
       context: context,
-      ticket: widget.ticket,
+      ticket: _ticket,
       onDisposed: () async {
-        await _loadLogs();
-        if (mounted) {
-          setState(() {});
-        }
+        await _loadTicketData();
       },
     );
   }
@@ -538,12 +613,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   Future<void> _showAssignTicketDialog() async {
     await AssignTicketDialog.show(
       context: context,
-      ticket: widget.ticket,
+      ticket: _ticket,
       onAssigned: () async {
-        await _loadLogs();
-        if (mounted) {
-          setState(() {});
-        }
+        await _loadTicketData();
       },
     );
   }
@@ -621,7 +693,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                   if (selectedImage != null && imagePath != null) {
                     // Upload image to storage
                     final fileName =
-                        'ticket_${widget.ticket.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+                        'ticket_${_ticket.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
                     final fileBytes = await selectedImage!.readAsBytes();
                     await client.storage
                         .from('ticket-conversations')
@@ -633,7 +705,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
                   // Save conversation
                   await client.from('ticket_conversations').insert({
-                    'ticket_id': widget.ticket.id,
+                    'ticket_id': _ticket.id,
                     'description': descriptionController.text.trim(),
                     'image_url': imageUrl,
                     'replied_by': userId,
