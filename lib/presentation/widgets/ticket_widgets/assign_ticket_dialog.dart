@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../../data/models/models.dart';
+import '../../../shared/helpers/notification_helper.dart';
 
 /// Dialog for assigning tickets to users.
 /// This is ticket-specific and uses ticket_allocations table for logging.
@@ -127,6 +128,38 @@ class _AssignTicketDialogContentState
             ? null
             : notesController.text.trim(),
       });
+
+      // Send notification to the assigned user
+      try {
+        // Map ticket priority to notification priority
+        NotificationPriority notifPriority;
+        switch (widget.ticket.priority) {
+          case TicketPriority.urgent:
+            notifPriority = NotificationPriority.urgent;
+            break;
+          case TicketPriority.high:
+            notifPriority = NotificationPriority.high;
+            break;
+          case TicketPriority.medium:
+            notifPriority = NotificationPriority.medium;
+            break;
+          case TicketPriority.low:
+            notifPriority = NotificationPriority.medium;
+            break;
+        }
+
+        await NotificationHelper.createTicketAssignedNotification(
+          userId: selectedUserId!,
+          ticketId: widget.ticket.id,
+          ticketNumber: widget.ticket.ticketNumber,
+          issueTitle: widget.ticket.issueTitle,
+          leadId: widget.ticket.leadId,
+          priority: notifPriority,
+        );
+      } catch (e) {
+        // Best-effort notification; do not fail ticket assignment on notification error
+        print('Error sending notification: $e');
+      }
 
       if (!mounted) return;
       Navigator.of(context).pop();
