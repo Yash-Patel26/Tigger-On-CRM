@@ -921,4 +921,41 @@ class Helpers {
   static Future<bool> canAssignLeads() async {
     return await isAdminOrHead();
   }
+
+  /// Check if current user can create leads
+  /// Allowed roles: admin, head, sales_executive, telecaller
+  /// User must be active
+  static Future<bool> canCreateLeads() async {
+    try {
+      final currentUser = supabase.Supabase.instance.client.auth.currentUser;
+      if (currentUser?.id == null) {
+        return false;
+      }
+
+      final response = await supabase.Supabase.instance.client
+          .from('users')
+          .select('role, is_active')
+          .eq('id', currentUser!.id)
+          .maybeSingle();
+
+      if (response == null) {
+        return false;
+      }
+
+      final role = response['role'] as String?;
+      final isActive = response['is_active'] as bool? ?? false;
+
+      if (!isActive) {
+        return false;
+      }
+
+      // Allowed roles: admin, head, sales_executive, telecaller
+      return role == 'admin' ||
+          role == 'head' ||
+          role == 'sales_executive' ||
+          role == 'telecaller';
+    } catch (e) {
+      return false;
+    }
+  }
 }
