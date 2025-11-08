@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../../../data/services/database_service.dart';
 import '../../../../data/services/lead_duplicate_service.dart';
+import '../../../../data/services/booking_service.dart';
 import '../../../../data/models/models.dart';
 import '../../../../shared/utils/helpers.dart';
 
@@ -171,6 +172,26 @@ class _CreateTicketFormState extends State<CreateTicketForm> {
           mappedPriority = TicketPriority.low;
       }
 
+      // Get customer ID from booking if booking exists for this lead
+      String? customerId;
+      try {
+        // Use the lead UUID directly (bookings.lead_id is a UUID, not the human-readable lead_id)
+        // Fetch the most recent booking for this lead using the UUID
+        final booking = await BookingService.getBookingByLeadId(
+          _selectedLeadId!,
+        );
+
+        // Use the booking's customerId which is a UUID foreign key to the customers table
+        // Note: customer_code in custom_fields is just a human-readable code, not the UUID
+        if (booking != null &&
+            booking.customerId.isNotEmpty) {
+          customerId = booking.customerId;
+        }
+      } catch (e) {
+        // If error fetching booking, continue without customer ID
+        print('Error fetching booking for customer ID: $e');
+      }
+
       await DatabaseService.createTicket(
         leadId: _selectedLeadId!,
         issueTitle: _issueTitleCtrl.text.trim(),
@@ -191,6 +212,7 @@ class _CreateTicketFormState extends State<CreateTicketForm> {
         alternateNumber: _alternateMobileCtrl.text.trim().isEmpty
             ? null
             : _alternateMobileCtrl.text.trim(),
+        customerId: customerId,
       );
 
       widget.onTicketCreated();

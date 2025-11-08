@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import '../models/booking_model.dart';
 
 class BookingService {
@@ -111,6 +112,24 @@ class BookingService {
     }
   }
 
+  // Get booking by lead ID (returns the most recent booking for the lead)
+  static Future<Booking?> getBookingByLeadId(String leadId) async {
+    try {
+      final response = await _client
+          .from('bookings')
+          .select('*')
+          .eq('lead_id', leadId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return Booking.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to fetch booking by lead ID: $e');
+    }
+  }
+
   // Create new booking
   static Future<Booking> createBooking({
     required String customerId,
@@ -148,7 +167,8 @@ class BookingService {
       // Generate SR number
       final srNo = await _generateSrNo();
 
-      final bookingData = {
+      // Build booking data - all required fields must have valid values
+      final bookingData = <String, dynamic>{
         'sr_no': srNo,
         'customer_id': customerId,
         'customer_name': customerName,
@@ -162,25 +182,57 @@ class BookingService {
         'unit_no': unitNo,
         'unit_details': unitDetails,
         'booking_amount': bookingAmount,
-        'advance_amount': advanceAmount,
-        'balance_amount': balanceAmount,
         'payment_mode': paymentMode.name,
-        'payment_reference': paymentReference,
         'sales_executive_id': salesExecutiveId,
         'sales_executive_name': salesExecutiveName,
         'commission': commission,
         'approved_by': approvedBy,
-        'approved_by_id': approvedById,
         'status': status.name,
         'booking_date': bookingDate.toIso8601String(),
-        'possession_date': possessionDate?.toIso8601String(),
-        'notes': notes,
-        'terms_and_conditions': termsAndConditions,
-        'documents': documents,
         'created_by': createdBy,
         'created_by_name': createdByName,
-        'custom_fields': customFields,
       };
+
+      // Generate customer code and add to custom_fields
+      final customerCode = await generateCustomerCode();
+      final finalCustomFields = <String, dynamic>{
+        'customer_code': customerCode,
+        if (customFields != null) ...customFields,
+      };
+      bookingData['custom_fields'] = finalCustomFields;
+
+      // Add optional fields only if they are not null
+      if (advanceAmount != null) {
+        bookingData['advance_amount'] = advanceAmount;
+      }
+      if (balanceAmount != null) {
+        bookingData['balance_amount'] = balanceAmount;
+      }
+      if (paymentReference != null && paymentReference.isNotEmpty) {
+        bookingData['payment_reference'] = paymentReference;
+      }
+      if (approvedById != null && approvedById.isNotEmpty) {
+        bookingData['approved_by_id'] = approvedById;
+      }
+      if (possessionDate != null) {
+        bookingData['possession_date'] = possessionDate.toIso8601String();
+      }
+      if (notes != null && notes.isNotEmpty) {
+        bookingData['notes'] = notes;
+      }
+      if (termsAndConditions != null && termsAndConditions.isNotEmpty) {
+        bookingData['terms_and_conditions'] = termsAndConditions;
+      }
+      // Handle documents - only include if not empty
+      // Empty arrays might cause issues, so we skip them
+      if (documents != null && documents.isNotEmpty) {
+        bookingData['documents'] = documents;
+      }
+
+      // Debug: Print booking data before insert
+      if (kDebugMode) {
+        print('Booking data to insert: $bookingData');
+      }
 
       final response = await _client
           .from('bookings')
@@ -190,7 +242,25 @@ class BookingService {
 
       return Booking.fromJson(response);
     } catch (e) {
-      throw Exception('Failed to create booking: $e');
+      // Enhanced error handling to see the actual error
+      String errorMessage = 'Unknown error';
+      if (e is PostgrestException) {
+        errorMessage = 'Postgrest error: ${e.message} (${e.code})';
+        if (e.details != null) {
+          errorMessage += ' - Details: ${e.details}';
+        }
+        if (e.hint != null) {
+          errorMessage += ' - Hint: ${e.hint}';
+        }
+      } else {
+        errorMessage = e.toString();
+      }
+
+      if (kDebugMode) {
+        print('Booking creation error: $errorMessage');
+        print('Error type: ${e.runtimeType}');
+      }
+      throw Exception('Failed to create booking: $errorMessage');
     }
   }
 
@@ -373,6 +443,149 @@ class BookingService {
       // Fallback to timestamp-based SR number
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       return 'BK$timestamp';
+    }
+  }
+
+  // Generate unique customer code (CUST001, CUST002, etc.)
+  // This code is stored in custom_fields, not as customer_id (which is a UUID)
+  static Future<String> generateCustomerCode() async {
+    try {
+      // Query bookings to find the maximum customer code from custom_fields
+      final response = await _client
+          .from('bookings')
+          .select('custom_fields')
+          .not('custom_fields', 'is', null)
+          .order('created_at', ascending: false)
+          .limit(1000);
+
+      int maxNumber = 0;
+      // Process custom_fields to find the maximum customer code
+      for (final booking in response) {
+        final customFields = booking['custom_fields'] as Map<String, dynamic>?;
+        if (customFields != null) {
+          final customerCode = customFields['customer_code'] as String?;
+          if (customerCode != null &&
+              customerCode.length >= 7 &&
+              customerCode.startsWith('CUST')) {
+            // Extract number part (after "CUST")
+            final numberStr = customerCode.substring(4);
+            final number = int.tryParse(numberStr);
+            if (number != null && number > maxNumber) {
+              maxNumber = number;
+            }
+          }
+        }
+      }
+
+      // Generate next customer code
+      final nextNumber = maxNumber + 1;
+      // Format with 3 digits (CUST001, CUST002, ..., CUST999, CUST1000, etc.)
+      if (nextNumber <= 999) {
+        return 'CUST${nextNumber.toString().padLeft(3, '0')}';
+      } else {
+        // For numbers > 999, use full number without padding
+        return 'CUST$nextNumber';
+      }
+    } catch (e) {
+      // Fallback: Use timestamp-based customer code if query fails
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      // Use last 6 digits of timestamp to ensure uniqueness
+      final suffix = timestamp.toString().substring(
+        timestamp.toString().length - 6,
+      );
+      return 'CUST$suffix';
+    }
+  }
+
+  // Resolve or create customer UUID from phone number
+  static Future<String> resolveOrCreateCustomer({
+    required String customerName,
+    required String customerEmail,
+    required String customerPhone,
+    String? projectId,
+    String? projectName,
+  }) async {
+    try {
+      // Normalize phone number
+      final phoneTrimmed = customerPhone
+          .replaceAll(RegExp(r"[^0-9+]"), '')
+          .trim();
+
+      if (phoneTrimmed.isEmpty) {
+        throw Exception('Invalid phone number provided');
+      }
+
+      // Try to find existing customer by phone
+      final existing = await _client
+          .from('customers')
+          .select('id')
+          .eq('phone', phoneTrimmed)
+          .maybeSingle();
+
+      if (existing != null) {
+        return existing['id'] as String;
+      }
+
+      // Create new customer
+      final createdById = _client.auth.currentUser?.id;
+      String? createdByName;
+      try {
+        if (createdById != null) {
+          final user = await _client
+              .from('users')
+              .select('id, name')
+              .eq('id', createdById)
+              .maybeSingle();
+          if (user != null) {
+            createdByName = user['name'] as String?;
+          }
+        }
+      } catch (_) {}
+
+      // Fallback to admin user
+      const String adminId = '550e8400-e29b-41d4-a716-446655440001';
+      const String adminName = 'Admin User';
+      final finalCreatedById = createdById ?? adminId;
+      final finalCreatedByName = createdByName ?? adminName;
+
+      final customerPayload = <String, dynamic>{
+        'name': customerName,
+        'email': customerEmail.isNotEmpty
+            ? customerEmail
+            : 'customer+${DateTime.now().microsecondsSinceEpoch}@tigger.local',
+        'phone': phoneTrimmed,
+        'assigned_to': finalCreatedById,
+        'assigned_to_name': finalCreatedByName,
+        'created_by': finalCreatedById,
+        'created_by_name': finalCreatedByName,
+        if (projectId != null && projectId.isNotEmpty) 'project_id': projectId,
+        if (projectName != null && projectName.isNotEmpty)
+          'project_name': projectName,
+      };
+
+      try {
+        final created = await _client
+            .from('customers')
+            .insert(customerPayload)
+            .select('id')
+            .single();
+        return created['id'] as String;
+      } on PostgrestException catch (e) {
+        // Handle conflict (duplicate) by re-selecting the existing row
+        if ((e.code ?? '') == '409') {
+          final existingAfterConflict = await _client
+              .from('customers')
+              .select('id')
+              .eq('phone', phoneTrimmed)
+              .maybeSingle();
+          if (existingAfterConflict != null) {
+            return existingAfterConflict['id'] as String;
+          }
+        }
+        rethrow;
+      }
+    } catch (e) {
+      throw Exception('Failed to resolve or create customer: $e');
     }
   }
 }

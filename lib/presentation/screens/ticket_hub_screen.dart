@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
-import '../../../data/repositories/ticket_repository.dart';
+import '../../../data/services/database_service.dart';
 import '../../../data/models/ticket_model.dart';
 import '../widgets/lead_detail_tabs/create_ticket_form.dart';
 
@@ -12,7 +12,6 @@ class TicketHubScreen extends StatefulWidget {
 }
 
 class _TicketHubScreenState extends State<TicketHubScreen> {
-  final TicketRepository _ticketRepository = TicketRepository();
   List<Ticket> _tickets = [];
   bool _isLoading = true;
   String? _error;
@@ -79,8 +78,8 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
         toDate = _filterRange!.end;
       }
 
-      // Filter tickets by current user ID (assigned to this user)
-      final response = await _ticketRepository.getTickets(
+      // Filter tickets by current user ID (assigned to this user) using DatabaseService
+      final tickets = await DatabaseService.getTickets(
         status: statusFilter,
         priority: priorityFilter,
         assignedTo: currentUserId, // Filter by current user's ID
@@ -90,20 +89,12 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
         limit: 1000, // Get all tickets for now
       );
 
-      if (response.success && response.data != null) {
-        setState(() {
-          _tickets = response.data!;
-          _isLoading = false;
-          _isRefreshing = false;
-          _error = null;
-        });
-      } else {
-        setState(() {
-          _error = response.message ?? 'Failed to load tickets';
-          _isLoading = false;
-          _isRefreshing = false;
-        });
-      }
+      setState(() {
+        _tickets = tickets;
+        _isLoading = false;
+        _isRefreshing = false;
+        _error = null;
+      });
     } catch (e) {
       setState(() {
         _error = 'Error loading tickets: $e';
