@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../../data/repositories/ticket_repository.dart';
 import '../../../data/models/ticket_model.dart';
+import '../widgets/lead_detail_tabs/create_ticket_form.dart';
 
 class TicketHubScreen extends StatefulWidget {
   const TicketHubScreen({super.key});
@@ -38,6 +40,20 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
     }
 
     try {
+      // Get current user ID to filter tickets assigned to this user
+      final client = supabase.Supabase.instance.client;
+      final currentUser = client.auth.currentUser;
+      final currentUserId = currentUser?.id;
+
+      if (currentUserId == null) {
+        setState(() {
+          _error = 'User not authenticated';
+          _isLoading = false;
+          _isRefreshing = false;
+        });
+        return;
+      }
+
       // Convert filter strings to enums
       TicketStatus? statusFilter;
       if (_filterStatus != null && _filterStatus!.isNotEmpty) {
@@ -63,13 +79,11 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
         toDate = _filterRange!.end;
       }
 
-      // Note: assignedTo filter is handled client-side because we filter by name,
-      // not by user ID. The backend expects a UUID, not a name string.
-      // If we need to filter by user ID, we would need to look up the user ID first.
+      // Filter tickets by current user ID (assigned to this user)
       final response = await _ticketRepository.getTickets(
         status: statusFilter,
         priority: priorityFilter,
-        assignedTo: null, // Don't pass name string - filter client-side instead
+        assignedTo: currentUserId, // Filter by current user's ID
         fromDate: fromDate,
         toDate: toDate,
         page: 1,
@@ -793,9 +807,22 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
   }
 
   void _openCreateTicket() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const CreateTicketScreen()));
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      builder: (BuildContext ctx) {
+        return CreateTicketForm(
+          initialLeadId: null, // No initial lead ID in ticket hub
+          onTicketCreated: () {
+            Navigator.of(ctx).pop();
+            // Refresh tickets list after creation
+            _loadTickets();
+          },
+        );
+      },
+    );
   }
 
   void _showTicketDetail(BuildContext context, Map<String, dynamic> ticketMap) {
@@ -984,200 +1011,6 @@ class _TicketHubScreenState extends State<TicketHubScreen> {
         return Colors.green;
       default:
         return Colors.grey;
-    }
-  }
-}
-
-class CreateTicketScreen extends StatefulWidget {
-  const CreateTicketScreen({super.key});
-
-  @override
-  State<CreateTicketScreen> createState() => _CreateTicketScreenState();
-}
-
-class _CreateTicketScreenState extends State<CreateTicketScreen> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
-  String? ticketCategory;
-  String? registeredMobile;
-  String? lead;
-  String? ticketType;
-  String? serviceType;
-  String? priority;
-  String? contactName;
-  String? alternateNumber;
-  String? issueTitle;
-  String? unitNumber;
-  String? assignTo;
-  String? issueDescription;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-        elevation: 0,
-        title: const Text('Create Ticket'),
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: <Widget>[
-            _dropdown(
-              'Ticket category',
-              (String? v) => ticketCategory = v,
-              const <String>['Plumbing', 'Electrical', 'HVAC'],
-            ),
-            _text(
-              'Registered mobile number',
-              (String v) => registeredMobile = v,
-              keyboardType: TextInputType.phone,
-              validator: _requiredPhone,
-            ),
-            _dropdown('Lead list', (String? v) => lead = v, const <String>[
-              'Lead A',
-              'Lead B',
-              'Lead C',
-            ]),
-            _dropdown(
-              'Ticket type',
-              (String? v) => ticketType = v,
-              const <String>['Issue', 'Request'],
-            ),
-            _dropdown(
-              'Service type',
-              (String? v) => serviceType = v,
-              const <String>['Maintenance', 'Repair', 'Cleaning'],
-            ),
-            _dropdown('Priority', (String? v) => priority = v, const <String>[
-              'High',
-              'Medium',
-              'Low',
-            ]),
-            _text(
-              'Contact name',
-              (String v) => contactName = v,
-              validator: _required,
-            ),
-            _text(
-              'Alternate number',
-              (String v) => alternateNumber = v,
-              keyboardType: TextInputType.phone,
-            ),
-            _text(
-              'Issue title',
-              (String v) => issueTitle = v,
-              validator: _required,
-            ),
-            _text('Unit number', (String v) => unitNumber = v),
-            _dropdown('Assign to', (String? v) => assignTo = v, const <String>[
-              'Anita',
-              'Ravi',
-              'Sunil',
-            ]),
-            _multiline('Issue description', (String v) => issueDescription = v),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Submit'),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String? _required(String? v) =>
-      (v == null || v.trim().isEmpty) ? 'Required' : null;
-  String? _requiredPhone(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Required';
-    final String digits = v.replaceAll(RegExp(r'\D'), '');
-    if (digits.length < 10) return 'Enter a valid phone number';
-    return null;
-  }
-
-  Widget _dropdown(
-    String label,
-    ValueChanged<String?> onChanged,
-    List<String> items,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: DropdownButtonFormField<String>(
-        items: items
-            .map(
-              (String e) => DropdownMenuItem<String>(value: e, child: Text(e)),
-            )
-            .toList(),
-        onChanged: onChanged,
-        dropdownColor: const Color(0xFF1E1E1E),
-        style: const TextStyle(color: Colors.white),
-        decoration: _fieldDecoration(label),
-        validator: _required,
-      ),
-    );
-  }
-
-  Widget _text(
-    String label,
-    ValueChanged<String> onChanged, {
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        onChanged: onChanged,
-        keyboardType: keyboardType,
-        style: const TextStyle(color: Colors.white),
-        decoration: _fieldDecoration(label),
-        validator: validator,
-      ),
-    );
-  }
-
-  Widget _multiline(String label, ValueChanged<String> onChanged) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        onChanged: onChanged,
-        maxLines: 4,
-        style: const TextStyle(color: Colors.white),
-        decoration: _fieldDecoration(label),
-      ),
-    );
-  }
-
-  InputDecoration _fieldDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
-      filled: true,
-      fillColor: const Color(0xFF1E1E1E),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.white24),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.red),
-      ),
-    );
-  }
-
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Ticket created (mock).')));
-      Navigator.of(context).pop();
     }
   }
 }
