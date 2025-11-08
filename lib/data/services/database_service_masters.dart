@@ -28,7 +28,7 @@ class DatabaseServiceMasters {
   static Future<List<Map<String, dynamic>>> getLeadStatuses() async {
     try {
       final response = await _client
-          .from('ticket_disposition_main')
+          .from('lead_status_master')
           .select('*')
           .eq('is_active', true)
           .order('name');
@@ -43,10 +43,10 @@ class DatabaseServiceMasters {
   ) async {
     try {
       final response = await _client
-          .from('ticket_disposition_sub')
+          .from('lead_sub_status_master')
           .select('*')
           .eq('is_active', true)
-          .eq('main_id', statusId)
+          .eq('status_id', statusId)
           .order('name');
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {

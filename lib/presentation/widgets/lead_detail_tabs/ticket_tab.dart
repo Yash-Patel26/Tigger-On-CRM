@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../data/services/database_service.dart';
 import '../../../../data/models/models.dart';
-import '../../../../shared/utils/helpers.dart';
+import 'create_ticket_form.dart';
+import '../../screens/tickets/ticket_detail_screen.dart';
 
 class TicketTab extends StatefulWidget {
   const TicketTab({super.key, required this.leadId});
@@ -260,152 +261,30 @@ class _TicketTabState extends State<TicketTab> {
   }
 
   void _viewTicket(Ticket item) {
-    // TODO: Navigate to ticket detail screen when it's available
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext ctx) => AlertDialog(
-        title: const Text('Ticket'),
-        content: Text('Ticket: ${item.ticketNumber}'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
-          ),
-        ],
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => TicketDetailScreen(ticket: item),
       ),
     );
   }
 
   void _openCreateTicketSheet() {
-    final TextEditingController issueTitleCtrl = TextEditingController();
-    final TextEditingController issueDescriptionCtrl = TextEditingController();
-    String? priority = 'Low';
-    String? assignTo;
-
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.white,
       builder: (BuildContext ctx) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModal) {
-            return SingleChildScrollView(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Text(
-                        'Create Ticket',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(
-                          FontAwesomeIcons.xmark,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  TextFormField(
-                    controller: issueTitleCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Issue Title *',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (String? v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: issueDescriptionCtrl,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Issue Description',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: priority,
-                    decoration: const InputDecoration(
-                      labelText: 'Priority *',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const <String>['Low', 'Medium', 'High', 'Urgent']
-                        .map(
-                          (String e) => DropdownMenuItem<String>(
-                            value: e,
-                            child: Text(e),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (String? v) => setModal(() => priority = v),
-                    validator: (String? v) =>
-                        (v == null || v.isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () async {
-                        try {
-                          await DatabaseService.createTicket(
-                            leadId: widget.leadId,
-                            issueTitle: issueTitleCtrl.text.trim(),
-                            issueDescription: issueDescriptionCtrl.text.trim(),
-                            priority: priority == 'High'
-                                ? TicketPriority.high
-                                : priority == 'Urgent'
-                                ? TicketPriority.urgent
-                                : priority == 'Medium'
-                                ? TicketPriority.medium
-                                : TicketPriority.low,
-                            assignedToName: assignTo,
-                          );
-                          if (!mounted) return;
-                          setState(() {
-                            _ticketsFuture = DatabaseService.getTickets(
-                              leadId: widget.leadId,
-                              limit: 200,
-                            );
-                          });
-                          Navigator.of(ctx).pop();
-                          await Helpers.showSuccessDialog(
-                            context,
-                            title: 'Ticket created successfully',
-                            message: 'Support team will be notified.',
-                          );
-                        } catch (e) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Failed to create ticket: $e'),
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(FontAwesomeIcons.check),
-                      label: const Text('Create Ticket'),
-                    ),
-                  ),
-                ],
-              ),
-            );
+        return CreateTicketForm(
+          initialLeadId: widget.leadId,
+          onTicketCreated: () {
+            Navigator.of(ctx).pop();
+            setState(() {
+              _ticketsFuture = DatabaseService.getTickets(
+                leadId: widget.leadId,
+                limit: 200,
+              );
+            });
           },
         );
       },

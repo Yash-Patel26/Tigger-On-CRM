@@ -275,6 +275,32 @@ class NotificationHelper {
     );
   }
 
+  static Future<Notification> createTicketAssignedNotification({
+    required String userId,
+    required String ticketId,
+    required String ticketNumber,
+    required String issueTitle,
+    String? leadId,
+    NotificationPriority priority = NotificationPriority.medium,
+  }) async {
+    return NotificationService.createNotification(
+      title: 'New Ticket Assignment',
+      message: 'Ticket $ticketNumber: $issueTitle has been assigned to you',
+      type: NotificationType.ticket,
+      priority: priority,
+      userId: userId,
+      relatedId: ticketId,
+      relatedType: 'ticket',
+      actionUrl: '/tickets/$ticketId',
+      data: {
+        'ticket_id': ticketId,
+        'ticket_number': ticketNumber,
+        'issue_title': issueTitle,
+        if (leadId != null) 'lead_id': leadId,
+      },
+    );
+  }
+
   // Create system notifications
   static Future<Notification> createSystemMaintenanceNotification({
     required String title,

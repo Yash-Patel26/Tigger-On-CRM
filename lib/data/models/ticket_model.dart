@@ -48,7 +48,8 @@ enum TicketType {
   issue,
   request,
   complaint,
-  inquiry;
+  inquiry,
+  generalQuery;
 
   String get displayName {
     switch (this) {
@@ -60,6 +61,8 @@ enum TicketType {
         return 'Complaint';
       case TicketType.inquiry:
         return 'Inquiry';
+      case TicketType.generalQuery:
+        return 'General Query';
     }
   }
 }
@@ -72,6 +75,11 @@ enum ServiceType {
   electrical,
   hvac,
   security,
+  gasSupply,
+  parkingSpace,
+  securitySpace,
+  waterSupplySpace,
+  wifi,
   other;
 
   String get displayName {
@@ -90,6 +98,16 @@ enum ServiceType {
         return 'HVAC';
       case ServiceType.security:
         return 'Security';
+      case ServiceType.gasSupply:
+        return 'Gas Supply';
+      case ServiceType.parkingSpace:
+        return 'Parking Space';
+      case ServiceType.securitySpace:
+        return 'Security Space';
+      case ServiceType.waterSupplySpace:
+        return 'Water Supply Space';
+      case ServiceType.wifi:
+        return 'WiFi';
       case ServiceType.other:
         return 'Other';
     }
@@ -108,6 +126,7 @@ class Ticket {
   final String? alternateNumber;
   final String issueTitle;
   final String issueDescription;
+  final String? ticketCategory;
   final TicketType ticketType;
   final ServiceType serviceType;
   final TicketPriority priority;
@@ -135,6 +154,7 @@ class Ticket {
     this.alternateNumber,
     required this.issueTitle,
     required this.issueDescription,
+    this.ticketCategory,
     required this.ticketType,
     required this.serviceType,
     required this.priority,
@@ -180,6 +200,7 @@ class Ticket {
       alternateNumber: s('alternateNumber', 'alternate_number'),
       issueTitle: s('issueTitle', 'issue_title') ?? '-',
       issueDescription: s('issueDescription', 'issue_description') ?? '-',
+      ticketCategory: s('ticketCategory', 'ticket_category'),
       ticketType: enumVal<TicketType>(
         TicketType.values,
         'ticketType',
@@ -236,6 +257,7 @@ class Ticket {
       'alternateNumber': alternateNumber,
       'issueTitle': issueTitle,
       'issueDescription': issueDescription,
+      'ticketCategory': ticketCategory,
       'ticketType': ticketType.name,
       'serviceType': serviceType.name,
       'priority': priority.name,
@@ -265,6 +287,7 @@ class Ticket {
     String? alternateNumber,
     String? issueTitle,
     String? issueDescription,
+    String? ticketCategory,
     TicketType? ticketType,
     ServiceType? serviceType,
     TicketPriority? priority,
@@ -292,6 +315,7 @@ class Ticket {
       alternateNumber: alternateNumber ?? this.alternateNumber,
       issueTitle: issueTitle ?? this.issueTitle,
       issueDescription: issueDescription ?? this.issueDescription,
+      ticketCategory: ticketCategory ?? this.ticketCategory,
       ticketType: ticketType ?? this.ticketType,
       serviceType: serviceType ?? this.serviceType,
       priority: priority ?? this.priority,

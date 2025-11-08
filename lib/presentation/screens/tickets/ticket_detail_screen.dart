@@ -1,0 +1,662 @@
+import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+import '../../../data/services/database_service.dart';
+import '../../../data/models/models.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import '../../widgets/ticket_widgets/dispose_ticket_dialog.dart';
+import '../../widgets/ticket_widgets/assign_ticket_dialog.dart';
+
+class TicketDetailScreen extends StatefulWidget {
+  const TicketDetailScreen({super.key, required this.ticket});
+
+  final Ticket ticket;
+
+  @override
+  State<TicketDetailScreen> createState() => _TicketDetailScreenState();
+}
+
+class _TicketDetailScreenState extends State<TicketDetailScreen>
+    with TickerProviderStateMixin {
+  late TabController _infoTabController;
+  late TabController _logsTabController;
+  Lead? _lead;
+  bool _isLoadingLead = true;
+  List<Map<String, dynamic>> _conversations = [];
+  List<Map<String, dynamic>> _dispositionLogs = [];
+  List<Map<String, dynamic>> _allocationLogs = [];
+  bool _isLoadingConversations = false;
+  bool _isLoadingLogs = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _infoTabController = TabController(length: 3, vsync: this);
+    _logsTabController = TabController(length: 2, vsync: this);
+    _loadTicketData();
+  }
+
+  @override
+  void dispose() {
+    _infoTabController.dispose();
+    _logsTabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadTicketData() async {
+    setState(() {
+      _isLoadingLead = true;
+      _isLoadingConversations = true;
+      _isLoadingLogs = true;
+    });
+
+    // Load lead information
+    if (widget.ticket.leadId != null) {
+      try {
+        final lead = await DatabaseService.getLeadById(widget.ticket.leadId!);
+        setState(() {
+          _lead = lead;
+          _isLoadingLead = false;
+        });
+      } catch (e) {
+        setState(() {
+          _isLoadingLead = false;
+        });
+      }
+    } else {
+      setState(() {
+        _isLoadingLead = false;
+      });
+    }
+
+    // Load conversations
+    await _loadConversations();
+
+    // Load logs
+    await _loadLogs();
+  }
+
+  Future<void> _loadConversations() async {
+    try {
+      final client = supabase.Supabase.instance.client;
+      final response = await client
+          .from('ticket_conversations')
+          .select('*')
+          .eq('ticket_id', widget.ticket.id)
+          .order('created_at', ascending: false);
+
+      setState(() {
+        _conversations = List<Map<String, dynamic>>.from(response);
+        _isLoadingConversations = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingConversations = false;
+      });
+    }
+  }
+
+  Future<void> _loadLogs() async {
+    try {
+      final client = supabase.Supabase.instance.client;
+
+      // Load disposition logs
+      final dispositionResponse = await client
+          .from('ticket_dispositions')
+          .select('*')
+          .eq('ticket_id', widget.ticket.id)
+          .order('created_at', ascending: false);
+
+      // Load allocation logs
+      final allocationResponse = await client
+          .from('ticket_allocations')
+          .select('*')
+          .eq('ticket_id', widget.ticket.id)
+          .order('created_at', ascending: false);
+
+      setState(() {
+        _dispositionLogs = List<Map<String, dynamic>>.from(dispositionResponse);
+        _allocationLogs = List<Map<String, dynamic>>.from(allocationResponse);
+        _isLoadingLogs = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingLogs = false;
+      });
+    }
+  }
+
+  String _formatDateTime(DateTime? dateTime) {
+    if (dateTime == null) return '-';
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Ticket: ${widget.ticket.ticketNumber}')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // First Card - Ticket Overview
+            _buildOverviewCard(),
+            const SizedBox(height: 16),
+            // Second Card - Info Tabs
+            _buildInfoCard(),
+            const SizedBox(height: 16),
+            // Third Card - Logs Tabs
+            _buildLogsCard(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOverviewCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Customer Name (bold)
+            Text(
+              _lead?.customerName ?? widget.ticket.contactName,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            // Ticket ID
+            _buildInfoRow('Ticket ID', widget.ticket.ticketNumber),
+            const SizedBox(height: 8),
+            // Created At
+            _buildInfoRow(
+              'Created At',
+              _formatDateTime(widget.ticket.createdAt),
+            ),
+            const SizedBox(height: 8),
+            // Status
+            _buildInfoRow('Status', widget.ticket.status.displayName),
+            const SizedBox(height: 8),
+            // Issue Related To
+            _buildInfoRow(
+              'Issue Related To',
+              widget.ticket.ticketType.displayName,
+            ),
+            const SizedBox(height: 8),
+            // Contact Number
+            _buildInfoRow('Contact Number', widget.ticket.contactMobile),
+            const SizedBox(height: 8),
+            // Priority
+            _buildInfoRow('Priority', widget.ticket.priority.displayName),
+            const SizedBox(height: 8),
+            // Assigned By
+            _buildInfoRow(
+              'Assigned By',
+              widget.ticket.metadata?['assigned_by_name'] as String? ??
+                  widget.ticket.metadata?['created_by_name'] as String? ??
+                  '-',
+            ),
+            const SizedBox(height: 8),
+            // Assigned To
+            _buildInfoRow('Assigned To', widget.ticket.assignedToName ?? '-'),
+            const SizedBox(height: 16),
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _showDisposeTicketDialog,
+                    icon: const Icon(FontAwesomeIcons.arrowsRotate),
+                    label: const Text('Dispose Ticket'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _showAssignTicketDialog,
+                    icon: const Icon(FontAwesomeIcons.userPlus),
+                    label: const Text('Assign'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoCard() {
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TabBar(
+            controller: _infoTabController,
+            tabs: const [
+              Tab(text: 'Ticket Info'),
+              Tab(text: 'Customer Info'),
+              Tab(text: 'Conversation'),
+            ],
+          ),
+          SizedBox(
+            height: 400,
+            child: TabBarView(
+              controller: _infoTabController,
+              children: [
+                _buildTicketInfoTab(),
+                _buildCustomerInfoTab(),
+                _buildConversationTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTicketInfoTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildInfoRow(
+            'Service Category',
+            widget.ticket.ticketCategory ?? '-',
+          ),
+          const SizedBox(height: 12),
+          _buildInfoRow('Service Type', widget.ticket.serviceType.displayName),
+          const SizedBox(height: 12),
+          _buildInfoRow('Service Name', widget.ticket.serviceType.displayName),
+          const SizedBox(height: 12),
+          _buildInfoRow('Issue Title', widget.ticket.issueTitle),
+          const SizedBox(height: 12),
+          _buildInfoRow('Contact Person', widget.ticket.contactName),
+          const SizedBox(height: 12),
+          _buildInfoRow(
+            'Alternate Mobile Number',
+            widget.ticket.alternateNumber ?? '-',
+          ),
+          const SizedBox(height: 12),
+          _buildInfoRow('Priority', widget.ticket.priority.displayName),
+          const SizedBox(height: 12),
+          _buildInfoRow('Unit Number', widget.ticket.unitNumber ?? '-'),
+          const SizedBox(height: 12),
+          _buildInfoRow('Description', widget.ticket.issueDescription),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomerInfoTab() {
+    if (_isLoadingLead) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_lead == null) {
+      return const Center(child: Text('Customer information not available'));
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildInfoRow('Customer ID', _lead!.leadId),
+          const SizedBox(height: 12),
+          _buildInfoRow('Customer Name', _lead!.customerName),
+          const SizedBox(height: 12),
+          _buildInfoRow('Registered Mobile Number', _lead!.phone),
+          const SizedBox(height: 12),
+          _buildInfoRow('Customer Email', _lead!.email),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConversationTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: ElevatedButton.icon(
+            onPressed: _showReplyDialog,
+            icon: const Icon(FontAwesomeIcons.reply),
+            label: const Text('Reply'),
+          ),
+        ),
+        Expanded(
+          child: _isLoadingConversations
+              ? const Center(child: CircularProgressIndicator())
+              : _conversations.isEmpty
+              ? const Center(child: Text('No conversations yet'))
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _conversations.length,
+                  itemBuilder: (context, index) {
+                    final conversation = _conversations[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              conversation['description'] ?? '',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            if (conversation['image_url'] != null) ...<Widget>[
+                              const SizedBox(height: 8),
+                              Image.network(
+                                conversation['image_url'],
+                                height: 150,
+                                fit: BoxFit.cover,
+                              ),
+                            ],
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Text(
+                                  'Replied by: ${conversation['replied_by_role'] ?? conversation['replied_by_name'] ?? '-'}',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: Colors.grey.shade600),
+                                ),
+                                const SizedBox(width: 16),
+                                Text(
+                                  'Replied at: ${_formatDateTime(conversation['created_at'] != null ? DateTime.parse(conversation['created_at']) : null)}',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLogsCard() {
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TabBar(
+            controller: _logsTabController,
+            tabs: const [
+              Tab(text: 'Disposition Logs'),
+              Tab(text: 'Allocation'),
+            ],
+          ),
+          SizedBox(
+            height: 300,
+            child: TabBarView(
+              controller: _logsTabController,
+              children: [_buildDispositionLogsTab(), _buildAllocationLogsTab()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDispositionLogsTab() {
+    if (_isLoadingLogs) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_dispositionLogs.isEmpty) {
+      return const Center(child: Text('No disposition logs yet'));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _dispositionLogs.length,
+      itemBuilder: (context, index) {
+        final log = _dispositionLogs[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Main: ${log['main_disposition'] ?? '-'}',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Text('Sub: ${log['sub_disposition'] ?? '-'}'),
+                const SizedBox(height: 4),
+                Text(
+                  'Disposed at: ${_formatDateTime(log['disposed_at'] != null ? DateTime.parse(log['disposed_at']) : null)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                if (log['remarks'] != null) ...<Widget>[
+                  const SizedBox(height: 4),
+                  Text('Remarks: ${log['remarks']}'),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAllocationLogsTab() {
+    if (_isLoadingLogs) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_allocationLogs.isEmpty) {
+      return const Center(child: Text('No allocation logs yet'));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _allocationLogs.length,
+      itemBuilder: (context, index) {
+        final log = _allocationLogs[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Assigned To: ${log['assigned_to_name'] ?? '-'}',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Assigned At: ${_formatDateTime(log['created_at'] != null ? DateTime.parse(log['created_at']) : null)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                if (log['assigned_by_name'] != null) ...<Widget>[
+                  const SizedBox(height: 4),
+                  Text('Assigned By: ${log['assigned_by_name']}'),
+                ],
+                if (log['notes'] != null) ...<Widget>[
+                  const SizedBox(height: 4),
+                  Text('Notes: ${log['notes']}'),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 150,
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showDisposeTicketDialog() async {
+    await DisposeTicketDialog.show(
+      context: context,
+      ticket: widget.ticket,
+      onDisposed: () async {
+        await _loadLogs();
+        if (mounted) {
+          setState(() {});
+        }
+      },
+    );
+  }
+
+  Future<void> _showAssignTicketDialog() async {
+    await AssignTicketDialog.show(
+      context: context,
+      ticket: widget.ticket,
+      onAssigned: () async {
+        await _loadLogs();
+        if (mounted) {
+          setState(() {});
+        }
+      },
+    );
+  }
+
+  Future<void> _showReplyDialog() async {
+    final TextEditingController descriptionController = TextEditingController();
+    File? selectedImage;
+    String? imagePath;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Reply'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: descriptionController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.image,
+                    );
+                    if (result != null && result.files.single.path != null) {
+                      setDialogState(() {
+                        imagePath = result.files.single.path;
+                        selectedImage = File(imagePath!);
+                      });
+                    }
+                  },
+                  icon: const Icon(FontAwesomeIcons.image),
+                  label: const Text('Upload Image'),
+                ),
+                if (selectedImage != null) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Image.file(selectedImage!, height: 100, fit: BoxFit.cover),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (descriptionController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a description')),
+                  );
+                  return;
+                }
+
+                try {
+                  final client = supabase.Supabase.instance.client;
+                  final currentUser = client.auth.currentUser;
+                  final userId = currentUser?.id ?? 'system';
+                  final userName =
+                      (currentUser?.userMetadata?['name'] as String?) ??
+                      'System User';
+                  final userRole =
+                      currentUser?.userMetadata?['role'] as String?;
+
+                  String? imageUrl;
+                  if (selectedImage != null && imagePath != null) {
+                    // Upload image to storage
+                    final fileName =
+                        'ticket_${widget.ticket.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+                    final fileBytes = await selectedImage!.readAsBytes();
+                    await client.storage
+                        .from('ticket-conversations')
+                        .uploadBinary(fileName, fileBytes);
+                    imageUrl = client.storage
+                        .from('ticket-conversations')
+                        .getPublicUrl(fileName);
+                  }
+
+                  // Save conversation
+                  await client.from('ticket_conversations').insert({
+                    'ticket_id': widget.ticket.id,
+                    'description': descriptionController.text.trim(),
+                    'image_url': imageUrl,
+                    'replied_by': userId,
+                    'replied_by_name': userName,
+                    'replied_by_role': userRole ?? 'user',
+                  });
+
+                  Navigator.of(context).pop();
+                  await _loadConversations();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Reply sent successfully')),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error sending reply: $e')),
+                  );
+                }
+              },
+              child: const Text('Send'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

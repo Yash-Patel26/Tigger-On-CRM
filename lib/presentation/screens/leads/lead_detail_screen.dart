@@ -2786,7 +2786,6 @@ class _StaticCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (action != null) ...[action!, const SizedBox(width: 8)],
                 ],
               ),
               Padding(
@@ -2812,8 +2811,8 @@ class _LazyCollapsibleCard extends StatefulWidget {
 
 class _LazyCollapsibleCardState extends State<_LazyCollapsibleCard> {
   late bool expanded = false;
-  Widget? _cachedChild;
-  bool _hasLoaded = false;
+  Widget? cachedChild;
+  bool hasLoaded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -2840,9 +2839,9 @@ class _LazyCollapsibleCardState extends State<_LazyCollapsibleCard> {
                 onTap: () {
                   setState(() {
                     expanded = !expanded;
-                    if (expanded && !_hasLoaded) {
-                      _cachedChild = widget.childBuilder();
-                      _hasLoaded = true;
+                    if (expanded && !hasLoaded) {
+                      cachedChild = widget.childBuilder();
+                      hasLoaded = true;
                     }
                   });
                 },
@@ -2868,7 +2867,7 @@ class _LazyCollapsibleCardState extends State<_LazyCollapsibleCard> {
                   padding: const EdgeInsets.only(top: 10, bottom: 12),
                   child: Divider(color: primary.withOpacity(0.15), height: 1),
                 ),
-                _cachedChild ?? const SizedBox.shrink(),
+                cachedChild ?? const SizedBox.shrink(),
               ],
             ],
           ),
@@ -2894,103 +2893,103 @@ class _CreateBookingDialog extends StatefulWidget {
 }
 
 class _CreateBookingDialogState extends State<_CreateBookingDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final BookingRepository _bookingRepository = BookingRepository();
+  final formKey = GlobalKey<FormState>();
+  final BookingRepository bookingRepository = BookingRepository();
 
   // Form controllers
-  late TextEditingController _customerNameController;
-  late TextEditingController _customerEmailController;
-  late TextEditingController _customerPhoneController;
-  late TextEditingController _projectNameController;
-  late TextEditingController _unitNoController;
-  late TextEditingController _unitDetailsController;
-  late TextEditingController _bookingAmountController;
-  late TextEditingController _advanceAmountController;
-  late TextEditingController _balanceAmountController;
-  late TextEditingController _commissionController;
-  late TextEditingController _salesExecutiveController;
-  late TextEditingController _approvedByController;
-  late TextEditingController _notesController;
-  late TextEditingController _termsController;
+  late TextEditingController customerNameController;
+  late TextEditingController customerEmailController;
+  late TextEditingController customerPhoneController;
+  late TextEditingController projectNameController;
+  late TextEditingController unitNoController;
+  late TextEditingController unitDetailsController;
+  late TextEditingController bookingAmountController;
+  late TextEditingController advanceAmountController;
+  late TextEditingController balanceAmountController;
+  late TextEditingController commissionController;
+  late TextEditingController salesExecutiveController;
+  late TextEditingController approvedByController;
+  late TextEditingController notesController;
+  late TextEditingController termsController;
 
   // Form values
-  String _propertyType = 'residential';
-  String _category = 'b';
-  PaymentMode _paymentMode = PaymentMode.cash;
-  BookingStatus _status = BookingStatus.confirmed;
-  DateTime _bookingDate = DateTime.now();
-  DateTime? _possessionDate;
+  String propertyType = 'residential';
+  String category = 'b';
+  PaymentMode paymentMode = PaymentMode.cash;
+  BookingStatus status = BookingStatus.confirmed;
+  DateTime bookingDate = DateTime.now();
+  DateTime? possessionDate;
 
   @override
   void initState() {
     super.initState();
-    _initializeControllers();
+    initializeControllers();
   }
 
-  void _initializeControllers() {
-    _customerNameController = TextEditingController(
+  void initializeControllers() {
+    customerNameController = TextEditingController(
       text: widget.prePopulatedData['customerName'],
     );
-    _customerEmailController = TextEditingController(
+    customerEmailController = TextEditingController(
       text: widget.prePopulatedData['customerEmail'],
     );
-    _customerPhoneController = TextEditingController(
+    customerPhoneController = TextEditingController(
       text: widget.prePopulatedData['customerPhone'],
     );
-    _projectNameController = TextEditingController(
+    projectNameController = TextEditingController(
       text: widget.prePopulatedData['projectName'],
     );
-    _unitNoController = TextEditingController(
+    unitNoController = TextEditingController(
       text: widget.prePopulatedData['unitNo'],
     );
-    _unitDetailsController = TextEditingController(
+    unitDetailsController = TextEditingController(
       text: widget.prePopulatedData['unitDetails'],
     );
-    _bookingAmountController = TextEditingController(
+    bookingAmountController = TextEditingController(
       text: widget.prePopulatedData['bookingAmount'].toString(),
     );
-    _advanceAmountController = TextEditingController(
+    advanceAmountController = TextEditingController(
       text: widget.prePopulatedData['advanceAmount'].toString(),
     );
-    _balanceAmountController = TextEditingController(
+    balanceAmountController = TextEditingController(
       text: widget.prePopulatedData['balanceAmount'].toString(),
     );
-    _commissionController = TextEditingController(
+    commissionController = TextEditingController(
       text: widget.prePopulatedData['commission'].toString(),
     );
-    _salesExecutiveController = TextEditingController(
+    salesExecutiveController = TextEditingController(
       text: widget.prePopulatedData['salesExecutiveName'],
     );
-    _approvedByController = TextEditingController(
+    approvedByController = TextEditingController(
       text: widget.prePopulatedData['approvedBy'],
     );
-    _notesController = TextEditingController(
+    notesController = TextEditingController(
       text: widget.prePopulatedData['notes'],
     );
-    _termsController = TextEditingController(
+    termsController = TextEditingController(
       text: widget.prePopulatedData['termsAndConditions'],
     );
 
-    _propertyType = widget.prePopulatedData['propertyType'];
-    _category = widget.prePopulatedData['category'];
+    propertyType = widget.prePopulatedData['propertyType'];
+    category = widget.prePopulatedData['category'];
   }
 
   @override
   void dispose() {
-    _customerNameController.dispose();
-    _customerEmailController.dispose();
-    _customerPhoneController.dispose();
-    _projectNameController.dispose();
-    _unitNoController.dispose();
-    _unitDetailsController.dispose();
-    _bookingAmountController.dispose();
-    _advanceAmountController.dispose();
-    _balanceAmountController.dispose();
-    _commissionController.dispose();
-    _salesExecutiveController.dispose();
-    _approvedByController.dispose();
-    _notesController.dispose();
-    _termsController.dispose();
+    customerNameController.dispose();
+    customerEmailController.dispose();
+    customerPhoneController.dispose();
+    projectNameController.dispose();
+    unitNoController.dispose();
+    unitDetailsController.dispose();
+    bookingAmountController.dispose();
+    advanceAmountController.dispose();
+    balanceAmountController.dispose();
+    commissionController.dispose();
+    salesExecutiveController.dispose();
+    approvedByController.dispose();
+    notesController.dispose();
+    termsController.dispose();
     super.dispose();
   }
 
@@ -3028,19 +3027,19 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
             // Form
             Expanded(
               child: Form(
-                key: _formKey,
+                key: formKey,
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Customer Information Section
-                      _buildSectionHeader('Customer Information', Icons.person),
+                      buildSectionHeader('Customer Information', Icons.person),
                       const SizedBox(height: 16),
                       Row(
                         children: [
                           Expanded(
                             child: TextFormField(
-                              controller: _customerNameController,
+                              controller: customerNameController,
                               decoration: const InputDecoration(
                                 labelText: 'Customer Name *',
                                 border: OutlineInputBorder(),
@@ -3056,7 +3055,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: TextFormField(
-                              controller: _customerEmailController,
+                              controller: customerEmailController,
                               decoration: const InputDecoration(
                                 labelText: 'Email *',
                                 border: OutlineInputBorder(),
@@ -3078,7 +3077,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
-                        controller: _customerPhoneController,
+                        controller: customerPhoneController,
                         decoration: const InputDecoration(
                           labelText: 'Phone Number *',
                           border: OutlineInputBorder(),
@@ -3094,13 +3093,13 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                       const SizedBox(height: 24),
 
                       // Property Information Section
-                      _buildSectionHeader('Property Information', Icons.home),
+                      buildSectionHeader('Property Information', Icons.home),
                       const SizedBox(height: 16),
                       Row(
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              initialValue: _propertyType,
+                              initialValue: propertyType,
                               decoration: const InputDecoration(
                                 labelText: 'Property Type *',
                                 border: OutlineInputBorder(),
@@ -3113,7 +3112,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                               }).toList(),
                               onChanged: (value) {
                                 setState(() {
-                                  _propertyType = value!;
+                                  propertyType = value!;
                                 });
                               },
                             ),
@@ -3121,7 +3120,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              initialValue: _category,
+                              initialValue: category,
                               decoration: const InputDecoration(
                                 labelText: 'Category *',
                                 border: OutlineInputBorder(),
@@ -3134,7 +3133,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                               }).toList(),
                               onChanged: (value) {
                                 setState(() {
-                                  _category = value!;
+                                  category = value!;
                                 });
                               },
                             ),
@@ -3146,7 +3145,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                         children: [
                           Expanded(
                             child: TextFormField(
-                              controller: _projectNameController,
+                              controller: projectNameController,
                               decoration: const InputDecoration(
                                 labelText: 'Project Name *',
                                 border: OutlineInputBorder(),
@@ -3162,7 +3161,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: TextFormField(
-                              controller: _unitNoController,
+                              controller: unitNoController,
                               decoration: const InputDecoration(
                                 labelText: 'Unit Number',
                                 border: OutlineInputBorder(),
@@ -3173,7 +3172,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
-                        controller: _unitDetailsController,
+                        controller: unitDetailsController,
                         decoration: const InputDecoration(
                           labelText: 'Unit Details',
                           border: OutlineInputBorder(),
@@ -3184,7 +3183,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                       const SizedBox(height: 24),
 
                       // Financial Information Section
-                      _buildSectionHeader(
+                      buildSectionHeader(
                         'Financial Information',
                         Icons.attach_money,
                       ),
@@ -3193,7 +3192,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                         children: [
                           Expanded(
                             child: TextFormField(
-                              controller: _bookingAmountController,
+                              controller: bookingAmountController,
                               decoration: const InputDecoration(
                                 labelText: 'Booking Amount *',
                                 prefixText: '₹ ',
@@ -3210,14 +3209,14 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                                 return null;
                               },
                               onChanged: (value) {
-                                _calculateAmounts();
+                                calculateAmounts();
                               },
                             ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
                             child: TextFormField(
-                              controller: _advanceAmountController,
+                              controller: advanceAmountController,
                               decoration: const InputDecoration(
                                 labelText: 'Advance Amount',
                                 prefixText: '₹ ',
@@ -3233,7 +3232,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                         children: [
                           Expanded(
                             child: TextFormField(
-                              controller: _balanceAmountController,
+                              controller: balanceAmountController,
                               decoration: const InputDecoration(
                                 labelText: 'Balance Amount',
                                 prefixText: '₹ ',
@@ -3245,7 +3244,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: TextFormField(
-                              controller: _commissionController,
+                              controller: commissionController,
                               decoration: const InputDecoration(
                                 labelText: 'Commission',
                                 prefixText: '₹ ',
@@ -3260,13 +3259,13 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                       const SizedBox(height: 24),
 
                       // Payment & Status Section
-                      _buildSectionHeader('Payment & Status', Icons.payment),
+                      buildSectionHeader('Payment & Status', Icons.payment),
                       const SizedBox(height: 16),
                       Row(
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<PaymentMode>(
-                              initialValue: _paymentMode,
+                              initialValue: paymentMode,
                               decoration: const InputDecoration(
                                 labelText: 'Payment Mode *',
                                 border: OutlineInputBorder(),
@@ -3279,7 +3278,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                               }).toList(),
                               onChanged: (value) {
                                 setState(() {
-                                  _paymentMode = value!;
+                                  paymentMode = value!;
                                 });
                               },
                             ),
@@ -3287,7 +3286,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: DropdownButtonFormField<BookingStatus>(
-                              initialValue: _status,
+                              initialValue: status,
                               decoration: const InputDecoration(
                                 labelText: 'Status *',
                                 border: OutlineInputBorder(),
@@ -3300,7 +3299,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                               }).toList(),
                               onChanged: (value) {
                                 setState(() {
-                                  _status = value!;
+                                  status = value!;
                                 });
                               },
                             ),
@@ -3315,7 +3314,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                               onTap: () async {
                                 final date = await showDatePicker(
                                   context: context,
-                                  initialDate: _bookingDate,
+                                  initialDate: bookingDate,
                                   firstDate: DateTime.now().subtract(
                                     const Duration(days: 30),
                                   ),
@@ -3325,7 +3324,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                                 );
                                 if (date != null) {
                                   setState(() {
-                                    _bookingDate = date;
+                                    bookingDate = date;
                                   });
                                 }
                               },
@@ -3334,7 +3333,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                                   labelText: 'Booking Date *',
                                   border: OutlineInputBorder(),
                                 ),
-                                child: Text(_formatDate(_bookingDate)),
+                                child: Text(formatDate(bookingDate)),
                               ),
                             ),
                           ),
@@ -3345,7 +3344,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                                 final date = await showDatePicker(
                                   context: context,
                                   initialDate:
-                                      _possessionDate ??
+                                      possessionDate ??
                                       DateTime.now().add(
                                         const Duration(days: 365),
                                       ),
@@ -3356,7 +3355,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                                 );
                                 if (date != null) {
                                   setState(() {
-                                    _possessionDate = date;
+                                    possessionDate = date;
                                   });
                                 }
                               },
@@ -3366,8 +3365,8 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                                   border: OutlineInputBorder(),
                                 ),
                                 child: Text(
-                                  _possessionDate != null
-                                      ? _formatDate(_possessionDate!)
+                                  possessionDate != null
+                                      ? formatDate(possessionDate!)
                                       : 'Select Date',
                                 ),
                               ),
@@ -3379,13 +3378,13 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                       const SizedBox(height: 24),
 
                       // Sales Information Section
-                      _buildSectionHeader('Sales Information', Icons.sell),
+                      buildSectionHeader('Sales Information', Icons.sell),
                       const SizedBox(height: 16),
                       Row(
                         children: [
                           Expanded(
                             child: TextFormField(
-                              controller: _salesExecutiveController,
+                              controller: salesExecutiveController,
                               decoration: const InputDecoration(
                                 labelText: 'Sales Executive *',
                                 border: OutlineInputBorder(),
@@ -3401,7 +3400,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: TextFormField(
-                              controller: _approvedByController,
+                              controller: approvedByController,
                               decoration: const InputDecoration(
                                 labelText: 'Approved By *',
                                 border: OutlineInputBorder(),
@@ -3420,10 +3419,10 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                       const SizedBox(height: 24),
 
                       // Additional Information Section
-                      _buildSectionHeader('Additional Information', Icons.note),
+                      buildSectionHeader('Additional Information', Icons.note),
                       const SizedBox(height: 16),
                       TextFormField(
-                        controller: _notesController,
+                        controller: notesController,
                         decoration: const InputDecoration(
                           labelText: 'Notes',
                           border: OutlineInputBorder(),
@@ -3432,7 +3431,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
-                        controller: _termsController,
+                        controller: termsController,
                         decoration: const InputDecoration(
                           labelText: 'Terms & Conditions',
                           border: OutlineInputBorder(),
@@ -3457,7 +3456,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(
-                  onPressed: _createBooking,
+                  onPressed: createBooking,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
@@ -3472,7 +3471,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon) {
+  Widget buildSectionHeader(String title, IconData icon) {
     return Row(
       children: [
         Icon(icon, size: 20, color: Colors.green),
@@ -3489,25 +3488,25 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
     );
   }
 
-  void _calculateAmounts() {
-    final bookingAmount = double.tryParse(_bookingAmountController.text);
+  void calculateAmounts() {
+    final bookingAmount = double.tryParse(bookingAmountController.text);
     if (bookingAmount != null) {
       final advanceAmount = bookingAmount * 0.1;
       final balanceAmount = bookingAmount - advanceAmount;
       final commission = bookingAmount * 0.02;
 
-      _advanceAmountController.text = advanceAmount.toStringAsFixed(2);
-      _balanceAmountController.text = balanceAmount.toStringAsFixed(2);
-      _commissionController.text = commission.toStringAsFixed(2);
+      advanceAmountController.text = advanceAmount.toStringAsFixed(2);
+      balanceAmountController.text = balanceAmount.toStringAsFixed(2);
+      commissionController.text = commission.toStringAsFixed(2);
     }
   }
 
-  String _formatDate(DateTime date) {
+  String formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  Future<void> _createBooking() async {
-    if (!_formKey.currentState!.validate()) {
+  Future<void> createBooking() async {
+    if (!formKey.currentState!.validate()) {
       return;
     }
 
@@ -3519,33 +3518,33 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
           (currentUser?.userMetadata?['name'] as String?) ?? 'System User';
 
       // Create booking
-      await _bookingRepository.createBooking(
+      await bookingRepository.createBooking(
         customerId: widget.lead.id,
-        customerName: _customerNameController.text,
-        customerEmail: _customerEmailController.text,
-        customerPhone: _customerPhoneController.text,
+        customerName: customerNameController.text,
+        customerEmail: customerEmailController.text,
+        customerPhone: customerPhoneController.text,
         leadId: widget.lead.leadId,
         projectId: widget.prePopulatedData['projectId'],
-        projectName: _projectNameController.text,
-        propertyType: _propertyType,
-        category: _category,
-        unitNo: _unitNoController.text,
-        unitDetails: _unitDetailsController.text,
-        bookingAmount: double.parse(_bookingAmountController.text),
-        advanceAmount: double.tryParse(_advanceAmountController.text),
-        balanceAmount: double.tryParse(_balanceAmountController.text),
-        paymentMode: _paymentMode,
+        projectName: projectNameController.text,
+        propertyType: propertyType,
+        category: category,
+        unitNo: unitNoController.text,
+        unitDetails: unitDetailsController.text,
+        bookingAmount: double.parse(bookingAmountController.text),
+        advanceAmount: double.tryParse(advanceAmountController.text),
+        balanceAmount: double.tryParse(balanceAmountController.text),
+        paymentMode: paymentMode,
         paymentReference: null,
         salesExecutiveId: widget.prePopulatedData['salesExecutiveId'],
-        salesExecutiveName: _salesExecutiveController.text,
-        commission: double.parse(_commissionController.text),
-        approvedBy: _approvedByController.text,
+        salesExecutiveName: salesExecutiveController.text,
+        commission: double.parse(commissionController.text),
+        approvedBy: approvedByController.text,
         approvedById: userId,
-        status: _status,
-        bookingDate: _bookingDate,
-        possessionDate: _possessionDate,
-        notes: _notesController.text,
-        termsAndConditions: _termsController.text,
+        status: status,
+        bookingDate: bookingDate,
+        possessionDate: possessionDate,
+        notes: notesController.text,
+        termsAndConditions: termsController.text,
         documents: <String>[],
         createdBy: userId,
         createdByName: userName,
@@ -3648,12 +3647,12 @@ class CrossSellTab extends StatefulWidget {
 }
 
 class _CrossSellTabState extends State<CrossSellTab> {
-  late Future<List<Map<String, dynamic>>> _itemsFuture;
+  late Future<List<Map<String, dynamic>>> itemsFuture;
 
   @override
   void initState() {
     super.initState();
-    _itemsFuture = DatabaseService.getLeadCrossSells(leadId: widget.leadId);
+    itemsFuture = DatabaseService.getLeadCrossSells(leadId: widget.leadId);
   }
 
   @override
@@ -3666,7 +3665,7 @@ class _CrossSellTabState extends State<CrossSellTab> {
             children: [
               const Spacer(),
               ElevatedButton.icon(
-                onPressed: _openAddSheet,
+                onPressed: openAddSheet,
                 icon: const Icon(FontAwesomeIcons.plus),
                 label: const Text('Create'),
               ),
@@ -3675,7 +3674,7 @@ class _CrossSellTabState extends State<CrossSellTab> {
           const SizedBox(height: 12),
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: _itemsFuture,
+              future: itemsFuture,
               builder:
                   (
                     BuildContext context,
@@ -3698,7 +3697,7 @@ class _CrossSellTabState extends State<CrossSellTab> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (BuildContext context, int index) {
                         final Map<String, dynamic> it = items[index];
-                        return _crossSellCard(context, it);
+                        return crossSellCard(context, it);
                       },
                     );
                   },
@@ -3709,7 +3708,7 @@ class _CrossSellTabState extends State<CrossSellTab> {
     );
   }
 
-  void _openAddSheet() {
+  void openAddSheet() {
     String category = '';
     String propertyType = '';
     String project = '';
@@ -3879,7 +3878,7 @@ class _CrossSellTabState extends State<CrossSellTab> {
                   ),
                   const SizedBox(height: 12),
                   FutureBuilder<List<Map<String, dynamic>>>(
-                    future: _getAssignableUsers(),
+                    future: getAssignableUsers(),
                     builder:
                         (
                           BuildContext _,
@@ -3968,7 +3967,7 @@ class _CrossSellTabState extends State<CrossSellTab> {
                           );
                           if (!mounted) return;
                           setState(() {
-                            _itemsFuture = DatabaseService.getLeadCrossSells(
+                            itemsFuture = DatabaseService.getLeadCrossSells(
                               leadId: widget.leadId,
                             );
                           });
@@ -4017,7 +4016,7 @@ class _CrossSellTabState extends State<CrossSellTab> {
     );
   }
 
-  Widget _crossSellCard(BuildContext context, Map<String, dynamic> it) {
+  Widget crossSellCard(BuildContext context, Map<String, dynamic> it) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -4096,7 +4095,7 @@ class _CrossSellTabState extends State<CrossSellTab> {
   }
 
   // Helper method for getting assignable users
-  Future<List<Map<String, dynamic>>> _getAssignableUsers() async {
+  Future<List<Map<String, dynamic>>> getAssignableUsers() async {
     try {
       final client = supabase.Supabase.instance.client;
       final response = await client

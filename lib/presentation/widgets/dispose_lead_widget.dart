@@ -735,16 +735,33 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
   // Helper method to get disposition name by ID
   Future<String> _getDispositionName(String dispositionId, bool isMain) async {
     try {
+      final client = supabase.Supabase.instance.client;
       if (isMain) {
-        final mains = await _getTicketDispositionMains();
-        final main = mains.firstWhere((m) => m['id'] == dispositionId);
-        return main['name'] as String;
+        // Fetch main disposition from lead_status_master
+        final response = await client
+            .from('lead_status_master')
+            .select('name')
+            .eq('id', dispositionId)
+            .eq('is_active', true)
+            .maybeSingle();
+        if (response != null) {
+          return response['name'] as String;
+        }
       } else {
-        final subs = await _getTicketDispositionSubs(dispositionId);
-        final sub = subs.firstWhere((s) => s['id'] == dispositionId);
-        return sub['name'] as String;
+        // Fetch sub disposition from lead_sub_status_master
+        final response = await client
+            .from('lead_sub_status_master')
+            .select('name')
+            .eq('id', dispositionId)
+            .eq('is_active', true)
+            .maybeSingle();
+        if (response != null) {
+          return response['name'] as String;
+        }
       }
+      return 'Unknown Disposition';
     } catch (e) {
+      print('Error getting disposition name: $e');
       return 'Unknown Disposition';
     }
   }
@@ -875,37 +892,5 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
 
     // Default to new lead for other dispositions
     return 'newLead';
-  }
-
-  // Helper methods for disposition functionality
-  Future<List<Map<String, dynamic>>> _getTicketDispositionMains() async {
-    try {
-      final client = supabase.Supabase.instance.client;
-      final response = await client
-          .from('ticket_disposition_main')
-          .select('id,name,description')
-          .order('name', ascending: true);
-      return List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      print('Error fetching ticket disposition mains: $e');
-      return [];
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> _getTicketDispositionSubs(
-    String mainId,
-  ) async {
-    try {
-      final client = supabase.Supabase.instance.client;
-      final response = await client
-          .from('ticket_disposition_sub')
-          .select('id,name,description,main_id')
-          .eq('main_id', mainId)
-          .order('name', ascending: true);
-      return List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      print('Error fetching ticket disposition subs: $e');
-      return [];
-    }
   }
 }
