@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../data/services/database_service.dart';
+import '../../data/models/models.dart';
+import '../../shared/utils/role_aware_data.dart';
+import '../../shared/utils/helpers.dart';
 
 class ActiveTasksScreen extends StatefulWidget {
   const ActiveTasksScreen({super.key});
@@ -8,30 +12,107 @@ class ActiveTasksScreen extends StatefulWidget {
 }
 
 class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
-  final List<Map<String, String>> _tasks = List<Map<String, String>>.generate(
-    8,
-    (int i) => <String, String>{
-      'title': 'Task #${i + 1} - Follow up with client',
-      'project': 'Project ${(i % 5) + 1}',
-      'assignee': i % 2 == 0 ? 'Anita' : 'Chetan',
-      'due': '2025-09-${(10 + i).toString().padLeft(2, '0')}',
-      'status': 'Active',
-    },
-  );
+  List<Task> _tasks = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTasks();
+  }
+
+  Future<void> _loadTasks() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final List<Task> allTasks = await RoleAwareData.getTasks(context);
+      final List<Task> activeTasks = allTasks
+          .where(
+            (t) =>
+                t.status == TaskStatus.pending ||
+                t.status == TaskStatus.inProgress,
+          )
+          .toList();
+
+      if (mounted) {
+        setState(() {
+          _tasks = activeTasks;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Active Tasks')),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: _tasks.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (BuildContext context, int index) {
-          final Map<String, String> t = _tasks[index];
-          return _card(context, t);
-        },
+      appBar: AppBar(
+        title: const Text('Active Tasks'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadTasks,
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                  const SizedBox(height: 16),
+                  Text('Error loading tasks: $_error'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadTasks,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : _tasks.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.task_outlined, size: 64, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No active tasks found',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _loadTasks,
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: _tasks.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (BuildContext context, int index) {
+                  final Task task = _tasks[index];
+                  return _card(context, task);
+                },
+              ),
+            ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openCreateTask,
         icon: const Icon(Icons.add_task),
@@ -40,12 +121,25 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
     );
   }
 
-  void _openCreateTask() {
+  Future<void> _openCreateTask() async {
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
     final TextEditingController titleCtrl = TextEditingController();
-    String project = 'Project 1';
-    String assignee = 'Anita';
-    DateTime due = DateTime.now().add(const Duration(days: 1));
+    final TextEditingController descriptionCtrl = TextEditingController();
+    String? selectedProjectId;
+    String? selectedAssigneeId;
+    TaskPriority selectedPriority = TaskPriority.medium;
+    TaskType selectedType = TaskType.followUp;
+    DateTime? dueDate;
+
+    // Load projects and users for dropdowns
+    List<Project> projects = [];
+    List<Map<String, dynamic>> users = [];
+    try {
+      projects = await DatabaseService.getProjects(limit: 100);
+      users = await DatabaseServiceUsersAndDisposition.getAssignableUsers();
+    } catch (e) {
+      // Handle error
+    }
 
     showModalBottomSheet<void>(
       context: context,
@@ -94,39 +188,87 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
                           : null,
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: project,
-                      items:
-                          <String>[
-                                'Project 1',
-                                'Project 2',
-                                'Project 3',
-                                'Project 4',
-                                'Project 5',
-                              ]
-                              .map(
-                                (String e) => DropdownMenuItem<String>(
-                                  value: e,
-                                  child: Text(e),
-                                ),
-                              )
-                              .toList(),
-                      onChanged: (String? v) => setModal(() => project = v!),
-                      decoration: const InputDecoration(labelText: 'Project'),
+                    TextFormField(
+                      controller: descriptionCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                      ),
+                      maxLines: 3,
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      initialValue: assignee,
-                      items: const <String>['Anita', 'Chetan', 'Sample']
+                      value: selectedProjectId,
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('No Project'),
+                        ),
+                        ...projects.map(
+                          (Project p) => DropdownMenuItem<String>(
+                            value: p.id,
+                            child: Text(p.name),
+                          ),
+                        ),
+                      ],
+                      onChanged: (String? v) =>
+                          setModal(() => selectedProjectId = v),
+                      decoration: const InputDecoration(
+                        labelText: 'Project (Optional)',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedAssigneeId,
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('Unassigned'),
+                        ),
+                        ...users.map(
+                          (Map<String, dynamic> u) => DropdownMenuItem<String>(
+                            value: u['id'] as String,
+                            child: Text(
+                              u['name'] as String? ??
+                                  u['email'] as String? ??
+                                  'Unknown',
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (String? v) =>
+                          setModal(() => selectedAssigneeId = v),
+                      decoration: const InputDecoration(labelText: 'Assignee'),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<TaskPriority>(
+                      value: selectedPriority,
+                      items: TaskPriority.values
                           .map(
-                            (String e) => DropdownMenuItem<String>(
-                              value: e,
-                              child: Text(e),
+                            (TaskPriority p) => DropdownMenuItem<TaskPriority>(
+                              value: p,
+                              child: Text(p.displayName),
                             ),
                           )
                           .toList(),
-                      onChanged: (String? v) => setModal(() => assignee = v!),
-                      decoration: const InputDecoration(labelText: 'Assignee'),
+                      onChanged: (TaskPriority? v) => setModal(
+                        () => selectedPriority = v ?? TaskPriority.medium,
+                      ),
+                      decoration: const InputDecoration(labelText: 'Priority'),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<TaskType>(
+                      value: selectedType,
+                      items: TaskType.values
+                          .map(
+                            (TaskType t) => DropdownMenuItem<TaskType>(
+                              value: t,
+                              child: Text(t.displayName),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (TaskType? v) =>
+                          setModal(() => selectedType = v ?? TaskType.followUp),
+                      decoration: const InputDecoration(labelText: 'Type'),
                     ),
                     const SizedBox(height: 12),
                     InkWell(
@@ -134,15 +276,16 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
                         final DateTime now = DateTime.now();
                         final DateTime? picked = await showDatePicker(
                           context: context,
-                          initialDate: due,
+                          initialDate:
+                              dueDate ?? now.add(const Duration(days: 1)),
                           firstDate: now,
                           lastDate: DateTime(now.year + 5),
                         );
-                        if (picked != null) setModal(() => due = picked);
+                        if (picked != null) setModal(() => dueDate = picked);
                       },
                       child: InputDecorator(
                         decoration: const InputDecoration(
-                          labelText: 'Due Date',
+                          labelText: 'Due Date (Optional)',
                         ),
                         child: Row(
                           children: <Widget>[
@@ -152,7 +295,9 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              '${due.year}-${due.month.toString().padLeft(2, '0')}-${due.day.toString().padLeft(2, '0')}',
+                              dueDate != null
+                                  ? '${dueDate!.year}-${dueDate!.month.toString().padLeft(2, '0')}-${dueDate!.day.toString().padLeft(2, '0')}'
+                                  : 'Select date',
                             ),
                           ],
                         ),
@@ -170,19 +315,54 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: FilledButton.icon(
-                            onPressed: () {
+                            onPressed: () async {
                               if (!formKey.currentState!.validate()) return;
-                              setState(() {
-                                _tasks.insert(0, <String, String>{
-                                  'title': titleCtrl.text.trim(),
-                                  'project': project,
-                                  'assignee': assignee,
-                                  'due':
-                                      '${due.year}-${due.month.toString().padLeft(2, '0')}-${due.day.toString().padLeft(2, '0')}',
-                                  'status': 'Active',
-                                });
-                              });
-                              Navigator.of(ctx).pop();
+                              try {
+                                final String? assigneeName =
+                                    selectedAssigneeId != null
+                                    ? users.firstWhere(
+                                            (u) =>
+                                                u['id'] == selectedAssigneeId,
+                                            orElse: () => <String, dynamic>{},
+                                          )['name']
+                                          as String?
+                                    : null;
+
+                                // Note: createTask requires leadId, but we can pass empty string for standalone tasks
+                                await DatabaseService.createTask(
+                                  leadId: '', // Empty for standalone tasks
+                                  title: titleCtrl.text.trim(),
+                                  description: descriptionCtrl.text.trim(),
+                                  type: selectedType,
+                                  priority: selectedPriority,
+                                  status: TaskStatus.pending,
+                                  assignedTo: selectedAssigneeId,
+                                  assignedToName: assigneeName,
+                                  dueDate: dueDate,
+                                );
+
+                                Navigator.of(ctx).pop();
+                                _loadTasks();
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Task created successfully',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Failed to create task: $e',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
                             },
                             icon: const Icon(Icons.check_rounded),
                             label: const Text('Create'),
@@ -200,7 +380,7 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
     );
   }
 
-  Widget _card(BuildContext context, Map<String, String> t) {
+  Widget _card(BuildContext context, Task task) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -217,7 +397,7 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  t['title'] ?? '-',
+                  task.title,
                   style: Theme.of(
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -226,56 +406,84 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _statusColor(t['status']).withOpacity(0.12),
+                  color: _statusColor(task.status).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
-                    color: _statusColor(t['status']).withOpacity(0.3),
+                    color: _statusColor(task.status).withOpacity(0.3),
                   ),
                 ),
                 child: Text(
-                  t['status'] ?? '-',
+                  task.status.displayName,
                   style: TextStyle(
-                    color: _statusColor(t['status']),
+                    color: _statusColor(task.status),
                     fontWeight: FontWeight.w700,
+                    fontSize: 11,
                   ),
                 ),
               ),
             ],
           ),
+          if (task.description.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              task.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
           const SizedBox(height: 6),
-          Row(
-            children: <Widget>[
-              const Icon(Icons.folder_outlined, size: 14),
-              const SizedBox(width: 6),
-              Expanded(child: Text(t['project'] ?? '-')),
-            ],
-          ),
-          const SizedBox(height: 4),
           Row(
             children: <Widget>[
               const Icon(Icons.person_outline, size: 14),
               const SizedBox(width: 6),
-              Expanded(child: Text('Assignee: ${t['assignee'] ?? '-'}')),
+              Expanded(
+                child: Text('Assignee: ${task.assignedToName ?? 'Unassigned'}'),
+              ),
             ],
           ),
+          if (task.dueDate != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: <Widget>[
+                const Icon(Icons.event, size: 14),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Due: ${Helpers.formatDate(task.dueDate!, pattern: 'dd MMM yyyy')}',
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 4),
           Row(
             children: <Widget>[
-              const Icon(Icons.event, size: 14),
+              const Icon(Icons.flag, size: 14),
               const SizedBox(width: 6),
-              Expanded(child: Text('Due: ${t['due'] ?? '-'}')),
+              Text(
+                'Priority: ${task.priority.displayName}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(width: 12),
+              const Icon(Icons.category, size: 14),
+              const SizedBox(width: 6),
+              Text(
+                task.type.displayName,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ],
           ),
           const SizedBox(height: 8),
           Row(
             children: <Widget>[
               OutlinedButton(
-                onPressed: () => _viewTask(context, t),
+                onPressed: () => _viewTask(context, task),
                 child: const Text('View'),
               ),
               const SizedBox(width: 8),
               FilledButton(
-                onPressed: () => _changeStatus(context, t),
+                onPressed: () => _changeStatus(context, task),
                 child: const Text('Change Status'),
               ),
             ],
@@ -285,23 +493,22 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
     );
   }
 
-  Color _statusColor(String? status) {
-    switch ((status ?? '').toLowerCase()) {
-      case 'active':
-      case 'in progress':
-        return Colors.blue;
-      case 'completed':
-        return const Color(0xFFE55934);
-      case 'on hold':
+  Color _statusColor(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.pending:
         return Colors.orange;
-      case 'cancelled':
+      case TaskStatus.inProgress:
+        return Colors.blue;
+      case TaskStatus.completed:
+        return const Color(0xFFE55934);
+      case TaskStatus.onHold:
+        return Colors.grey;
+      case TaskStatus.cancelled:
         return const Color(0xFFC62828);
-      default:
-        return Colors.blueGrey;
     }
   }
 
-  void _viewTask(BuildContext context, Map<String, String> t) {
+  void _viewTask(BuildContext context, Task task) {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Theme.of(context).dialogTheme.backgroundColor,
@@ -332,11 +539,34 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                _detailRow(context, 'Title', t['title'] ?? '-'),
-                _detailRow(context, 'Project', t['project'] ?? '-'),
-                _detailRow(context, 'Assignee', t['assignee'] ?? '-'),
-                _detailRow(context, 'Due', t['due'] ?? '-'),
-                _detailRow(context, 'Status', t['status'] ?? '-'),
+                _detailRow(context, 'Title', task.title),
+                if (task.description.isNotEmpty)
+                  _detailRow(context, 'Description', task.description),
+                _detailRow(context, 'Status', task.status.displayName),
+                _detailRow(context, 'Priority', task.priority.displayName),
+                _detailRow(context, 'Type', task.type.displayName),
+                _detailRow(
+                  context,
+                  'Assignee',
+                  task.assignedToName ?? 'Unassigned',
+                ),
+                if (task.dueDate != null)
+                  _detailRow(
+                    context,
+                    'Due Date',
+                    Helpers.formatDate(task.dueDate!, pattern: 'dd MMM yyyy'),
+                  ),
+                if (task.createdByName != null &&
+                    task.createdByName!.isNotEmpty)
+                  _detailRow(context, 'Created By', task.createdByName!),
+                _detailRow(
+                  context,
+                  'Created At',
+                  Helpers.formatDate(
+                    task.createdAt,
+                    pattern: 'dd MMM yyyy HH:mm',
+                  ),
+                ),
               ],
             ),
           ),
@@ -345,15 +575,8 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
     );
   }
 
-  void _changeStatus(BuildContext context, Map<String, String> t) {
-    String sel = t['status'] ?? 'Active';
-    final List<String> statuses = <String>[
-      'Active',
-      'In Progress',
-      'Completed',
-      'On Hold',
-      'Cancelled',
-    ];
+  Future<void> _changeStatus(BuildContext context, Task task) async {
+    TaskStatus selectedStatus = task.status;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Theme.of(context).dialogTheme.backgroundColor,
@@ -385,28 +608,48 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: sel,
-                      items: statuses
+                    DropdownButtonFormField<TaskStatus>(
+                      value: selectedStatus,
+                      items: TaskStatus.values
                           .map(
-                            (String e) => DropdownMenuItem<String>(
-                              value: e,
-                              child: Text(e),
+                            (TaskStatus s) => DropdownMenuItem<TaskStatus>(
+                              value: s,
+                              child: Text(s.displayName),
                             ),
                           )
                           .toList(),
-                      onChanged: (String? v) => setModal(() => sel = v ?? sel),
+                      onChanged: (TaskStatus? v) =>
+                          setModal(() => selectedStatus = v ?? task.status),
                       decoration: const InputDecoration(labelText: 'Status'),
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            t['status'] = sel;
-                          });
-                          Navigator.of(ctx).pop();
+                        onPressed: () async {
+                          try {
+                            await DatabaseService.updateTaskStatus(
+                              task.id,
+                              selectedStatus,
+                            );
+                            Navigator.of(ctx).pop();
+                            _loadTasks();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Status updated successfully'),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Failed to update status: $e'),
+                                ),
+                              );
+                            }
+                          }
                         },
                         icon: const Icon(Icons.check_rounded),
                         label: const Text('Update'),
