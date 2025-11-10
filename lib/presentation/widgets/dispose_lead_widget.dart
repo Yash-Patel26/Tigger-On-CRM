@@ -60,16 +60,6 @@ class DisposeLeadButton extends StatelessWidget {
   }
 }
 
-/// Dispose Lead Dialog Widget
-///
-/// This dialog allows users to dispose a lead by selecting:
-/// - Main disposition
-/// - Sub disposition
-/// - Initiated by (Agent/Customer)
-/// - Date and time (for Follow Up and Hot dispositions)
-/// - Remarks
-///
-/// It also provides functionality to create a booking when the disposition is "Customer".
 class DisposeLeadDialog extends StatefulWidget {
   const DisposeLeadDialog({
     super.key,
@@ -97,6 +87,7 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
   TimeOfDay _time = const TimeOfDay(hour: 10, minute: 0);
   final TextEditingController _remarkCtrl = TextEditingController();
   bool _isMainDispositionCustomer = false;
+  String _mainDispositionName = '';
 
   bool get _showInitiatedBy {
     // Show initiated by radio buttons for all dispositions
@@ -104,13 +95,25 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
   }
 
   bool get _showDateTime {
-    // Check if we have a status ID and if it matches Follow Up or Hot UUIDs
+    // Check if we have a status ID
     if (_statusId == null || _statusId!.isEmpty) return false;
 
+    // Backward-compatible check with known UUIDs (if configured that way)
     // Follow Up UUID: b50e8400-e29b-41d4-a716-446655440010
     // Hot UUID: b50e8400-e29b-41d4-a716-446655440011
-    return _statusId == 'b50e8400-e29b-41d4-a716-446655440010' || // Follow Up
+    final bool matchesKnownUuids =
+        _statusId == 'b50e8400-e29b-41d4-a716-446655440010' || // Follow Up
         _statusId == 'b50e8400-e29b-41d4-a716-446655440011'; // Hot
+
+    // Prefer name-based matching so it works across environments:
+    // Show for Follow Up, Hot, Opportunity
+    final lowerName = _mainDispositionName.toLowerCase();
+    final bool matchesNames =
+        lowerName.contains('follow') ||
+        lowerName.contains('hot') ||
+        lowerName.contains('opportunity');
+
+    return matchesKnownUuids || matchesNames;
   }
 
   bool _shouldShowCreateBookingButton() {
@@ -165,16 +168,19 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
                     _statusId = v;
                     _subStatusId = null;
                     _isMainDispositionCustomer = false;
+                    _mainDispositionName = '';
                   });
 
                   if (v != null && v.isNotEmpty) {
                     try {
+                      final String requestedStatusId = v;
                       final mainDispositionName = await _getDispositionName(
-                        v,
+                        requestedStatusId,
                         true,
                       );
-                      if (!mounted) return;
+                      if (!mounted || _statusId != requestedStatusId) return;
                       setState(() {
+                        _mainDispositionName = mainDispositionName;
                         _isMainDispositionCustomer = mainDispositionName
                             .toLowerCase()
                             .contains('customer');
@@ -279,7 +285,7 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'This field is required for Follow Up and Hot dispositions',
+                        'This field is required for Follow Up, Hot, and Opportunity dispositions',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(
                             context,
