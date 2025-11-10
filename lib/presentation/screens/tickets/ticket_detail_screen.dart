@@ -277,30 +277,35 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   Widget _buildTicketInfoTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInfoRow('Service Category', _ticket.ticketCategory ?? '-'),
-          const SizedBox(height: 12),
-          _buildInfoRow('Service Type', _ticket.serviceType.displayName),
-          const SizedBox(height: 12),
-          _buildInfoRow('Service Name', _ticket.serviceType.displayName),
-          const SizedBox(height: 12),
-          _buildInfoRow('Issue Title', _ticket.issueTitle),
-          const SizedBox(height: 12),
-          _buildInfoRow('Contact Person', _ticket.contactName),
-          const SizedBox(height: 12),
-          _buildInfoRow(
-            'Alternate Mobile Number',
-            _ticket.alternateNumber ?? '-',
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildInfoRow('Service Category', _ticket.ticketCategory ?? '-'),
+              const SizedBox(height: 12),
+              _buildInfoRow('Service Type', _ticket.serviceType.displayName),
+              const SizedBox(height: 12),
+              _buildInfoRow('Service Name', _ticket.serviceType.displayName),
+              const SizedBox(height: 12),
+              _buildInfoRow('Issue Title', _ticket.issueTitle),
+              const SizedBox(height: 12),
+              _buildInfoRow('Contact Person', _ticket.contactName),
+              const SizedBox(height: 12),
+              _buildInfoRow(
+                'Alternate Mobile Number',
+                _ticket.alternateNumber ?? '-',
+              ),
+              const SizedBox(height: 12),
+              _buildInfoRow('Priority', _ticket.priority.displayName),
+              const SizedBox(height: 12),
+              _buildInfoRow('Unit Number', _ticket.unitNumber ?? '-'),
+              const SizedBox(height: 12),
+              _buildInfoRow('Description', _ticket.issueDescription),
+            ],
           ),
-          const SizedBox(height: 12),
-          _buildInfoRow('Priority', _ticket.priority.displayName),
-          const SizedBox(height: 12),
-          _buildInfoRow('Unit Number', _ticket.unitNumber ?? '-'),
-          const SizedBox(height: 12),
-          _buildInfoRow('Description', _ticket.issueDescription),
-        ],
+        ),
       ),
     );
   }
@@ -316,17 +321,22 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInfoRow('Customer ID', _lead!.leadId),
-          const SizedBox(height: 12),
-          _buildInfoRow('Customer Name', _lead!.customerName),
-          const SizedBox(height: 12),
-          _buildInfoRow('Registered Mobile Number', _lead!.phone),
-          const SizedBox(height: 12),
-          _buildInfoRow('Customer Email', _lead!.email),
-        ],
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildInfoRow('Customer ID', _lead!.leadId),
+              const SizedBox(height: 12),
+              _buildInfoRow('Customer Name', _lead!.customerName),
+              const SizedBox(height: 12),
+              _buildInfoRow('Registered Mobile Number', _lead!.phone),
+              const SizedBox(height: 12),
+              _buildInfoRow('Customer Email', _lead!.email),
+            ],
+          ),
+        ),
       ),
     );
   }
