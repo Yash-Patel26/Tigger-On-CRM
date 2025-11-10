@@ -315,7 +315,7 @@ class _CreateTicketFormState extends State<CreateTicketForm> {
               const SizedBox(height: 16),
               // Lead List
               DropdownButtonFormField<String>(
-                value: _selectedLeadId,
+                initialValue: _selectedLeadId,
                 decoration: const InputDecoration(
                   labelText: 'Lead List *',
                   border: OutlineInputBorder(),
@@ -347,7 +347,7 @@ class _CreateTicketFormState extends State<CreateTicketForm> {
               const SizedBox(height: 16),
               // Ticket Type
               DropdownButtonFormField<String>(
-                value: _ticketType,
+                initialValue: _ticketType,
                 decoration: const InputDecoration(
                   labelText: 'Ticket Type *',
                   border: OutlineInputBorder(),
@@ -365,7 +365,7 @@ class _CreateTicketFormState extends State<CreateTicketForm> {
               const SizedBox(height: 16),
               // Service Type
               DropdownButtonFormField<String>(
-                value: _serviceType,
+                initialValue: _serviceType,
                 decoration: const InputDecoration(
                   labelText: 'Service Type *',
                   border: OutlineInputBorder(),
@@ -392,7 +392,7 @@ class _CreateTicketFormState extends State<CreateTicketForm> {
               const SizedBox(height: 16),
               // Priority
               DropdownButtonFormField<String>(
-                value: _priority,
+                initialValue: _priority,
                 decoration: const InputDecoration(
                   labelText: 'Priority *',
                   border: OutlineInputBorder(),
@@ -470,7 +470,7 @@ class _CreateTicketFormState extends State<CreateTicketForm> {
                       final List<Map<String, dynamic>> users =
                           snapshot.data ?? <Map<String, dynamic>>[];
                       return DropdownButtonFormField<String>(
-                        value: _assignToUserId,
+                        initialValue: _assignToUserId,
                         decoration: const InputDecoration(
                           labelText: 'Assign To',
                           border: OutlineInputBorder(),

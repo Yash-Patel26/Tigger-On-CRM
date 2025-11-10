@@ -188,7 +188,7 @@ class _AssignTicketDialogContentState
               const Center(child: CircularProgressIndicator())
             else
               DropdownButtonFormField<String>(
-                value: selectedUserId,
+                initialValue: selectedUserId,
                 decoration: const InputDecoration(
                   labelText: 'Assign To *',
                   border: OutlineInputBorder(),

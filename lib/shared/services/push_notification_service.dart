@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -60,6 +61,12 @@ class PushNotificationService {
   Future<void> initialize({GlobalKey<NavigatorState>? navigatorKey}) async {
     if (_initialized) return;
 
+    // Skip initialization on Web (flutter_local_notifications and Firebase Messaging background handlers are not supported)
+    if (kIsWeb) {
+      _initialized = true;
+      return;
+    }
+
     if (navigatorKey != null) {
       _navigatorKey = navigatorKey;
     }
@@ -98,7 +105,7 @@ class PushNotificationService {
     );
 
     // Android channel - create with proper settings for release builds
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       final androidImplementation = _local
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
@@ -113,7 +120,7 @@ class PushNotificationService {
   }
 
   Future<bool> requestAndroidPermissionIfNeeded() async {
-    if (!Platform.isAndroid) return true;
+    if (kIsWeb || !Platform.isAndroid) return true;
     // Android 13+ requires runtime permission; the plugin helps request it
     final androidImplementation = _local
         .resolvePlatformSpecificImplementation<
@@ -125,7 +132,7 @@ class PushNotificationService {
   }
 
   Future<bool> checkAndroidPermission() async {
-    if (!Platform.isAndroid) return true;
+    if (kIsWeb || !Platform.isAndroid) return true;
     final androidImplementation = _local
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
@@ -134,7 +141,7 @@ class PushNotificationService {
   }
 
   Future<bool> requestIOSPermissionIfNeeded() async {
-    if (!Platform.isIOS) return true;
+    if (kIsWeb || !Platform.isIOS) return true;
     final iosImplementation = _local
         .resolvePlatformSpecificImplementation<
           IOSFlutterLocalNotificationsPlugin
@@ -155,6 +162,13 @@ class PushNotificationService {
     Map<String, String>? payload,
   }) async {
     try {
+      // Not supported on web
+      if (kIsWeb) {
+        debugPrint(
+          'PushNotificationService: Web detected, skipping local notification.',
+        );
+        return;
+      }
       // Check if service is initialized
       if (!_initialized) {
         debugPrint(
@@ -164,7 +178,7 @@ class PushNotificationService {
       }
 
       // Check and request permissions if needed (Android 13+)
-      if (Platform.isAndroid) {
+      if (!kIsWeb && Platform.isAndroid) {
         final hasPermission = await checkAndroidPermission();
         if (!hasPermission) {
           debugPrint(
@@ -181,7 +195,7 @@ class PushNotificationService {
       }
 
       // Request iOS permissions if needed
-      if (Platform.isIOS) {
+      if (!kIsWeb && Platform.isIOS) {
         final iosImplementation = _local
             .resolvePlatformSpecificImplementation<
               IOSFlutterLocalNotificationsPlugin
@@ -254,13 +268,15 @@ class PushNotificationService {
 
   Future<void> saveFcmTokenToSupabase(String? userId) async {
     try {
+      // Skip on web where FCM token flow differs or may be unsupported
+      if (kIsWeb) return;
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null || userId == null) return;
       final client = supabase.Supabase.instance.client;
       // Detect platform dynamically
-      final platform = Platform.isAndroid
+      final platform = !kIsWeb && Platform.isAndroid
           ? 'android'
-          : Platform.isIOS
+          : (!kIsWeb && Platform.isIOS)
           ? 'ios'
           : 'unknown';
       // Upsert token to a user_devices table if available; otherwise fallback to profiles
