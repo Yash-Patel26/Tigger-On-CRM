@@ -20,10 +20,19 @@ import '../bookings/booking_screen.dart';
 import '../property_finder_screen.dart';
 import '../projects/active_projects_screen.dart';
 import '../active_tasks_screen.dart';
+import '../team_members_screen.dart';
 import 'call_stats_detail_screen.dart';
 import '../../../../shared/utils/helpers.dart';
 import '../../../../data/services/database_service.dart';
 import '../../../../shared/utils/role_aware_data.dart';
+import '../../../../shared/utils/timezone.dart';
+import '../../../../data/services/login_location_service.dart';
+import '../../../../data/models/user_login_location_model.dart';
+import '../../../../data/models/lead_activity_model.dart';
+import '../leads/lead_detail_screen.dart';
+import '../tickets/ticket_detail_screen.dart';
+import '../bookings/booking_detail_screen.dart';
+import 'dart:async';
 
 Color panelColor(BuildContext context) {
   final bool isDark = Theme.of(context).brightness == Brightness.dark;
@@ -53,7 +62,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _homeSearchController = TextEditingController();
 
   // Session/user summary values
-  final DateTime _loginTime = DateTime.now();
+  DateTime? _loginTime;
+  String _loginTimeFormatted = 'Loading...';
 
   // Real data from database
   int _leadsCount = 0;
@@ -63,6 +73,10 @@ class _HomeScreenState extends State<HomeScreen> {
   int _teamMembersCount = 0;
   bool _isLoadingStats = true;
 
+  // Recent activity data
+  List<Map<String, dynamic>> _recentActivities = [];
+  bool _isLoadingActivities = true;
+
   // Search functionality
   bool _isSearching = false;
   List<Map<String, dynamic>> _searchResults = [];
@@ -71,8 +85,229 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _loadLoginTime();
     _loadStats();
+    _loadRecentActivities();
     _subscribeNotifications();
+    // Update login time display every minute
+    _startLoginTimeTimer();
+  }
+
+  Timer? _loginTimeTimer;
+
+  void _startLoginTimeTimer() {
+    _loginTimeTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (_loginTime != null && mounted) {
+        _updateLoginTimeDisplay();
+      }
+    });
+  }
+
+  Future<void> _loadLoginTime() async {
+    try {
+      final supabase.SupabaseClient client = supabase.Supabase.instance.client;
+      final String? currentUserId = client.auth.currentUser?.id;
+
+      if (currentUserId != null) {
+        // Get the most recent successful login
+        final List<UserLoginLocation> loginHistory =
+            await LoginLocationService.getUserLoginHistory(
+              userId: currentUserId,
+              limit: 1,
+            );
+
+        if (loginHistory.isNotEmpty && loginHistory.first.isSuccessful) {
+          final DateTime loginTimestamp = loginHistory.first.loginTimestamp;
+          setState(() {
+            _loginTime = loginTimestamp;
+            _updateLoginTimeDisplay();
+          });
+        } else {
+          // Fallback to current time if no login history found
+          setState(() {
+            _loginTime = DateTime.now();
+            _updateLoginTimeDisplay();
+          });
+        }
+      } else {
+        setState(() {
+          _loginTime = DateTime.now();
+          _updateLoginTimeDisplay();
+        });
+      }
+    } catch (e) {
+      // Fallback to current time on error
+      setState(() {
+        _loginTime = DateTime.now();
+        _updateLoginTimeDisplay();
+      });
+    }
+  }
+
+  void _updateLoginTimeDisplay() {
+    if (_loginTime == null) return;
+
+    // Convert to IST
+    final DateTime istTime = TimezoneUtil.toIST(_loginTime!);
+
+    // Format as HH:mm in IST
+    final String formatted = Helpers.formatTime(istTime, pattern: 'HH:mm');
+
+    if (mounted) {
+      setState(() {
+        _loginTimeFormatted = formatted;
+      });
+    }
+  }
+
+  Future<void> _loadRecentActivities() async {
+    setState(() {
+      _isLoadingActivities = true;
+    });
+
+    try {
+      final List<Map<String, dynamic>> activities = [];
+
+      // Get recent lead activities
+      try {
+        // Query lead_activities table directly for recent activities
+        final supabase.SupabaseClient client =
+            supabase.Supabase.instance.client;
+        final response = await client
+            .from('lead_activities')
+            .select('*')
+            .order('created_at', ascending: false)
+            .limit(10);
+
+        final List<LeadActivity> leadActivities = (response as List)
+            .map((json) => LeadActivity.fromJson(json as Map<String, dynamic>))
+            .toList();
+
+        for (final activity in leadActivities) {
+          activities.add({
+            'type': 'lead_activity',
+            'title': activity.action,
+            'description': activity.description,
+            'time': activity.createdAt,
+            'icon': Icons.person,
+            'color': Colors.blue,
+            'performedBy': activity.performedByName,
+            'data': activity,
+          });
+        }
+      } catch (e) {
+        // Continue if lead activities fail
+      }
+
+      // Get recent leads
+      try {
+        final List<Lead> recentLeads = await DatabaseService.getLeads(limit: 5);
+
+        for (final lead in recentLeads) {
+          activities.add({
+            'type': 'lead',
+            'title': 'New Lead: ${lead.customerName}',
+            'description': lead.leadId,
+            'time': lead.createdAt,
+            'icon': Icons.person_add,
+            'color': Colors.green,
+            'performedBy': lead.createdByName,
+            'data': lead,
+          });
+        }
+      } catch (e) {
+        // Continue if leads fail
+      }
+
+      // Get recent tasks
+      try {
+        final List<Task> recentTasks = await DatabaseService.getTasks(limit: 5);
+
+        for (final task in recentTasks) {
+          activities.add({
+            'type': 'task',
+            'title': task.title,
+            'description': task.description.isNotEmpty ? task.description : '',
+            'time': task.createdAt,
+            'icon': Icons.task,
+            'color': Colors.orange,
+            'performedBy': task.assignedToName ?? 'Unassigned',
+            'data': task,
+          });
+        }
+      } catch (e) {
+        // Continue if tasks fail
+      }
+
+      // Get recent tickets
+      try {
+        final List<Ticket> recentTickets = await DatabaseService.getTickets(
+          limit: 5,
+        );
+
+        for (final ticket in recentTickets) {
+          activities.add({
+            'type': 'ticket',
+            'title': ticket.issueTitle,
+            'description': ticket.ticketNumber,
+            'time': ticket.createdAt,
+            'icon': Icons.support_agent,
+            'color': Colors.purple,
+            'performedBy': ticket.assignedToName ?? 'Unassigned',
+            'data': ticket,
+          });
+        }
+      } catch (e) {
+        // Continue if tickets fail
+      }
+
+      // Get recent bookings
+      try {
+        final List<Booking> recentBookings = await DatabaseService.getBookings(
+          limit: 5,
+        );
+
+        for (final booking in recentBookings) {
+          activities.add({
+            'type': 'booking',
+            'title': 'Booking: ${booking.customerName}',
+            'description': booking.srNo,
+            'time': booking.createdAt,
+            'icon': Icons.confirmation_number,
+            'color': Colors.teal,
+            'performedBy': booking.createdByName.isNotEmpty
+                ? booking.createdByName
+                : 'System',
+            'data': booking,
+          });
+        }
+      } catch (e) {
+        // Continue if bookings fail
+      }
+
+      // Sort by time (most recent first)
+      activities.sort((a, b) {
+        final DateTime timeA = a['time'] as DateTime;
+        final DateTime timeB = b['time'] as DateTime;
+        return timeB.compareTo(timeA);
+      });
+
+      // Take only the 10 most recent
+      final List<Map<String, dynamic>> recent = activities.take(10).toList();
+
+      if (mounted) {
+        setState(() {
+          _recentActivities = recent;
+          _isLoadingActivities = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingActivities = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadStats() async {
@@ -179,6 +414,8 @@ class _HomeScreenState extends State<HomeScreen> {
       table: 'leads',
       callback: (supabase.PostgresChangePayload payload) {
         push(AppNotificationType.lead, 'New Lead', 'A new lead was created');
+        _loadRecentActivities(); // Refresh recent activities
+        _loadStats(); // Refresh stats
       },
     );
     ch.onPostgresChanges(
@@ -187,6 +424,8 @@ class _HomeScreenState extends State<HomeScreen> {
       table: 'leads',
       callback: (supabase.PostgresChangePayload payload) {
         push(AppNotificationType.lead, 'Lead Updated', 'A lead was updated');
+        _loadRecentActivities(); // Refresh recent activities
+        _loadStats(); // Refresh stats
       },
     );
 
@@ -346,6 +585,7 @@ class _HomeScreenState extends State<HomeScreen> {
       table: 'tasks',
       callback: (supabase.PostgresChangePayload payload) {
         _loadStats(); // Refresh stats when tasks change
+        _loadRecentActivities(); // Refresh recent activities
       },
     );
 
@@ -359,6 +599,36 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
 
+    // Listen to lead_activities table changes for realtime activity updates
+    statsCh.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'lead_activities',
+      callback: (supabase.PostgresChangePayload payload) {
+        _loadRecentActivities(); // Refresh recent activities when new activity is created
+      },
+    );
+
+    // Listen to bookings table changes
+    statsCh.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'bookings',
+      callback: (supabase.PostgresChangePayload payload) {
+        _loadRecentActivities(); // Refresh recent activities
+      },
+    );
+
+    // Listen to tickets table changes
+    statsCh.onPostgresChanges(
+      event: supabase.PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'tickets',
+      callback: (supabase.PostgresChangePayload payload) {
+        _loadRecentActivities(); // Refresh recent activities
+      },
+    );
+
     _statsChannel = statsCh.subscribe();
   }
 
@@ -366,6 +636,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _notifChannel?.unsubscribe();
     _statsChannel?.unsubscribe();
+    _loginTimeTimer?.cancel();
     _homeSearchController.dispose();
     super.dispose();
   }
@@ -707,15 +978,19 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  late final List<Widget> _screens = <Widget>[
+  List<Widget> get _screens => <Widget>[
     DashboardTab(
-      loginTime: _loginTime,
+      loginTime: _loginTime ?? DateTime.now(),
+      loginTimeFormatted: _loginTimeFormatted,
       leadsCount: _leadsCount,
       meetingsToday: _meetingsToday,
       activeProjectsCount: _activeProjectsCount,
       activeTasksCount: _activeTasksCount,
       teamMembersCount: _teamMembersCount,
       isLoadingStats: _isLoadingStats,
+      recentActivities: _recentActivities,
+      isLoadingActivities: _isLoadingActivities,
+      onRefreshActivities: _loadRecentActivities,
     ),
     const CustomersTab(),
     const VendorScreen(),
@@ -812,11 +1087,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: <Widget>[
-          IconButton(
-            onPressed: _loadStats,
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh Stats',
-          ),
           Stack(
             children: <Widget>[
               IconButton(
@@ -1010,21 +1280,29 @@ class DashboardTab extends StatelessWidget {
   const DashboardTab({
     super.key,
     required this.loginTime,
+    required this.loginTimeFormatted,
     required this.leadsCount,
     required this.meetingsToday,
     required this.activeProjectsCount,
     required this.activeTasksCount,
     required this.teamMembersCount,
     required this.isLoadingStats,
+    required this.recentActivities,
+    required this.isLoadingActivities,
+    required this.onRefreshActivities,
   });
 
   final DateTime loginTime;
+  final String loginTimeFormatted;
   final int leadsCount;
   final int meetingsToday;
   final int activeProjectsCount;
   final int activeTasksCount;
   final int teamMembersCount;
   final bool isLoadingStats;
+  final List<Map<String, dynamic>> recentActivities;
+  final bool isLoadingActivities;
+  final VoidCallback onRefreshActivities;
 
   @override
   Widget build(BuildContext context) {
@@ -1035,6 +1313,7 @@ class DashboardTab extends StatelessWidget {
         children: <Widget>[
           _UserInfoSummary(
             loginTime: loginTime,
+            loginTimeFormatted: loginTimeFormatted,
             leadsCount: leadsCount,
             meetingsToday: meetingsToday,
           ),
@@ -1045,7 +1324,12 @@ class DashboardTab extends StatelessWidget {
           const SizedBox(height: 24),
           _buildStatsCard(context),
           const SizedBox(height: 24),
-          _buildRecentActivity(context),
+          _buildRecentActivity(
+            context,
+            recentActivities: recentActivities,
+            isLoadingActivities: isLoadingActivities,
+            onRefresh: onRefreshActivities,
+          ),
         ],
       ),
     );
@@ -1124,7 +1408,7 @@ class DashboardTab extends StatelessWidget {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => const ProfileScreen(),
+                          builder: (_) => const TeamMembersScreen(),
                         ),
                       );
                     },
@@ -1258,29 +1542,136 @@ class DashboardTab extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentActivity(BuildContext context) {
+  Widget _buildRecentActivity(
+    BuildContext context, {
+    required List<Map<String, dynamic>> recentActivities,
+    required bool isLoadingActivities,
+    required VoidCallback onRefresh,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(
-          'Recent Activity',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.bold,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: <Widget>[
+            Text(
+              'Recent Activity',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh, size: 20),
+              onPressed: onRefresh,
+              tooltip: 'Refresh activities',
+            ),
+          ],
         ),
         const SizedBox(height: 16),
-        // TODO: Load real recent activities from database
-        // For now, showing placeholder
-        _buildActivityItem(
-          context,
-          'No recent activity',
-          'Check back later',
-          Icons.info,
-          Colors.grey,
-        ),
+        if (isLoadingActivities)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20.0),
+              child: CircularProgressIndicator(),
+            ),
+          )
+        else if (recentActivities.isEmpty)
+          _buildActivityItem(
+            context,
+            'No recent activity',
+            'Check back later',
+            Icons.info,
+            Colors.grey,
+          )
+        else
+          ...recentActivities.map(
+            (activity) => _buildActivityItem(
+              context,
+              activity['title'] as String,
+              _formatActivityTime(activity['time'] as DateTime),
+              activity['icon'] as IconData,
+              activity['color'] as Color,
+              subtitle: activity['description'] as String?,
+              performedBy: activity['performedBy'] as String?,
+              onTap: () => _navigateToActivity(context, activity),
+            ),
+          ),
       ],
     );
+  }
+
+  String _formatActivityTime(DateTime time) {
+    final DateTime now = DateTime.now();
+    final Duration difference = now.difference(time);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d ago';
+    } else {
+      // Format as date in IST
+      final DateTime istTime = TimezoneUtil.toIST(time);
+      return Helpers.formatDate(istTime, pattern: 'dd MMM, HH:mm');
+    }
+  }
+
+  void _navigateToActivity(
+    BuildContext context,
+    Map<String, dynamic> activity,
+  ) {
+    final String type = activity['type'] as String;
+    final dynamic data = activity['data'];
+
+    switch (type) {
+      case 'lead_activity':
+      case 'lead':
+        if (data is Lead) {
+          Navigator.of(context).push(
+            SmoothPageTransitions.slideFromRight<void>(
+              child: LeadDetailScreen(leadId: data.id),
+            ),
+          );
+        } else if (data is LeadActivity) {
+          // Navigate to lead detail using lead_id
+          Navigator.of(context).push(
+            SmoothPageTransitions.slideFromRight<void>(
+              child: LeadDetailScreen(leadId: data.leadId),
+            ),
+          );
+        }
+        break;
+      case 'task':
+        // Navigate to task detail or active tasks screen
+        Navigator.of(context).push(
+          SmoothPageTransitions.slideFromRight<void>(
+            child: const ActiveTasksScreen(),
+          ),
+        );
+        break;
+      case 'ticket':
+        if (data is Ticket) {
+          Navigator.of(context).push(
+            SmoothPageTransitions.slideFromRight<void>(
+              child: TicketDetailScreen(ticket: data),
+            ),
+          );
+        }
+        break;
+      case 'booking':
+        if (data is Booking) {
+          Navigator.of(context).push(
+            SmoothPageTransitions.slideFromRight<void>(
+              child: BookingDetailScreen(bookingId: data.id),
+            ),
+          );
+        }
+        break;
+    }
   }
 
   Widget _buildActivityItem(
@@ -1288,47 +1679,97 @@ class DashboardTab extends StatelessWidget {
     String title,
     String time,
     IconData icon,
-    Color color,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: panelColor(context),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: panelBorderColor(context)),
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
+    Color color, {
+    String? subtitle,
+    String? performedBy,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: panelColor(context),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: panelBorderColor(context)),
+        ),
+        child: Row(
+          children: <Widget>[
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 20),
             ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  title,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
-                ),
-                Text(
-                  time,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(fontSize: 12),
-                ),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (subtitle != null && subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                  Row(
+                    children: <Widget>[
+                      Text(
+                        time,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(fontSize: 11),
+                      ),
+                      if (performedBy != null && performedBy.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          '•',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(fontSize: 11),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            performedBy,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  fontSize: 11,
+                                  color: Colors.grey[600],
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            if (onTap != null)
+              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+          ],
+        ),
       ),
     );
   }
@@ -1337,19 +1778,18 @@ class DashboardTab extends StatelessWidget {
 class _UserInfoSummary extends StatelessWidget {
   const _UserInfoSummary({
     required this.loginTime,
+    required this.loginTimeFormatted,
     required this.leadsCount,
     required this.meetingsToday,
   });
 
   final DateTime loginTime;
+  final String loginTimeFormatted;
   final int leadsCount;
   final int meetingsToday;
 
   @override
   Widget build(BuildContext context) {
-    String formattedTime =
-        '${loginTime.hour.toString().padLeft(2, '0')}:${loginTime.minute.toString().padLeft(2, '0')}';
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1362,8 +1802,8 @@ class _UserInfoSummary extends StatelessWidget {
           Expanded(
             child: _UserInfoItem(
               icon: Icons.login,
-              label: 'Logged in',
-              value: formattedTime,
+              label: 'Logged in (IST)',
+              value: loginTimeFormatted,
             ),
           ),
           Container(width: 1, height: 40, color: panelBorderColor(context)),
