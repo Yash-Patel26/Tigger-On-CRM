@@ -125,6 +125,8 @@ lib/
 └── main.dart                 # Application entry point
 ```
 
+📖 **For detailed architecture documentation, file organization, and development guide, see [ARCHITECTURE.md](ARCHITECTURE.md)**
+
 ### **Key Architectural Components**
 
 #### **Authentication System**

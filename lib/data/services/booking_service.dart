@@ -464,27 +464,39 @@ class BookingService {
         final customFields = booking['custom_fields'] as Map<String, dynamic>?;
         if (customFields != null) {
           final customerCode = customFields['customer_code'] as String?;
-          if (customerCode != null &&
-              customerCode.length >= 7 &&
-              customerCode.startsWith('CUST')) {
-            // Extract number part (after "CUST")
-            final numberStr = customerCode.substring(4);
-            final number = int.tryParse(numberStr);
-            if (number != null && number > maxNumber) {
-              maxNumber = number;
+          if (customerCode != null) {
+            // Support both old CUST prefix and new TIC prefix
+            if (customerCode.length >= 7 && customerCode.startsWith('CUST')) {
+              // Extract number part (after "CUST") for backward compatibility
+              // CUST prefix (4 chars) + minimum 3 digits = 7 characters minimum
+              final numberStr = customerCode.substring(4);
+              final number = int.tryParse(numberStr);
+              if (number != null && number > maxNumber) {
+                maxNumber = number;
+              }
+            } else if (customerCode.length >= 6 &&
+                customerCode.startsWith('TIC')) {
+              // Extract number part (after "TIC")
+              // TIC prefix (3 chars) + minimum 3 digits = 6 characters minimum
+              // Examples: TIC001 (6 chars), TIC999 (6 chars), TIC1000 (7 chars)
+              final numberStr = customerCode.substring(3);
+              final number = int.tryParse(numberStr);
+              if (number != null && number > maxNumber) {
+                maxNumber = number;
+              }
             }
           }
         }
       }
 
-      // Generate next customer code
+      // Generate next customer code starting with TIC prefix
       final nextNumber = maxNumber + 1;
-      // Format with 3 digits (CUST001, CUST002, ..., CUST999, CUST1000, etc.)
+      // Format with 3 digits (TIC001, TIC002, ..., TIC999, TIC1000, etc.)
       if (nextNumber <= 999) {
-        return 'CUST${nextNumber.toString().padLeft(3, '0')}';
+        return 'TIC${nextNumber.toString().padLeft(3, '0')}';
       } else {
         // For numbers > 999, use full number without padding
-        return 'CUST$nextNumber';
+        return 'TIC$nextNumber';
       }
     } catch (e) {
       // Fallback: Use timestamp-based customer code if query fails
@@ -493,7 +505,7 @@ class BookingService {
       final suffix = timestamp.toString().substring(
         timestamp.toString().length - 6,
       );
-      return 'CUST$suffix';
+      return 'TIC$suffix';
     }
   }
 
