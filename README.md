@@ -717,17 +717,3 @@ Security recommendation: do not commit production keys. Use separate credentials
 - iOS (device/sim): `flutter build ios` (on macOS with Xcode)
 - Web/Desktop scaffolding exists; primary target is mobile.
 
-## 📤 Publish to GitHub
-
-If this project is not yet in a Git repository, initialize and push it:
-
-```bash
-git init
-git add .
-git commit -m "docs: add comprehensive README and project overview"
-git branch -M main
-git remote add origin <YOUR_GITHUB_REPO_URL>
-git push -u origin main
-```
-
-Replace `<YOUR_GITHUB_REPO_URL>` with your repository URL, e.g., `git@github.com:yourname/your-repo.git`.
