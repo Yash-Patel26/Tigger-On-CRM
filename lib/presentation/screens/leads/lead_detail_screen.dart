@@ -2284,174 +2284,7 @@ class _LazyProjectLocationCompactState
   }
 }
 
-// Basic Details Card
-class _BasicDetailsCard extends StatelessWidget {
-  const _BasicDetailsCard({required this.lead});
-  final Lead lead;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (lead.dob != null)
-              _buildInfoRow(
-                context,
-                'Date of Birth',
-                lead.dob!.toIso8601String().split('T')[0],
-              ),
-            if (lead.age != null)
-              _buildInfoRow(context, 'Age', lead.age!.toString()),
-            if (lead.gender != null && lead.gender!.isNotEmpty)
-              _buildInfoRow(context, 'Gender', lead.gender!),
-            if (lead.maritalStatus != null && lead.maritalStatus!.isNotEmpty)
-              _buildInfoRow(context, 'Marital Status', lead.maritalStatus!),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              '$label:',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Professional Details Card
-class _ProfessionalDetailsCard extends StatelessWidget {
-  const _ProfessionalDetailsCard({required this.lead});
-  final Lead lead;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (lead.employmentType != null && lead.employmentType!.isNotEmpty)
-              _buildInfoRow(context, 'Employment Type', lead.employmentType!),
-            if (lead.itrFilingStatus != null &&
-                lead.itrFilingStatus!.isNotEmpty)
-              _buildInfoRow(
-                context,
-                'ITR Filing Status',
-                lead.itrFilingStatus!,
-              ),
-            if (lead.occupation != null && lead.occupation!.isNotEmpty)
-              _buildInfoRow(context, 'Occupation', lead.occupation!),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              '$label:',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Permanent Address Card
-class _PermanentAddressCard extends StatelessWidget {
-  const _PermanentAddressCard({required this.lead});
-  final Lead lead;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (lead.address != null && lead.address!.isNotEmpty)
-              _buildInfoRow(context, 'Address', lead.address!),
-            if (lead.country != null && lead.country!.isNotEmpty)
-              _buildInfoRow(context, 'Country', lead.country!),
-            if (lead.stateName != null && lead.stateName!.isNotEmpty)
-              _buildInfoRow(context, 'State', lead.stateName!)
-            else if (lead.state != null && lead.state!.isNotEmpty)
-              _buildInfoRow(context, 'State', lead.state!),
-            if (lead.city != null && lead.city!.isNotEmpty)
-              _buildInfoRow(context, 'City', lead.city!),
-            if (lead.location != null && lead.location!.isNotEmpty)
-              _buildInfoRow(context, 'Location', lead.location!),
-            if (lead.pincode != null && lead.pincode!.isNotEmpty)
-              _buildInfoRow(context, 'Pincode', lead.pincode!),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              '$label:',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// Removed unused private cards to satisfy lints: _BasicDetailsCard, _ProfessionalDetailsCard, _PermanentAddressCard
 
 class _RequirementNotesCard extends StatefulWidget {
   const _RequirementNotesCard({required this.leadId});
@@ -2630,19 +2463,6 @@ class _ActivityCompactState extends State<_ActivityCompact> {
       return dateTimeString;
     }
   }
-}
-
-class _CollapsibleCard extends StatefulWidget {
-  const _CollapsibleCard({
-    required this.title,
-    required this.child,
-    this.action,
-  });
-  final String title;
-  final Widget child;
-  final Widget? action;
-  @override
-  State<_CollapsibleCard> createState() => _CollapsibleCardState();
 }
 
 class _StaticCard extends StatelessWidget {
@@ -2852,7 +2672,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                   }
                   final projects = snapshot.data ?? [];
                   return DropdownButtonFormField<String>(
-                    value: selectedProjectId,
+                    initialValue: selectedProjectId,
                     decoration: const InputDecoration(
                       labelText: 'Project *',
                       border: OutlineInputBorder(),
@@ -2895,7 +2715,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                   }
                   final categories = snapshot.data ?? [];
                   return DropdownButtonFormField<String>(
-                    value: selectedPropertyCategory,
+                    initialValue: selectedPropertyCategory,
                     decoration: const InputDecoration(
                       labelText: 'Property Category *',
                       border: OutlineInputBorder(),
@@ -2934,7 +2754,7 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
                   }
                   final types = snapshot.data ?? [];
                   return DropdownButtonFormField<String>(
-                    value: selectedPropertyType,
+                    initialValue: selectedPropertyType,
                     decoration: const InputDecoration(
                       labelText: 'Property Type *',
                       border: OutlineInputBorder(),
@@ -3069,21 +2889,21 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
       // Resolve or create customer UUID (customer_id must be a UUID)
       final customerUuid = await BookingService.resolveOrCreateCustomer(
         customerName: widget.lead.customerName,
-        customerEmail: widget.lead.email ?? '',
+        customerEmail: widget.lead.email,
         customerPhone: widget.lead.phone,
         projectId: selectedProjectId!,
-        projectName: selectedProjectName ?? '',
+        projectName: selectedProjectName!,
       );
 
       // Create booking
       await bookingRepository.createBooking(
         customerId: customerUuid,
         customerName: widget.lead.customerName,
-        customerEmail: widget.lead.email ?? '',
+        customerEmail: widget.lead.email,
         customerPhone: widget.lead.phone,
         leadId: widget.lead.id, // Use UUID (id) instead of leadId string
         projectId: selectedProjectId!,
-        projectName: selectedProjectName ?? '',
+        projectName: selectedProjectName!,
         propertyType: selectedPropertyType!,
         category: selectedPropertyCategory!,
         unitNo: '',
@@ -3136,67 +2956,6 @@ class _CreateBookingDialogState extends State<_CreateBookingDialog> {
         ),
       );
     }
-  }
-}
-
-class _CollapsibleCardState extends State<_CollapsibleCard> {
-  late bool expanded = false;
-  @override
-  Widget build(BuildContext context) {
-    final Color primary = Theme.of(context).colorScheme.primary;
-    return Stack(
-      children: <Widget>[
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                spreadRadius: 1,
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            children: <Widget>[
-              InkWell(
-                onTap: () => setState(() => expanded = !expanded),
-                child: Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        widget.title,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    if (widget.action != null) ...[
-                      widget.action!,
-                      const SizedBox(width: 8),
-                    ],
-                    Icon(
-                      expanded
-                          ? FontAwesomeIcons.chevronUp
-                          : FontAwesomeIcons.chevronDown,
-                    ),
-                  ],
-                ),
-              ),
-              if (expanded) ...<Widget>[
-                Padding(
-                  padding: const EdgeInsets.only(top: 10, bottom: 12),
-                  child: Divider(color: primary.withOpacity(0.15), height: 1),
-                ),
-                widget.child,
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
   }
 }
 

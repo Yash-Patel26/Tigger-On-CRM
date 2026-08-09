@@ -694,12 +694,16 @@ class _DisposeLeadDialogState extends State<DisposeLeadDialog> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Disposition saved successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      // Show success snackbar after dialog has closed to ensure we use the page Scaffold
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Disposition saved successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      });
     } catch (e) {
       if (!mounted) return;
       Navigator.of(context).pop();

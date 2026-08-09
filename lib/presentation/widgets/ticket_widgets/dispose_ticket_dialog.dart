@@ -223,7 +223,7 @@ class _DisposeTicketDialogContentState
               const Center(child: CircularProgressIndicator())
             else
               DropdownButtonFormField<String>(
-                value: selectedMainDispositionId,
+                initialValue: selectedMainDispositionId,
                 decoration: const InputDecoration(
                   labelText: 'Main Disposition *',
                   border: OutlineInputBorder(),
@@ -250,7 +250,7 @@ class _DisposeTicketDialogContentState
               const Center(child: CircularProgressIndicator())
             else
               DropdownButtonFormField<String>(
-                value: selectedSubDispositionId,
+                initialValue: selectedSubDispositionId,
                 decoration: const InputDecoration(
                   labelText: 'Sub Disposition *',
                   border: OutlineInputBorder(),
@@ -330,7 +330,7 @@ class _DisposeTicketDialogContentState
             const SizedBox(height: 16),
             // Initiated By
             DropdownButtonFormField<String>(
-              value: selectedInitiatedBy,
+              initialValue: selectedInitiatedBy,
               decoration: const InputDecoration(
                 labelText: 'Initiated By *',
                 border: OutlineInputBorder(),

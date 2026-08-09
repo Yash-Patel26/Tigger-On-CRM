@@ -8,6 +8,7 @@ import '../../core/utils/page_transitions.dart';
 import '../../data/services/follow_up_notification_service.dart';
 import '../../shared/managers/notification_manager.dart';
 import '../../shared/managers/notification_store.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../../shared/services/push_notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
@@ -31,43 +32,49 @@ class _AuthWrapperState extends State<AuthWrapper> {
       // Start follow-up notification checks when user is authenticated
       _checkAndStartFollowUpNotifications();
       // Wire FCM foreground handler to also display system tray notifications
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        final store = context.read<NotificationStore>();
-        PushNotificationService.instance.handleForegroundMessage(
-          message,
-          store,
-        );
-        // Proactively refresh notifications and counts so UI updates instantly
-        try {
-          final manager = NotificationManager();
-          manager.getNotifications(forceRefresh: true);
-          manager.getNotificationCounts(forceRefresh: true);
-        } catch (_) {}
-      });
+      if (!kIsWeb) {
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+          final store = context.read<NotificationStore>();
+          PushNotificationService.instance.handleForegroundMessage(
+            message,
+            store,
+          );
+          // Proactively refresh notifications and counts so UI updates instantly
+          try {
+            final manager = NotificationManager();
+            manager.getNotifications(forceRefresh: true);
+            manager.getNotificationCounts(forceRefresh: true);
+          } catch (_) {}
+        });
+      }
 
       // When user taps a notification from system tray while app is in background
-      FirebaseMessaging.onMessageOpenedApp.listen((
-        RemoteMessage message,
-      ) async {
-        try {
-          final manager = NotificationManager();
-          await manager.getNotifications(forceRefresh: true);
-          await manager.getNotificationCounts(forceRefresh: true);
-        } catch (_) {}
-      });
-
-      // If app was launched by tapping a notification from a terminated state
-      FirebaseMessaging.instance.getInitialMessage().then((
-        RemoteMessage? msg,
-      ) async {
-        if (msg != null) {
+      if (!kIsWeb) {
+        FirebaseMessaging.onMessageOpenedApp.listen((
+          RemoteMessage message,
+        ) async {
           try {
             final manager = NotificationManager();
             await manager.getNotifications(forceRefresh: true);
             await manager.getNotificationCounts(forceRefresh: true);
           } catch (_) {}
-        }
-      });
+        });
+      }
+
+      // If app was launched by tapping a notification from a terminated state
+      if (!kIsWeb) {
+        FirebaseMessaging.instance.getInitialMessage().then((
+          RemoteMessage? msg,
+        ) async {
+          if (msg != null) {
+            try {
+              final manager = NotificationManager();
+              await manager.getNotifications(forceRefresh: true);
+              await manager.getNotificationCounts(forceRefresh: true);
+            } catch (_) {}
+          }
+        });
+      }
     });
   }
 

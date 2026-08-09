@@ -197,7 +197,7 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: selectedProjectId,
+                      initialValue: selectedProjectId,
                       items: [
                         const DropdownMenuItem<String>(
                           value: null,
@@ -218,7 +218,7 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: selectedAssigneeId,
+                      initialValue: selectedAssigneeId,
                       items: [
                         const DropdownMenuItem<String>(
                           value: null,
@@ -241,7 +241,7 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<TaskPriority>(
-                      value: selectedPriority,
+                      initialValue: selectedPriority,
                       items: TaskPriority.values
                           .map(
                             (TaskPriority p) => DropdownMenuItem<TaskPriority>(
@@ -257,7 +257,7 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<TaskType>(
-                      value: selectedType,
+                      initialValue: selectedType,
                       items: TaskType.values
                           .map(
                             (TaskType t) => DropdownMenuItem<TaskType>(
@@ -609,7 +609,7 @@ class _ActiveTasksScreenState extends State<ActiveTasksScreen> {
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<TaskStatus>(
-                      value: selectedStatus,
+                      initialValue: selectedStatus,
                       items: TaskStatus.values
                           .map(
                             (TaskStatus s) => DropdownMenuItem<TaskStatus>(
